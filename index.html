@@ -412,22 +412,31 @@
     </div>
     <div class="field-row">
       <div class="field">
-        <label>Data do empréstimo</label>
-        <input type="date" id="fDate">
+        <label>Tipo de juros</label>
+        <select id="fInterestType" class="select" style="width:100%;">
+          <option value="composto">Composto (padrão)</option>
+          <option value="simples">Simples</option>
+        </select>
       </div>
       <div class="field">
-        <label>Prazo escolhido (dias)</label>
-        <input type="number" id="fDays" placeholder="30" step="1" min="1">
+        <label>Data do empréstimo</label>
+        <input type="date" id="fDate">
       </div>
     </div>
     <div class="field-row">
       <div class="field">
+        <label>Prazo escolhido (dias)</label>
+        <input type="number" id="fDays" placeholder="30" step="1" min="1">
+      </div>
+      <div class="field">
         <label>Dia de vencimento escolhido</label>
         <input type="number" id="fDueDay" placeholder="Ex: 10" step="1" min="1" max="31">
       </div>
+    </div>
+    <div class="field-row">
       <div class="field">
         <label>Telefone (WhatsApp)</label>
-        <input type="text" id="fPhone" placeholder="Ex: 11999998888" autocomplete="off">
+        <input type="text" id="fPhone" placeholder="(11) 99999-9999" autocomplete="off" inputmode="tel">
       </div>
     </div>
     <div class="field">
@@ -478,9 +487,18 @@
         <input type="number" id="simRate" placeholder="0" step="0.01" min="0" value="10">
       </div>
     </div>
-    <div class="field">
-      <label>Prazo (dias)</label>
-      <input type="number" id="simDays" placeholder="30" step="1" min="1" value="30">
+    <div class="field-row">
+      <div class="field">
+        <label>Prazo (dias)</label>
+        <input type="number" id="simDays" placeholder="30" step="1" min="1" value="30">
+      </div>
+      <div class="field">
+        <label>Tipo de juros</label>
+        <select id="simInterestType" class="select" style="width:100%;">
+          <option value="composto">Composto (padrão)</option>
+          <option value="simples">Simples</option>
+        </select>
+      </div>
     </div>
     <div class="sim-results">
       <div class="sr-item"><div class="sl">Parcelas</div><div class="sv" id="simN">—</div></div>
@@ -541,6 +559,7 @@
         d.payments = d.payments.map(function(dt){ return {date: dt, amount: instVal}; });
       }
       if(typeof d.notes !== 'string') d.notes = '';
+      if(d.interestType !== 'simples' && d.interestType !== 'composto') d.interestType = 'composto';
       if(!d.dueDay){
         var base = d.date ? parseInt(d.date.split('-')[2],10) : 1;
         d.dueDay = base || 1;
@@ -563,7 +582,13 @@
     }
     if(!parsed) return {debts:[], contacts:{}};
     if(Array.isArray(parsed)) return {debts: migrateDebts(parsed), contacts:{}};
-    return {debts: migrateDebts(parsed.debts || []), contacts: parsed.contacts || {}};
+    var contacts = parsed.contacts || {};
+    Object.keys(contacts).forEach(function(k){
+      if(contacts[k] && typeof contacts[k].phone === 'string'){
+        contacts[k].phone = contacts[k].phone.replace(/\D/g,'');
+      }
+    });
+    return {debts: migrateDebts(parsed.debts || []), contacts: contacts};
   }
   function saveData(){
     localStorage.setItem(STORAGE_KEY, JSON.stringify({debts: state.debts, contacts: state.contacts}));
@@ -584,7 +609,14 @@
   };
 
   function installments(d){ return Math.max(1, Math.round(d.days/30)); }
-  function finalValue(d){ var n = installments(d); return d.principal * Math.pow(1 + (d.rate/100), n); }
+  function finalValue(d){
+    var n = installments(d);
+    var r = d.rate/100;
+    if(d.interestType === 'simples'){
+      return d.principal * (1 + r * n);
+    }
+    return d.principal * Math.pow(1 + r, n);
+  }
   function installmentValue(d){ return finalValue(d) / installments(d); }
   function paidAmount(d){
     return (d.payments||[]).reduce(function(sum,p){ return sum + (p.amount||0); }, 0);
@@ -937,7 +969,7 @@
       '</div>' +
       '<div class="detail-grid">' +
         '<div class="detail-item"><div class="dl">Valor original</div><div class="dv">' + money.format(d.principal) + '</div></div>' +
-        '<div class="detail-item"><div class="dl">Juros ao mês</div><div class="dv gold">' + d.rate.toString().replace('.',',') + '%</div></div>' +
+        '<div class="detail-item"><div class="dl">Juros ao mês</div><div class="dv gold">' + d.rate.toString().replace('.',',') + '% <span style="font-size:10px;color:var(--muted);font-weight:400;">(' + (d.interestType==='simples'?'simples':'composto') + ')</span></div></div>' +
         '<div class="detail-item"><div class="dl">Total a receber</div><div class="dv">' + money.format(finalValue(d)) + '</div></div>' +
         '<div class="detail-item"><div class="dl">Lucro estimado</div><div class="dv gold">' + money.format(profit(d)) + '</div></div>' +
         '<div class="detail-item"><div class="dl">Já recebido</div><div class="dv green">' + money.format(paidAmount(d)) + '</div></div>' +
@@ -1070,9 +1102,30 @@
   var fDate = document.getElementById('fDate');
   var fDays = document.getElementById('fDays');
   var fDueDay = document.getElementById('fDueDay');
+  var fInterestType = document.getElementById('fInterestType');
   var fPhone = document.getElementById('fPhone');
   var fNotes = document.getElementById('fNotes');
   var formErr = document.getElementById('formErr');
+
+  // ---------- phone mask ----------
+  function formatPhoneDisplay(rawDigits){
+    var d = onlyDigits(rawDigits).slice(0,13);
+    var ddi = '';
+    if(d.length > 11 && d.slice(0,2) === '55'){ ddi = d.slice(0,2); d = d.slice(2); }
+    var out = ddi ? '+' + ddi + ' ' : '';
+    if(d.length === 0) return '';
+    if(d.length <= 2) return out + d;
+    var ddd = d.slice(0,2);
+    var num = d.slice(2);
+    out += '(' + ddd + ') ';
+    if(num.length === 0) return out;
+    if(num.length <= 4) return out + num;
+    if(num.length <= 8){ return out + num.slice(0,4) + '-' + num.slice(4); }
+    return out + num.slice(0,5) + '-' + num.slice(5,9);
+  }
+  fPhone.addEventListener('input', function(){
+    fPhone.value = formatPhoneDisplay(fPhone.value);
+  });
 
   function populateFriendsList(){
     var names = [];
@@ -1089,11 +1142,12 @@
     fName.value = debt ? debt.name : '';
     fPrincipal.value = debt ? debt.principal : '';
     fRate.value = debt ? debt.rate : '';
+    fInterestType.value = debt ? (debt.interestType || 'composto') : 'composto';
     fDate.value = debt ? debt.date : todayISO();
     fDays.value = debt ? debt.days : 30;
     fDueDay.value = debt ? debt.dueDay : new Date().getDate();
     var contact = state.contacts[nameKey(debt ? debt.name : '')];
-    fPhone.value = contact ? contact.phone : '';
+    fPhone.value = contact ? formatPhoneDisplay(contact.phone) : '';
     fNotes.value = debt ? debt.notes : '';
     formErr.textContent = '';
     overlay.classList.add('show');
@@ -1107,17 +1161,18 @@
   fName.addEventListener('input', function(){
     if(state.editingId) return; // não sobrescreve telefone ao editar
     var contact = state.contacts[nameKey(fName.value)];
-    if(contact) fPhone.value = contact.phone;
+    if(contact) fPhone.value = formatPhoneDisplay(contact.phone);
   });
 
   function saveForm(){
     var name = fName.value.trim();
     var principal = parseFloat(fPrincipal.value);
     var rate = parseFloat(fRate.value);
+    var interestType = fInterestType.value === 'simples' ? 'simples' : 'composto';
     var date = fDate.value;
     var days = parseInt(fDays.value, 10);
     var dueDay = parseInt(fDueDay.value, 10);
-    var phone = fPhone.value.trim();
+    var phoneDigits = onlyDigits(fPhone.value);
     var notes = fNotes.value.trim();
 
     if(!name){ formErr.textContent = 'Informe o nome do amigo.'; return; }
@@ -1125,20 +1180,21 @@
     if(isNaN(rate) || rate < 0){ formErr.textContent = 'Informe uma taxa de juros válida (pode ser 0 para sem juros).'; return; }
     if(!date){ formErr.textContent = 'Informe a data do empréstimo.'; return; }
     if(isNaN(days) || days <= 0){ formErr.textContent = 'Informe um prazo válido em dias.'; return; }
+    if(phoneDigits && phoneDigits.length < 10){ formErr.textContent = 'Telefone incompleto — inclua DDD (ex: 11999998888).'; return; }
     if(isNaN(dueDay) || dueDay < 1 || dueDay > 31){ dueDay = parseInt(date.split('-')[2],10); }
 
     if(state.editingId){
       var d = state.debts.find(function(x){ return x.id === state.editingId; });
-      d.name = name; d.principal = principal; d.rate = rate; d.date = date; d.days = days; d.dueDay = dueDay; d.notes = notes;
+      d.name = name; d.principal = principal; d.rate = rate; d.interestType = interestType; d.date = date; d.days = days; d.dueDay = dueDay; d.notes = notes;
       showToast('Dívida atualizada');
     } else {
       state.debts.push({
         id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
-        name: name, principal: principal, date: date, days: days, rate: rate, dueDay: dueDay, payments: [], notes: notes
+        name: name, principal: principal, date: date, days: days, rate: rate, interestType: interestType, dueDay: dueDay, payments: [], notes: notes
       });
       showToast('Dívida adicionada');
     }
-    if(phone){ state.contacts[nameKey(name)] = {phone: phone}; }
+    if(phoneDigits){ state.contacts[nameKey(name)] = {phone: phoneDigits}; }
     closeModal();
     render();
   }
@@ -1187,19 +1243,20 @@
   var simPrincipal = document.getElementById('simPrincipal');
   var simRate = document.getElementById('simRate');
   var simDays = document.getElementById('simDays');
+  var simInterestType = document.getElementById('simInterestType');
   function updateSimulator(){
     var p = parseFloat(simPrincipal.value) || 0;
     var r = parseFloat(simRate.value) || 0;
     var days = parseInt(simDays.value,10) || 30;
     var n = Math.max(1, Math.round(days/30));
-    var total = p * Math.pow(1 + (r/100), n);
+    var total = finalValue({principal:p, rate:r, days:days, interestType: simInterestType.value});
     var inst = total / n;
     document.getElementById('simN').textContent = n + 'x';
     document.getElementById('simInstallment').textContent = money.format(inst);
     document.getElementById('simTotal').textContent = money.format(total);
     document.getElementById('simProfit').textContent = money.format(total - p);
   }
-  [simPrincipal, simRate, simDays].forEach(function(el){ el.addEventListener('input', updateSimulator); });
+  [simPrincipal, simRate, simDays, simInterestType].forEach(function(el){ el.addEventListener('input', updateSimulator); el.addEventListener('change', updateSimulator); });
   document.getElementById('btnSimulator').addEventListener('click', function(){
     updateSimulator();
     simOverlay.classList.add('show');
@@ -1212,6 +1269,7 @@
     fPrincipal.value = simPrincipal.value;
     fRate.value = simRate.value;
     fDays.value = simDays.value;
+    fInterestType.value = simInterestType.value;
   });
 
   // ---------- delete modal ----------
@@ -1302,7 +1360,7 @@
     return s;
   }
   document.getElementById('btnExportCsv').addEventListener('click', function(){
-    var headers = ['Nome','Valor Emprestado','Data do Emprestimo','Prazo (dias)','Dia de Vencimento','Taxa de Juros (%)',
+    var headers = ['Nome','Valor Emprestado','Data do Emprestimo','Prazo (dias)','Dia de Vencimento','Taxa de Juros (%)','Tipo de Juros',
       'Valor Final a Receber','Valor da Parcela','Status','Proximo Vencimento',
       'Ja Recebido','Falta Receber','Lucro Estimado','Anotacoes'];
     var rows = state.debts.map(function(d){
@@ -1314,6 +1372,7 @@
         d.days,
         d.dueDay,
         d.rate.toString().replace('.',','),
+        (d.interestType==='simples'?'Simples':'Composto'),
         finalValue(d).toFixed(2).replace('.',','),
         installmentValue(d).toFixed(2).replace('.',','),
         statusLabel(d),
@@ -1455,7 +1514,7 @@
           '<div class="s-sub">Referente ao empréstimo concedido em ' + fmtDate(d.date) + '</div>' +
           '<div class="s-grid">' +
             '<div><div class="s-label">Valor original</div><div class="s-val">' + money.format(d.principal) + '</div></div>' +
-            '<div><div class="s-label">Juros ao mês</div><div class="s-val accent">' + d.rate.toString().replace('.',',') + '%</div></div>' +
+            '<div><div class="s-label">Juros ao mês</div><div class="s-val accent">' + d.rate.toString().replace('.',',') + '% (' + (d.interestType==='simples'?'simples':'composto') + ')</div></div>' +
             '<div><div class="s-label">Prazo</div><div class="s-val">' + d.days + ' dias · ' + n + 'x</div></div>' +
           '</div>' +
           '<div class="s-summary">' +
