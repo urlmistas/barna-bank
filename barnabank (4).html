@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BarnaBank — controle de empréstimos</title>
+<meta name="theme-color" content="#10152a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BarnaBank">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2310152a'/%3E%3Ctext x='50' y='68' font-family='Georgia,serif' font-weight='700' font-size='58' fill='%23c9a24a' text-anchor='middle'%3EB%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2310152a'/%3E%3Ctext x='50' y='68' font-family='Georgia,serif' font-weight='700' font-size='58' fill='%23c9a24a' text-anchor='middle'%3EB%3C/text%3E%3C/svg%3E">
+<link rel="manifest" id="manifestLink" href="">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#10152a;
+    --ink-2:#161c38;
+    --card:#1b2242;
+    --card-2:#212a4d;
+    --stroke:#2c3560;
+    --gold:#c9a24a;
+    --gold-soft:#e8cd8a;
+    --green:#57b98a;
+    --green-soft:rgba(87,185,138,0.14);
+    --red:#e2665c;
+    --red-soft:rgba(226,102,92,0.14);
+    --text:#eee9da;
+    --muted:#8d94b8;
+    --muted-2:#5d6390;
+    --radius:18px;
+    --blue:#6f9ee8;
+    --blue-soft:rgba(111,158,232,0.14);
+    --whats:#3ecf7e;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(201,162,74,0.09), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(87,185,138,0.06), transparent 55%),
+      var(--ink);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding-bottom:80px;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:36px 20px 20px;}
+
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:28px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:14px;}
+  .mark{
+    width:46px;height:46px;border-radius:11px;
+    background:linear-gradient(155deg,var(--gold-soft),var(--gold) 65%,#8a6c25);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Baloo 2',sans-serif;font-weight:700;color:#1b1404;font-size:20px;
+    box-shadow:0 6px 18px rgba(201,162,74,0.25), inset 0 1px 0 rgba(255,255,255,0.35);
+    flex-shrink:0;
+  }
+  h1{font-family:'Baloo 2',sans-serif;font-weight:600;font-size:30px;margin:0;letter-spacing:0.2px;}
+  .tagline{color:var(--muted);font-size:13px;margin-top:3px;letter-spacing:0.2px;}
+  .btn{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:14px;
+    border:none;border-radius:10px;padding:11px 18px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:8px;
+    transition:transform .12s ease, filter .12s ease;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:linear-gradient(155deg,var(--gold-soft),var(--gold));color:#1b1404;}
+  .btn-primary:hover{filter:brightness(1.06);}
+  .btn-ghost{background:var(--card-2);color:var(--text);border:1px solid var(--stroke);}
+  .btn-ghost:hover{border-color:var(--muted-2);}
+  .btn-ghost.active{border-color:var(--gold);color:var(--gold-soft);}
+  .btn-sm{padding:8px 13px;font-size:12.5px;border-radius:8px;}
+  .btn-danger{background:var(--red-soft);color:var(--red);}
+  .btn-danger:hover{filter:brightness(1.15);}
+  .btn-danger-solid{background:linear-gradient(155deg,#e88079,var(--red));color:#2a0906;}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;}
+  .stat{background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);padding:16px 16px 14px;}
+  .stat .label{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;}
+  .stat .value{font-family:'Nunito',sans-serif;font-size:19px;font-weight:600;}
+  .stat.gold .value{color:var(--gold-soft);}
+  .stat.green .value{color:var(--green);}
+
+  /* Chart */
+  .chart-card{
+    background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);
+    padding:18px 18px 8px;margin-bottom:22px;
+  }
+  .chart-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;}
+  .chart-head .title{font-family:'Baloo 2',sans-serif;font-size:15px;font-weight:600;}
+  .chart-head .sub{font-size:11.5px;color:var(--muted);font-family:'Nunito',sans-serif;}
+  .chart-empty{color:var(--muted);font-size:13px;text-align:center;padding:32px 0;}
+  svg.evochart{width:100%;height:auto;display:block;}
+
+  .toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .toolbar-left{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .filters{display:flex;gap:6px;background:var(--card);border:1px solid var(--stroke);padding:4px;border-radius:10px;}
+  .filters button{background:transparent;border:none;color:var(--muted);font-family:'Inter';font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:7px;cursor:pointer;}
+  .filters button.active{background:var(--card-2);color:var(--text);}
+  select.select{
+    background:var(--card);border:1px solid var(--stroke);border-radius:10px;color:var(--text);
+    padding:9px 10px;font-family:'Inter';font-size:12.5px;cursor:pointer;
+  }
+  select.select:focus{outline:none;border-color:var(--gold);}
+  .search{background:var(--card);border:1px solid var(--stroke);border-radius:10px;color:var(--text);padding:9px 13px;font-family:'Inter';font-size:13px;min-width:160px;}
+  .search::placeholder{color:var(--muted-2);}
+  .search:focus{outline:none;border-color:var(--gold);}
+
+  .list{display:flex;flex-direction:column;gap:10px;}
+  .empty{text-align:center;padding:60px 20px;color:var(--muted);border:1px dashed var(--stroke);border-radius:var(--radius);font-size:14px;}
+
+  /* Group header */
+  .group{margin-bottom:4px;}
+  .group-head{
+    display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;user-select:none;
+    background:var(--card-2);border:1px solid var(--stroke);border-radius:var(--radius);
+  }
+  .group-head .name{font-family:'Baloo 2',sans-serif;font-weight:600;font-size:16px;flex:1;}
+  .group-head .gstat{font-family:'Nunito',sans-serif;font-size:12px;color:var(--muted);text-align:right;}
+  .group-head .gstat b{color:var(--gold-soft);display:block;font-size:14px;}
+  .group-children{display:flex;flex-direction:column;gap:10px;padding:10px 0 2px 18px;border-left:2px solid var(--stroke);margin-left:20px;}
+  .group.open .chev{transform:rotate(180deg);}
+
+  .card{background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);overflow:hidden;}
+  .card-head{display:flex;align-items:center;gap:14px;padding:15px 16px;cursor:pointer;user-select:none;}
+  .avatar{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Baloo 2',sans-serif;font-weight:600;font-size:14px;color:#1b1404;background:linear-gradient(155deg,var(--gold-soft),var(--gold));}
+  .who{flex:1;min-width:0;}
+  .who .name{font-weight:600;font-size:15px;}
+  .who .sub{font-size:12px;color:var(--muted);margin-top:2px;font-family:'Nunito',sans-serif;}
+  .badge{font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:20px;white-space:nowrap;font-family:'Nunito',sans-serif;}
+  .badge.pago{background:var(--green-soft);color:var(--green);}
+  .badge.pendente{background:rgba(201,162,74,0.14);color:var(--gold-soft);}
+  .badge.atrasado{background:var(--red-soft);color:var(--red);}
+  .badge.hoje{background:rgba(201,162,74,0.22);color:var(--gold-soft);}
+  .badge.embreve{background:var(--blue-soft);color:var(--blue);}
+  .badge.emdia{background:var(--green-soft);color:var(--green);}
+
+  /* progress bar */
+  .progress-wrap{margin-bottom:16px;}
+  .progress-top{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:6px;}
+  .progress-top b{color:var(--gold-soft);font-family:'Nunito',sans-serif;}
+  .progress-track{height:9px;border-radius:20px;background:var(--ink-2);border:1px solid var(--stroke);overflow:hidden;}
+  .progress-fill{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--gold-soft),var(--green));transition:width .3s ease;}
+
+  /* payment form */
+  .pay-form{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:14px;background:var(--ink-2);border:1px solid var(--stroke);border-radius:12px;padding:12px;}
+  .pay-form .pf-field{display:flex;flex-direction:column;gap:5px;}
+  .pay-form label{font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);font-weight:600;}
+  .pay-form input{background:var(--card);border:1px solid var(--stroke);border-radius:8px;color:var(--text);padding:8px 10px;font-family:'Inter';font-size:13px;}
+  .pay-form input:focus{outline:none;border-color:var(--gold);}
+  .pay-form input.pf-amount{width:130px;}
+  .pay-form input.pf-date{width:150px;}
+  .pf-undo{font-size:11.5px;color:var(--muted);background:transparent;border:none;text-decoration:underline;cursor:pointer;padding:0;}
+  .pf-undo:disabled{color:var(--muted-2);text-decoration:none;cursor:not-allowed;}
+
+  .history-row{display:flex;justify-content:space-between;align-items:center;font-family:'Nunito',sans-serif;font-size:12.5px;color:var(--muted);padding:5px 9px;background:var(--ink-2);border-radius:8px;gap:8px;}
+  .history-row b{color:var(--text);font-weight:700;}
+  .history-row .hr-del{background:transparent;border:none;color:var(--muted-2);cursor:pointer;font-size:14px;line-height:1;padding:2px 4px;}
+  .history-row .hr-del:hover{color:var(--red);}
+
+  .btn-whats{background:var(--whats);color:#062b16;}
+  .btn-whats:hover{filter:brightness(1.08);}
+
+  /* due calendar panel */
+  .due-panel{background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);padding:18px;margin-bottom:22px;}
+  .due-panel .dp-title{font-family:'Baloo 2',sans-serif;font-size:16px;font-weight:700;margin-bottom:12px;}
+  .due-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .due-col .dc-head{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .due-col.late .dc-head{color:var(--red);}
+  .due-col.today .dc-head{color:var(--gold-soft);}
+  .due-col.soon .dc-head{color:var(--blue);}
+  .due-item{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:9px;background:var(--ink-2);border:1px solid var(--stroke);margin-bottom:6px;cursor:pointer;font-size:12.5px;}
+  .due-item:hover{border-color:var(--muted-2);}
+  .due-item .di-name{font-weight:600;}
+  .due-item .di-sub{color:var(--muted);font-size:11px;margin-top:2px;}
+  .due-item .di-val{font-family:'Nunito',sans-serif;font-weight:700;white-space:nowrap;}
+  .due-empty{color:var(--muted-2);font-size:12px;font-style:italic;}
+  @media (max-width:640px){ .due-cols{grid-template-columns:1fr;} }
+
+  /* profile modal */
+  .profile-head{display:flex;align-items:center;gap:14px;margin-bottom:18px;}
+  .profile-head .avatar{width:52px;height:52px;font-size:18px;}
+  .profile-head .pname{font-family:'Baloo 2',sans-serif;font-size:20px;font-weight:700;}
+  .profile-head .psub{color:var(--muted);font-size:12.5px;margin-top:2px;}
+  .profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+  .profile-grid .pg-item{background:var(--card);border:1px solid var(--stroke);border-radius:11px;padding:12px 14px;}
+  .profile-grid .pg-label{font-size:10.5px;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin-bottom:5px;}
+  .profile-grid .pg-val{font-family:'Nunito',sans-serif;font-size:16px;font-weight:700;}
+  .profile-loans .pl-title{font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:8px;}
+  .profile-loan-row{display:flex;justify-content:space-between;font-size:12.5px;padding:8px 10px;border-radius:8px;background:var(--ink-2);margin-bottom:6px;}
+  .profile-loan-row .plr-val{font-family:'Nunito',sans-serif;font-weight:700;}
+
+  /* simulator */
+  .sim-results{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px;background:var(--ink-2);border:1px solid var(--stroke);border-radius:12px;padding:14px;}
+  .sim-results .sr-item .sl{font-size:10.5px;text-transform:uppercase;color:var(--muted);letter-spacing:0.5px;margin-bottom:4px;}
+  .sim-results .sr-item .sv{font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--gold-soft);}
+  .head-amount{font-family:'Nunito',sans-serif;font-weight:600;font-size:14.5px;text-align:right;min-width:78px;}
+  .chev{color:var(--muted);transition:transform .18s ease;flex-shrink:0;}
+  .card.open .chev{transform:rotate(180deg);}
+
+  .card-body{max-height:0;overflow:hidden;transition:max-height .25s ease;border-top:1px solid transparent;}
+  .card.open .card-body{border-top:1px solid var(--stroke);}
+  .card-body-inner{padding:18px 16px 18px;}
+
+  .detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px;}
+  .detail-item .dl{font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:5px;}
+  .detail-item .dv{font-family:'Nunito',sans-serif;font-size:14.5px;font-weight:600;}
+  .detail-item .dv.gold{color:var(--gold-soft);}
+  .detail-item .dv.green{color:var(--green);}
+  .detail-item .dv.red{color:var(--red);}
+
+  .stamps{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px;}
+  .stamp{width:20px;height:20px;border-radius:5px;border:1.5px solid var(--stroke);display:flex;align-items:center;justify-content:center;}
+  .stamp.filled{background:var(--green);border-color:var(--green);}
+  .stamp.filled::after{content:'✓';font-size:11px;color:#0b241a;font-weight:700;}
+
+  .notes-block{background:var(--ink-2);border:1px solid var(--stroke);border-radius:9px;padding:10px 12px;margin-bottom:14px;font-size:12.5px;color:var(--muted);line-height:1.5;}
+  .notes-block b{color:var(--text);display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;color:var(--muted);}
+
+  .history{margin-bottom:16px;}
+  .history .hl{font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:6px;}
+  .history-list{display:flex;flex-direction:column;gap:4px;}
+  .history-row{display:flex;justify-content:space-between;font-family:'Nunito',sans-serif;font-size:12px;color:var(--muted);padding:4px 8px;background:var(--ink-2);border-radius:6px;}
+  .history-row b{color:var(--text);font-weight:600;}
+  .history-empty{font-size:12px;color:var(--muted-2);font-style:italic;}
+
+  .meta-row{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:16px;font-size:12.5px;color:var(--muted);}
+  .meta-row b{color:var(--text);font-family:'Nunito',sans-serif;font-weight:600;}
+
+  .card-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .spacer{flex:1;}
+  .stepper{display:flex;align-items:center;gap:0;border:1px solid var(--stroke);border-radius:8px;overflow:hidden;}
+  .stepper button{background:var(--card-2);border:none;color:var(--text);width:30px;height:30px;cursor:pointer;font-size:15px;font-weight:600;}
+  .stepper button:hover{background:#2a3363;}
+  .stepper button:disabled{opacity:0.35;cursor:not-allowed;}
+  .stepper .count{padding:0 10px;font-family:'Nunito',sans-serif;font-size:12.5px;color:var(--muted);white-space:nowrap;}
+  .pay-date{background:var(--card-2);border:1px solid var(--stroke);border-radius:8px;color:var(--text);padding:6px 8px;font-family:'Inter';font-size:12px;}
+  .pay-date:focus{outline:none;border-color:var(--gold);}
+
+  .overlay{position:fixed;inset:0;background:rgba(6,8,20,0.7);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:20px;z-index:50;}
+  .overlay.show{display:flex;}
+  .modal{background:var(--ink-2);border:1px solid var(--stroke);border-radius:16px;width:100%;max-width:440px;padding:24px;max-height:90vh;overflow-y:auto;}
+  .modal h2{font-family:'Baloo 2',sans-serif;font-weight:600;font-size:21px;margin:0 0 18px;}
+  .modal p.warn{font-size:14px;color:var(--muted);line-height:1.5;margin:0 0 4px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600;letter-spacing:0.2px;}
+  .field input, .field textarea{width:100%;background:var(--card);border:1px solid var(--stroke);border-radius:9px;color:var(--text);padding:10px 12px;font-family:'Inter';font-size:14px;}
+  .field textarea{resize:vertical;min-height:60px;font-family:'Inter';}
+  .field input:focus, .field textarea:focus{outline:none;border-color:var(--gold);}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .modal-actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end;}
+  .err{color:var(--red);font-size:12px;margin-top:8px;min-height:14px;}
+  .kbd-hint{font-size:11px;color:var(--muted-2);margin-top:14px;text-align:right;}
+  .kbd-hint kbd{background:var(--card);border:1px solid var(--stroke);border-radius:4px;padding:1px 5px;font-family:'Nunito',sans-serif;}
+
+  footer{max-width:920px;margin:36px auto 0;padding:0 20px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+  footer .foot-note{width:100%;text-align:center;font-size:11.5px;color:var(--muted-2);margin-top:14px;}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card-2);border:1px solid var(--stroke);color:var(--text);padding:11px 18px;border-radius:10px;font-size:13px;opacity:0;transition:all .25s ease;pointer-events:none;z-index:60;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .undo-toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--card-2);border:1px solid var(--stroke);color:var(--text);
+    padding:10px 10px 10px 16px;border-radius:10px;font-size:13px;opacity:0;
+    transition:all .25s ease;pointer-events:none;z-index:61;
+    display:flex;align-items:center;gap:12px;
+  }
+  .undo-toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
+  .undo-toast button{
+    background:transparent;border:1px solid var(--gold);color:var(--gold-soft);
+    font-family:'Inter';font-weight:600;font-size:12.5px;padding:6px 12px;border-radius:7px;cursor:pointer;
+  }
+  .undo-toast button:hover{background:rgba(201,162,74,0.12);}
+
+  .export-wrap{position:relative;display:inline-block;}
+  .export-menu{
+    position:absolute;bottom:calc(100% + 8px);left:0;background:var(--ink-2);border:1px solid var(--stroke);
+    border-radius:10px;padding:6px;min-width:190px;display:none;flex-direction:column;gap:2px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.35);z-index:40;
+  }
+  .export-menu.show{display:flex;}
+  .export-menu button{
+    background:transparent;border:none;color:var(--text);text-align:left;padding:9px 10px;border-radius:7px;
+    font-family:'Inter';font-size:13px;cursor:pointer;
+  }
+  .export-menu button:hover{background:var(--card-2);}
+  .export-menu .em-desc{display:block;font-size:11px;color:var(--muted);font-weight:400;margin-top:1px;}
+
+  @media (max-width:640px){
+    .stats{grid-template-columns:repeat(2,1fr);}
+    .detail-grid{grid-template-columns:repeat(2,1fr);}
+    .head-amount{display:none;}
+    .field-row{grid-template-columns:1fr;}
+    .group-children{margin-left:8px;padding-left:10px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="mark">B</div>
+      <div>
+        <h1>BarnaBank</h1>
+        <div class="tagline">seu controle pessoal de empréstimos entre amigos</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-ghost" id="btnSimulator">🧮 Simular empréstimo</button>
+      <button class="btn btn-primary" id="btnNew">+ Nova dívida</button>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="label">Total emprestado</div><div class="value" id="statPrincipal">—</div></div>
+    <div class="stat gold"><div class="label">A receber ainda</div><div class="value" id="statRemaining">—</div></div>
+    <div class="stat green"><div class="label">Já recebido</div><div class="value" id="statReceived">—</div></div>
+    <div class="stat gold"><div class="label">Lucro estimado</div><div class="value" id="statProfit">—</div></div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-head">
+      <div class="title">Evolução do quanto você já recebeu</div>
+      <div class="sub" id="chartSub"></div>
+    </div>
+    <div id="chartHolder"></div>
+  </div>
+
+  <div class="due-panel">
+    <div class="dp-title">📅 Calendário de vencimentos</div>
+    <div class="due-cols">
+      <div class="due-col late">
+        <div class="dc-head">🔴 Atrasadas</div>
+        <div id="dueLate"></div>
+      </div>
+      <div class="due-col today">
+        <div class="dc-head">🟡 Vencem hoje</div>
+        <div id="dueToday"></div>
+      </div>
+      <div class="due-col soon">
+        <div class="dc-head">🔵 Próximos 7 dias</div>
+        <div id="dueSoon"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <div class="filters" id="filters">
+        <button data-f="todos" class="active">Todos</button>
+        <button data-f="pendentes">Pendentes</button>
+        <button data-f="atrasados">Atrasados</button>
+        <button data-f="pagos">Pagos</button>
+      </div>
+      <select class="select" id="sortSel">
+        <option value="recent">Mais recentes</option>
+        <option value="oldest">Mais antigos</option>
+        <option value="valueDesc">Maior valor</option>
+        <option value="valueAsc">Menor valor</option>
+        <option value="statusPendingFirst">Pendentes primeiro</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" id="btnGroup">Agrupar por amigo</button>
+    </div>
+    <input class="search" id="search" placeholder="Buscar por nome…">
+  </div>
+
+  <div class="list" id="list"></div>
+</div>
+
+<footer>
+  <div class="export-wrap">
+    <button class="btn btn-ghost btn-sm" id="btnExportMenuToggle">Exportar backup ▾</button>
+    <div class="export-menu" id="exportMenu">
+      <button id="btnExportJson">Exportar como JSON<span class="em-desc">backup completo, pode ser reimportado</span></button>
+      <button id="btnExportCsv">Exportar como CSV<span class="em-desc">para abrir no Excel ou Google Sheets</span></button>
+    </div>
+  </div>
+  <button class="btn btn-ghost btn-sm" id="btnImportJson">Importar backup (.json)</button>
+  <button class="btn btn-ghost btn-sm" id="btnRanking">🏆 Ranking em PDF</button>
+  <button class="btn btn-ghost btn-sm" id="btnExportHtml">Baixar cópia atualizada (.html)</button>
+  <input type="file" id="fileImport" accept="application/json" style="display:none;">
+  <div class="foot-note">Os dados ficam salvos neste navegador automaticamente. Use os botões acima para ter uma cópia de segurança. Dica: no Chrome do celular, use "Adicionar à tela inicial" para abrir o BarnaBank como um app.</div>
+</footer>
+
+<div class="undo-toast" id="undoToast">
+  <span id="undoToastMsg"></span>
+  <button id="btnUndo">Desfazer</button>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitle">Nova dívida</h2>
+    <div class="field">
+      <label>Nome do amigo</label>
+      <input type="text" id="fName" list="friendsList" placeholder="Ex: Vinicius" autocomplete="off">
+      <datalist id="friendsList"></datalist>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Valor emprestado (R$)</label>
+        <input type="number" id="fPrincipal" placeholder="0,00" step="0.01" min="0">
+      </div>
+      <div class="field">
+        <label>Taxa de juros (% ao mês)</label>
+        <input type="number" id="fRate" placeholder="0 = sem juros" step="0.01" min="0">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Data do empréstimo</label>
+        <input type="date" id="fDate">
+      </div>
+      <div class="field">
+        <label>Prazo escolhido (dias)</label>
+        <input type="number" id="fDays" placeholder="30" step="1" min="1">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Dia de vencimento escolhido</label>
+        <input type="number" id="fDueDay" placeholder="Ex: 10" step="1" min="1" max="31">
+      </div>
+      <div class="field">
+        <label>Telefone (WhatsApp)</label>
+        <input type="text" id="fPhone" placeholder="Ex: 11999998888" autocomplete="off">
+      </div>
+    </div>
+    <div class="field">
+      <label>Anotações (opcional)</label>
+      <textarea id="fNotes" placeholder="Ex: combinou de pagar em dinheiro, atrasou uma vez…"></textarea>
+    </div>
+    <div class="err" id="formErr"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnCancel">Cancelar</button>
+      <button class="btn btn-primary" id="btnSave">Salvar</button>
+    </div>
+    <div class="kbd-hint"><kbd>Enter</kbd> salva · <kbd>Esc</kbd> cancela</div>
+  </div>
+</div>
+
+<div class="overlay" id="deleteOverlay">
+  <div class="modal" style="max-width:380px;">
+    <h2>Excluir dívida?</h2>
+    <p class="warn">Tem certeza que quer excluir a dívida de <b id="delName" style="color:var(--text);"></b>? Todo o histórico de pagamentos dela também será apagado. Essa ação não pode ser desfeita.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnDelCancel">Cancelar</button>
+      <button class="btn btn-danger-solid" id="btnDelConfirm">Sim, excluir</button>
+    </div>
+    <div class="kbd-hint"><kbd>Enter</kbd> confirma · <kbd>Esc</kbd> cancela</div>
+  </div>
+</div>
+
+<div class="overlay" id="profileOverlay">
+  <div class="modal" style="max-width:460px;">
+    <div id="profileContent"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnProfileClose">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="simOverlay">
+  <div class="modal" style="max-width:440px;">
+    <h2>🧮 Simulador de empréstimo</h2>
+    <p class="warn" style="margin-bottom:16px;">Calcule antes de emprestar — sem salvar nada.</p>
+    <div class="field-row">
+      <div class="field">
+        <label>Valor a emprestar (R$)</label>
+        <input type="number" id="simPrincipal" placeholder="0,00" step="0.01" min="0" value="100">
+      </div>
+      <div class="field">
+        <label>Juros ao mês (%)</label>
+        <input type="number" id="simRate" placeholder="0" step="0.01" min="0" value="10">
+      </div>
+    </div>
+    <div class="field">
+      <label>Prazo (dias)</label>
+      <input type="number" id="simDays" placeholder="30" step="1" min="1" value="30">
+    </div>
+    <div class="sim-results">
+      <div class="sr-item"><div class="sl">Parcelas</div><div class="sv" id="simN">—</div></div>
+      <div class="sr-item"><div class="sl">Valor por parcela</div><div class="sv" id="simInstallment">—</div></div>
+      <div class="sr-item"><div class="sl">Total a receber</div><div class="sv" id="simTotal">—</div></div>
+      <div class="sr-item"><div class="sl">Lucro estimado</div><div class="sv" id="simProfit">—</div></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnSimClose">Fechar</button>
+      <button class="btn btn-primary" id="btnSimUse">Usar esses dados na nova dívida</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script id="seed-data" type="application/json">
+{
+  "contacts": {
+    "vinicius": {"phone":"11999990001"},
+    "fabio": {"phone":"11999990002"},
+    "carlão": {"phone":"11999990003"}
+  },
+  "debts": [
+    {"id":"1","name":"Vinicius","principal":40,"date":"2026-05-12","days":30,"rate":7,"dueDay":11,"payments":[{"date":"2026-06-11","amount":42.8}],"notes":""},
+    {"id":"2","name":"Fabio","principal":600,"date":"2026-04-13","days":120,"rate":3.06,"dueDay":13,"payments":[{"date":"2026-05-13","amount":218.36},{"date":"2026-06-13","amount":218.36},{"date":"2026-07-13","amount":150}],"notes":""},
+    {"id":"3","name":"Vinicius","principal":150,"date":"2026-07-20","days":60,"rate":10,"dueDay":20,"payments":[],"notes":""},
+    {"id":"4","name":"Carlão","principal":1000,"date":"2026-05-13","days":240,"rate":3.02,"dueDay":13,"payments":[{"date":"2026-06-13","amount":257.75},{"date":"2026-07-13","amount":257.75}],"notes":""},
+    {"id":"5","name":"Vinicius","principal":1500,"date":"2026-04-13","days":360,"rate":2.56,"dueDay":13,"payments":[{"date":"2026-05-13","amount":184.09},{"date":"2026-06-13","amount":184.09},{"date":"2026-07-13","amount":184.09}],"notes":""}
+  ]
+}
+</script>
+
+<script>
+(function(){
+  "use strict";
+
+  var STORAGE_KEY = "barnabank_debts_v3";
+  var money = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'});
+  var fmtDate = function(iso){
+    if(!iso) return '—';
+    var p = iso.split('-');
+    return p[2]+'/'+p[1]+'/'+p[0].slice(2);
+  };
+  var todayISO = function(){ return new Date().toISOString().slice(0,10); };
+  function pad2(n){ return (n<10?'0':'')+n; }
+  function toISO(dateObj){ return dateObj.getFullYear()+'-'+pad2(dateObj.getMonth()+1)+'-'+pad2(dateObj.getDate()); }
+  function nameKey(name){ return (name||'').trim().toLowerCase(); }
+
+  function migrateDebts(arr){
+    return (arr || []).map(function(d){
+      if(!Array.isArray(d.payments)){
+        d.payments = [];
+      } else if(d.payments.length && typeof d.payments[0] === 'string'){
+        // old format: array of dates, one per full installment
+        var n = Math.max(1, Math.round(d.days/30));
+        var instVal = (d.principal * Math.pow(1 + (d.rate/100), n)) / n;
+        d.payments = d.payments.map(function(dt){ return {date: dt, amount: instVal}; });
+      }
+      if(typeof d.notes !== 'string') d.notes = '';
+      if(!d.dueDay){
+        var base = d.date ? parseInt(d.date.split('-')[2],10) : 1;
+        d.dueDay = base || 1;
+      }
+      delete d.paid;
+      return d;
+    });
+  }
+
+  function loadData(){
+    var raw = null;
+    try{ raw = localStorage.getItem(STORAGE_KEY); }catch(e){}
+    var parsed = null;
+    if(raw){
+      try{ parsed = JSON.parse(raw); }catch(e){ parsed = null; }
+    }
+    if(!parsed){
+      var seedEl = document.getElementById('seed-data');
+      try{ parsed = JSON.parse(seedEl.textContent); }catch(e){ parsed = null; }
+    }
+    if(!parsed) return {debts:[], contacts:{}};
+    if(Array.isArray(parsed)) return {debts: migrateDebts(parsed), contacts:{}};
+    return {debts: migrateDebts(parsed.debts || []), contacts: parsed.contacts || {}};
+  }
+  function saveData(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({debts: state.debts, contacts: state.contacts}));
+  }
+
+  var loaded = loadData();
+  var state = {
+    debts: loaded.debts,
+    contacts: loaded.contacts,
+    openId: null,
+    openGroups: {},
+    filter: 'todos',
+    sort: 'recent',
+    query: '',
+    grouped: false,
+    editingId: null,
+    pendingDeleteId: null
+  };
+
+  function installments(d){ return Math.max(1, Math.round(d.days/30)); }
+  function finalValue(d){ var n = installments(d); return d.principal * Math.pow(1 + (d.rate/100), n); }
+  function installmentValue(d){ return finalValue(d) / installments(d); }
+  function paidAmount(d){
+    return (d.payments||[]).reduce(function(sum,p){ return sum + (p.amount||0); }, 0);
+  }
+  function remaining(d){ return Math.max(0, finalValue(d) - paidAmount(d)); }
+  function profit(d){ return finalValue(d) - d.principal; }
+  function isPaid(d){ return remaining(d) <= 0.005 && paidAmount(d) > 0; }
+  function progressPct(d){ return Math.max(0, Math.min(100, (paidAmount(d)/finalValue(d))*100)); }
+  // how many installments-worth have effectively been covered (for stamps + due-date calc)
+  function installmentsCovered(d){
+    var n = installments(d);
+    var iv = installmentValue(d);
+    if(isPaid(d)) return n;
+    return Math.min(n, Math.floor((paidAmount(d)/iv) + 0.0001));
+  }
+  function daysInMonth(y,m){ return new Date(y, m+1, 0).getDate(); }
+  function dueDateForInstallment(d, idx){
+    // idx: 0-based installment index
+    var base = new Date(d.date + 'T00:00:00');
+    var totalMonths = base.getMonth() + idx + 1;
+    var y = base.getFullYear() + Math.floor(totalMonths/12);
+    var m = totalMonths % 12;
+    var day = Math.min(d.dueDay || base.getDate(), daysInMonth(y,m));
+    return new Date(y, m, day);
+  }
+  function nextDueDate(d){
+    if(isPaid(d)) return null;
+    var idx = installmentsCovered(d);
+    var n = installments(d);
+    if(idx >= n) idx = n-1;
+    return dueDateForInstallment(d, idx);
+  }
+  function daysUntilDue(d){
+    var due = nextDueDate(d);
+    if(!due) return null;
+    var t = new Date(); t.setHours(0,0,0,0);
+    var dd = new Date(due); dd.setHours(0,0,0,0);
+    return Math.round((dd - t)/86400000);
+  }
+  function statusOf(d){
+    if(isPaid(d)) return 'pago';
+    var diff = daysUntilDue(d);
+    if(diff === null) return 'pago';
+    if(diff < 0) return 'atrasado';
+    if(diff === 0) return 'hoje';
+    if(diff <= 7) return 'embreve';
+    return 'emdia';
+  }
+  function statusLabel(d){
+    var s = statusOf(d);
+    var diff = daysUntilDue(d);
+    if(s === 'pago') return 'Pago';
+    if(s === 'atrasado') return Math.abs(diff) + (Math.abs(diff)===1 ? ' dia atrasado' : ' dias atrasado');
+    if(s === 'hoje') return 'Vence hoje';
+    if(s === 'embreve') return 'Vence em ' + diff + (diff===1?' dia':' dias');
+    return 'Em dia';
+  }
+  function initials(name){
+    var parts = name.trim().split(/\s+/);
+    var s = parts[0] ? parts[0][0] : '?';
+    if(parts.length > 1) s += parts[parts.length-1][0];
+    return s.toUpperCase();
+  }
+  function escapeHtml(s){ var div = document.createElement('div'); div.textContent = s; return div.innerHTML; }
+  function onlyDigits(s){ return (s||'').replace(/\D/g,''); }
+  function whatsappLink(d){
+    var contact = state.contacts[nameKey(d.name)];
+    var phone = contact ? onlyDigits(contact.phone) : '';
+    if(!phone) return null;
+    if(phone.length <= 11) phone = '55' + phone; // assume BR se não tiver DDI
+    var due = nextDueDate(d);
+    var msg;
+    var st = statusOf(d);
+    if(st === 'atrasado'){
+      msg = 'Oi ' + d.name + ', tudo bem? Passando pra lembrar que sua parcela de ' + money.format(installmentValue(d)) + ' venceu em ' + fmtDate(toISO(due)) + ' e ainda está em aberto. Consegue acertar comigo? 🙂';
+    } else if(st === 'hoje'){
+      msg = 'Oi ' + d.name + ', tudo bem? Só passando pra lembrar que sua parcela de ' + money.format(installmentValue(d)) + ' vence hoje. Consegue enviar? 🙂';
+    } else {
+      msg = 'Oi ' + d.name + ', tudo bem? Sua próxima parcela é de ' + money.format(installmentValue(d)) + (due ? (', vencimento em ' + fmtDate(toISO(due))) : '') + '. Qualquer coisa me avisa 🙂';
+    }
+    return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
+  }
+
+  var listEl = document.getElementById('list');
+
+  function render(){
+    renderStats();
+    renderChart();
+    renderDuePanel();
+    renderList();
+    saveData();
+  }
+
+  // ---------- due calendar panel ----------
+  function renderDuePanel(){
+    var late = [], today = [], soon = [];
+    state.debts.forEach(function(d){
+      var s = statusOf(d);
+      if(s === 'atrasado') late.push(d);
+      else if(s === 'hoje') today.push(d);
+      else if(s === 'embreve') soon.push(d);
+    });
+    function sortByDue(a,b){
+      var da = nextDueDate(a), db = nextDueDate(b);
+      return (da?da.getTime():0) - (db?db.getTime():0);
+    }
+    late.sort(sortByDue); today.sort(sortByDue); soon.sort(sortByDue);
+
+    function itemHtml(d){
+      var due = nextDueDate(d);
+      return '<div class="due-item" data-id="'+d.id+'">' +
+        '<div><div class="di-name">'+escapeHtml(d.name)+'</div><div class="di-sub">'+statusLabel(d)+' · venc. '+(due?fmtDate(toISO(due)):'—')+'</div></div>' +
+        '<div class="di-val">'+money.format(installmentValue(d))+'</div>' +
+      '</div>';
+    }
+    function fillCol(id, arr){
+      var el = document.getElementById(id);
+      el.innerHTML = arr.length ? arr.map(itemHtml).join('') : '<div class="due-empty">Nada por aqui 🎉</div>';
+      el.querySelectorAll('.due-item').forEach(function(it){
+        it.addEventListener('click', function(){
+          state.openId = it.getAttribute('data-id');
+          state.filter = 'todos';
+          document.querySelectorAll('#filters button').forEach(function(b){ b.classList.remove('active'); });
+          document.querySelector('#filters button[data-f="todos"]').classList.add('active');
+          render();
+          var card = document.querySelector('.card.open');
+          if(card) card.scrollIntoView({behavior:'smooth', block:'center'});
+        });
+      });
+    }
+    fillCol('dueLate', late);
+    fillCol('dueToday', today);
+    fillCol('dueSoon', soon);
+  }
+
+  function renderStats(){
+    var totalPrincipal=0, totalRemaining=0, totalReceived=0, totalProfit=0;
+    state.debts.forEach(function(d){
+      totalPrincipal += d.principal;
+      totalRemaining += remaining(d);
+      totalReceived += paidAmount(d);
+      totalProfit += profit(d);
+    });
+    document.getElementById('statPrincipal').textContent = money.format(totalPrincipal);
+    document.getElementById('statRemaining').textContent = money.format(totalRemaining);
+    document.getElementById('statReceived').textContent = money.format(totalReceived);
+    document.getElementById('statProfit').textContent = money.format(totalProfit);
+  }
+
+  // ---------- evolution chart ----------
+  function renderChart(){
+    var holder = document.getElementById('chartHolder');
+    var sub = document.getElementById('chartSub');
+    var events = [];
+    state.debts.forEach(function(d){
+      (d.payments||[]).forEach(function(p){ events.push({date:p.date, amount:p.amount}); });
+    });
+    if(events.length === 0){
+      holder.innerHTML = '<div class="chart-empty">Assim que você marcar a primeira parcela como paga, o gráfico aparece aqui.</div>';
+      sub.textContent = '';
+      return;
+    }
+    events.sort(function(a,b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    var cum = 0;
+    var points = events.map(function(e){ cum += e.amount; return {date:e.date, total:cum}; });
+
+    sub.textContent = money.format(cum) + ' recebidos até agora';
+
+    var W = 640, H = 160, padL = 8, padR = 8, padT = 14, padB = 26;
+    var dates = points.map(function(p){ return p.date; });
+    var minD = dates[0], maxD = dates[dates.length-1];
+    var minTime = new Date(minD).getTime(), maxTime = new Date(maxD).getTime();
+    var span = Math.max(1, maxTime - minTime);
+    var maxVal = points[points.length-1].total;
+
+    function x(t){
+      if(points.length === 1) return (W-padL-padR)/2 + padL;
+      return padL + ((new Date(t).getTime() - minTime) / span) * (W - padL - padR);
+    }
+    function y(v){
+      return H - padB - (v / (maxVal || 1)) * (H - padT - padB);
+    }
+
+    var linePts = points.map(function(p){ return x(p.date).toFixed(1) + ',' + y(p.total).toFixed(1); });
+    var lineStr = 'M ' + linePts.join(' L ');
+    var areaStr = lineStr + ' L ' + x(points[points.length-1].date).toFixed(1) + ',' + (H-padB) + ' L ' + x(points[0].date).toFixed(1) + ',' + (H-padB) + ' Z';
+
+    var dots = points.map(function(p){
+      return '<circle cx="'+x(p.date).toFixed(1)+'" cy="'+y(p.total).toFixed(1)+'" r="3" fill="#e8cd8a" stroke="#10152a" stroke-width="1"/>';
+    }).join('');
+
+    var svg =
+      '<svg class="evochart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">' +
+        '<defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">' +
+          '<stop offset="0%" stop-color="#c9a24a" stop-opacity="0.35"/>' +
+          '<stop offset="100%" stop-color="#c9a24a" stop-opacity="0"/>' +
+        '</linearGradient></defs>' +
+        '<path d="'+areaStr+'" fill="url(#areaGrad)" stroke="none"/>' +
+        '<path d="'+lineStr+'" fill="none" stroke="#e8cd8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+        dots +
+        '<text x="'+padL+'" y="'+(H-6)+'" font-size="10" fill="#8d94b8" font-family="Nunito, sans-serif">'+fmtDate(minD)+'</text>' +
+        '<text x="'+(W-padR)+'" y="'+(H-6)+'" font-size="10" fill="#8d94b8" font-family="Nunito, sans-serif" text-anchor="end">'+fmtDate(maxD)+'</text>' +
+      '</svg>';
+    holder.innerHTML = svg;
+  }
+
+  // ---------- list rendering ----------
+  function applyFilterSortSearch(items){
+    var q = state.query.trim().toLowerCase();
+    var out = items.filter(function(d){
+      if(state.filter === 'pendentes' && isPaid(d)) return false;
+      if(state.filter === 'pagos' && !isPaid(d)) return false;
+      if(state.filter === 'atrasados' && statusOf(d) !== 'atrasado') return false;
+      if(q && d.name.toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+    out.sort(function(a,b){
+      switch(state.sort){
+        case 'oldest': return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0);
+        case 'valueDesc': return finalValue(b) - finalValue(a);
+        case 'valueAsc': return finalValue(a) - finalValue(b);
+        case 'statusPendingFirst':
+          if(isPaid(a) !== isPaid(b)) return isPaid(a) ? 1 : -1;
+          return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0);
+        case 'recent':
+        default: return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0);
+      }
+    });
+    return out;
+  }
+
+  function renderList(){
+    listEl.innerHTML = '';
+    var items = applyFilterSortSearch(state.debts.slice());
+
+    if(items.length === 0){
+      var empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = state.debts.length === 0
+        ? 'Nenhuma dívida cadastrada ainda. Clique em "+ Nova dívida" para começar.'
+        : 'Nenhuma dívida encontrada com esse filtro.';
+      listEl.appendChild(empty);
+      return;
+    }
+
+    if(!state.grouped){
+      items.forEach(function(d){ listEl.appendChild(buildCard(d)); });
+      return;
+    }
+
+    // grouped by name (case/whitespace-insensitive), preserving sort order of first appearance
+    var groups = [];
+    var byKey = {};
+    var displayName = {};
+    items.forEach(function(d){
+      var key = d.name.trim().toLowerCase();
+      if(!byKey[key]){ byKey[key] = []; groups.push(key); displayName[key] = d.name; }
+      byKey[key].push(d);
+    });
+
+    groups.forEach(function(key){
+      var debts = byKey[key];
+      var name = displayName[key];
+      var totalPrincipal=0, totalRemaining=0;
+      debts.forEach(function(d){ totalPrincipal += d.principal; totalRemaining += remaining(d); });
+      var open = !!state.openGroups[key];
+
+      var g = document.createElement('div');
+      g.className = 'group' + (open ? ' open' : '');
+
+      var gh = document.createElement('div');
+      gh.className = 'group-head';
+      gh.innerHTML =
+        '<div class="avatar">' + initials(name) + '</div>' +
+        '<div class="name">' + escapeHtml(name) + ' <span style="color:var(--muted);font-weight:400;font-size:12px;">(' + debts.length + (debts.length===1?' dívida':' dívidas') + ')</span></div>' +
+        '<div class="gstat">falta receber<b>' + money.format(totalRemaining) + '</b></div>' +
+        '<div class="chev">▾</div>';
+      gh.addEventListener('click', function(){
+        state.openGroups[key] = !state.openGroups[key];
+        render();
+      });
+      g.appendChild(gh);
+
+      if(open){
+        var children = document.createElement('div');
+        children.className = 'group-children';
+        debts.forEach(function(d){ children.appendChild(buildCard(d)); });
+        g.appendChild(children);
+      }
+
+      listEl.appendChild(g);
+    });
+  }
+
+  function buildCard(d){
+    var n = installments(d);
+    var covered = installmentsCovered(d);
+    var open = state.openId === d.id;
+    var status = statusOf(d);
+
+    var card = document.createElement('div');
+    card.className = 'card' + (open ? ' open' : '');
+
+    var head = document.createElement('div');
+    head.className = 'card-head';
+    head.innerHTML =
+      '<div class="avatar">' + initials(d.name) + '</div>' +
+      '<div class="who">' +
+        '<div class="name">' + escapeHtml(d.name) + '</div>' +
+        '<div class="sub">emprestado em ' + fmtDate(d.date) + '</div>' +
+      '</div>' +
+      '<div class="badge ' + status + '">' + statusLabel(d) + '</div>' +
+      '<div class="head-amount">' + money.format(installmentValue(d)) + '<br><span style="font-size:10px;color:var(--muted);font-weight:400;">por parcela</span></div>' +
+      '<div class="chev">▾</div>';
+    head.addEventListener('click', function(){
+      state.openId = open ? null : d.id;
+      render();
+    });
+    card.appendChild(head);
+
+    var body = document.createElement('div');
+    body.className = 'card-body';
+    var inner = document.createElement('div');
+    inner.className = 'card-body-inner';
+
+    var stampsHtml = '';
+    for(var i=0;i<n;i++){ stampsHtml += '<div class="stamp' + (i < covered ? ' filled' : '') + '"></div>'; }
+
+    var sortedPayments = (d.payments||[]).slice().sort(function(a,b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+    var historyRows = sortedPayments.map(function(p){
+      var realIdx = d.payments.indexOf(p);
+      return '<div class="history-row"><span>' + fmtDate(p.date) + '</span><b>' + money.format(p.amount) + '</b>' +
+        '<button class="hr-del" data-idx="' + realIdx + '" title="Remover este pagamento">✕</button></div>';
+    }).join('');
+    var historyHtml = historyRows
+      ? '<div class="history-list">' + historyRows + '</div>'
+      : '<div class="history-empty">Nenhum pagamento registrado ainda.</div>';
+
+    var notesHtml = d.notes
+      ? '<div class="notes-block"><b>Anotações</b>' + escapeHtml(d.notes) + '</div>'
+      : '';
+
+    var due = nextDueDate(d);
+    var wLink = whatsappLink(d);
+
+    inner.innerHTML =
+      '<div class="progress-wrap">' +
+        '<div class="progress-top"><span>Quitado</span><b>' + progressPct(d).toFixed(0) + '%</b></div>' +
+        '<div class="progress-track"><div class="progress-fill" style="width:' + progressPct(d).toFixed(1) + '%;"></div></div>' +
+      '</div>' +
+      '<div class="detail-grid">' +
+        '<div class="detail-item"><div class="dl">Valor original</div><div class="dv">' + money.format(d.principal) + '</div></div>' +
+        '<div class="detail-item"><div class="dl">Juros ao mês</div><div class="dv gold">' + d.rate.toString().replace('.',',') + '%</div></div>' +
+        '<div class="detail-item"><div class="dl">Total a receber</div><div class="dv">' + money.format(finalValue(d)) + '</div></div>' +
+        '<div class="detail-item"><div class="dl">Lucro estimado</div><div class="dv gold">' + money.format(profit(d)) + '</div></div>' +
+        '<div class="detail-item"><div class="dl">Já recebido</div><div class="dv green">' + money.format(paidAmount(d)) + '</div></div>' +
+        '<div class="detail-item"><div class="dl">Falta receber</div><div class="dv red">' + money.format(remaining(d)) + '</div></div>' +
+        '<div class="detail-item"><div class="dl">Prazo</div><div class="dv">' + d.days + ' dias</div></div>' +
+        '<div class="detail-item"><div class="dl">Próximo vencimento</div><div class="dv">' + (due ? fmtDate(toISO(due)) : '—') + '</div></div>' +
+      '</div>' +
+      '<div class="stamps">' + stampsHtml + '</div>' +
+      notesHtml +
+      (isPaid(d) ? '' :
+        '<div class="pay-form">' +
+          '<div class="pf-field"><label>Valor recebido</label><input type="number" class="pf-amount" step="0.01" min="0.01" placeholder="'+ installmentValue(d).toFixed(2).replace('.',',') +'"></div>' +
+          '<div class="pf-field"><label>Data</label><input type="date" class="pf-date" value="' + todayISO() + '"></div>' +
+          '<button class="btn btn-primary btn-sm" data-act="registrar">Registrar pagamento</button>' +
+        '</div>'
+      ) +
+      '<div class="history"><div class="hl">Histórico de pagamentos</div>' + historyHtml +
+        '<button class="pf-undo" data-act="undo" ' + (sortedPayments.length?'':'disabled') + '>Desfazer último pagamento</button>' +
+      '</div>' +
+      '<div class="card-actions">' +
+        (wLink ? '<a class="btn btn-whats btn-sm" href="' + wLink + '" target="_blank" rel="noopener" data-act="whats">WhatsApp</a>' : '<button class="btn btn-ghost btn-sm" data-act="nowhats" title="Cadastre o telefone em Editar">WhatsApp</button>') +
+        '<button class="btn btn-ghost btn-sm" data-act="profile">Perfil</button>' +
+        '<div class="spacer"></div>' +
+        '<button class="btn btn-ghost btn-sm" data-act="statement">Extrato (PDF)</button>' +
+        '<button class="btn btn-ghost btn-sm" data-act="edit">Editar</button>' +
+        '<button class="btn btn-danger btn-sm" data-act="del">Excluir</button>' +
+      '</div>';
+
+    var amountInput = inner.querySelector('.pf-amount');
+    var dateInput = inner.querySelector('.pf-date');
+
+    var registrarBtn = inner.querySelector('[data-act="registrar"]');
+    if(registrarBtn){
+      registrarBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var val = parseFloat((amountInput.value || '').replace(',','.'));
+        if(isNaN(val) || val <= 0){ showToast('Informe um valor válido.'); return; }
+        var dt = dateInput.value || todayISO();
+        d.payments.push({date: dt, amount: val});
+        render();
+        showToast('Pagamento de ' + money.format(val) + ' registrado');
+      });
+      amountInput.addEventListener('click', function(e){ e.stopPropagation(); });
+      dateInput.addEventListener('click', function(e){ e.stopPropagation(); });
+    }
+
+    inner.querySelector('[data-act="undo"]').addEventListener('click', function(e){
+      e.stopPropagation();
+      if(!sortedPayments.length) return;
+      var idx = d.payments.indexOf(sortedPayments[0]);
+      d.payments.splice(idx,1);
+      render();
+      showToast('Último pagamento desfeito');
+    });
+    inner.querySelectorAll('.hr-del').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var idx = parseInt(btn.getAttribute('data-idx'),10);
+        d.payments.splice(idx,1);
+        render();
+        showToast('Pagamento removido');
+      });
+    });
+    var noWhats = inner.querySelector('[data-act="nowhats"]');
+    if(noWhats){
+      noWhats.addEventListener('click', function(e){ e.stopPropagation(); showToast('Cadastre o telefone em "Editar" para cobrar pelo WhatsApp.'); });
+    }
+    var whatsBtn = inner.querySelector('[data-act="whats"]');
+    if(whatsBtn){ whatsBtn.addEventListener('click', function(e){ e.stopPropagation(); }); }
+    inner.querySelector('[data-act="profile"]').addEventListener('click', function(e){
+      e.stopPropagation();
+      openProfile(d.name);
+    });
+    inner.querySelector('[data-act="statement"]').addEventListener('click', function(e){
+      e.stopPropagation();
+      openStatement(d);
+    });
+    inner.querySelector('[data-act="edit"]').addEventListener('click', function(e){
+      e.stopPropagation();
+      openModal(d);
+    });
+    inner.querySelector('[data-act="del"]').addEventListener('click', function(e){
+      e.stopPropagation();
+      openDeleteModal(d);
+    });
+
+    body.appendChild(inner);
+    card.appendChild(body);
+
+    if(open){
+      requestAnimationFrame(function(){ body.style.maxHeight = body.scrollHeight + 'px'; });
+    } else {
+      body.style.maxHeight = '0px';
+    }
+    return card;
+  }
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._tm);
+    showToast._tm = setTimeout(function(){ t.classList.remove('show'); }, 2200);
+  }
+
+  // ---------- toolbar ----------
+  document.getElementById('filters').addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-f]');
+    if(!btn) return;
+    state.filter = btn.getAttribute('data-f');
+    document.querySelectorAll('#filters button').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    render();
+  });
+  document.getElementById('search').addEventListener('input', function(e){ state.query = e.target.value; render(); });
+  document.getElementById('sortSel').addEventListener('change', function(e){ state.sort = e.target.value; render(); });
+  document.getElementById('btnGroup').addEventListener('click', function(){
+    state.grouped = !state.grouped;
+    this.classList.toggle('active', state.grouped);
+    this.textContent = state.grouped ? 'Ver lista simples' : 'Agrupar por amigo';
+    render();
+  });
+
+  // ---------- add/edit modal ----------
+  var overlay = document.getElementById('overlay');
+  var modalTitle = document.getElementById('modalTitle');
+  var fName = document.getElementById('fName');
+  var fPrincipal = document.getElementById('fPrincipal');
+  var fRate = document.getElementById('fRate');
+  var fDate = document.getElementById('fDate');
+  var fDays = document.getElementById('fDays');
+  var fDueDay = document.getElementById('fDueDay');
+  var fPhone = document.getElementById('fPhone');
+  var fNotes = document.getElementById('fNotes');
+  var formErr = document.getElementById('formErr');
+
+  function populateFriendsList(){
+    var names = [];
+    state.debts.forEach(function(d){ if(names.indexOf(d.name) === -1) names.push(d.name); });
+    names.sort(function(a,b){ return a.localeCompare(b, 'pt-BR'); });
+    var dl = document.getElementById('friendsList');
+    dl.innerHTML = names.map(function(n){ return '<option value="' + escapeHtml(n) + '">'; }).join('');
+  }
+
+  function openModal(debt){
+    state.editingId = debt ? debt.id : null;
+    modalTitle.textContent = debt ? 'Editar dívida' : 'Nova dívida';
+    populateFriendsList();
+    fName.value = debt ? debt.name : '';
+    fPrincipal.value = debt ? debt.principal : '';
+    fRate.value = debt ? debt.rate : '';
+    fDate.value = debt ? debt.date : todayISO();
+    fDays.value = debt ? debt.days : 30;
+    fDueDay.value = debt ? debt.dueDay : new Date().getDate();
+    var contact = state.contacts[nameKey(debt ? debt.name : '')];
+    fPhone.value = contact ? contact.phone : '';
+    fNotes.value = debt ? debt.notes : '';
+    formErr.textContent = '';
+    overlay.classList.add('show');
+    fName.focus();
+  }
+  function closeModal(){ overlay.classList.remove('show'); }
+
+  document.getElementById('btnNew').addEventListener('click', function(){ openModal(null); });
+  document.getElementById('btnCancel').addEventListener('click', closeModal);
+  overlay.addEventListener('click', function(e){ if(e.target === overlay) closeModal(); });
+  fName.addEventListener('input', function(){
+    if(state.editingId) return; // não sobrescreve telefone ao editar
+    var contact = state.contacts[nameKey(fName.value)];
+    if(contact) fPhone.value = contact.phone;
+  });
+
+  function saveForm(){
+    var name = fName.value.trim();
+    var principal = parseFloat(fPrincipal.value);
+    var rate = parseFloat(fRate.value);
+    var date = fDate.value;
+    var days = parseInt(fDays.value, 10);
+    var dueDay = parseInt(fDueDay.value, 10);
+    var phone = fPhone.value.trim();
+    var notes = fNotes.value.trim();
+
+    if(!name){ formErr.textContent = 'Informe o nome do amigo.'; return; }
+    if(isNaN(principal) || principal <= 0){ formErr.textContent = 'Informe um valor emprestado válido.'; return; }
+    if(isNaN(rate) || rate < 0){ formErr.textContent = 'Informe uma taxa de juros válida (pode ser 0 para sem juros).'; return; }
+    if(!date){ formErr.textContent = 'Informe a data do empréstimo.'; return; }
+    if(isNaN(days) || days <= 0){ formErr.textContent = 'Informe um prazo válido em dias.'; return; }
+    if(isNaN(dueDay) || dueDay < 1 || dueDay > 31){ dueDay = parseInt(date.split('-')[2],10); }
+
+    if(state.editingId){
+      var d = state.debts.find(function(x){ return x.id === state.editingId; });
+      d.name = name; d.principal = principal; d.rate = rate; d.date = date; d.days = days; d.dueDay = dueDay; d.notes = notes;
+      showToast('Dívida atualizada');
+    } else {
+      state.debts.push({
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+        name: name, principal: principal, date: date, days: days, rate: rate, dueDay: dueDay, payments: [], notes: notes
+      });
+      showToast('Dívida adicionada');
+    }
+    if(phone){ state.contacts[nameKey(name)] = {phone: phone}; }
+    closeModal();
+    render();
+  }
+  document.getElementById('btnSave').addEventListener('click', saveForm);
+
+  // ---------- profile modal ----------
+  var profileOverlay = document.getElementById('profileOverlay');
+  function openProfile(name){
+    var key = nameKey(name);
+    var debts = state.debts.filter(function(d){ return nameKey(d.name) === key; });
+    if(!debts.length) return;
+    var displayName = debts[0].name;
+    var totalPrincipal=0, totalReceived=0, totalPending=0, totalProfit=0, lateCount=0;
+    debts.forEach(function(d){
+      totalPrincipal += d.principal;
+      totalReceived += paidAmount(d);
+      totalPending += remaining(d);
+      totalProfit += profit(d);
+      if(statusOf(d) === 'atrasado') lateCount++;
+    });
+    var loanRows = debts.slice().sort(function(a,b){ return a.date < b.date ? 1 : -1; }).map(function(d){
+      return '<div class="profile-loan-row"><span>' + fmtDate(d.date) + ' · ' + statusLabel(d) + '</span><span class="plr-val">' + money.format(finalValue(d)) + '</span></div>';
+    }).join('');
+
+    document.getElementById('profileContent').innerHTML =
+      '<div class="profile-head">' +
+        '<div class="avatar">' + initials(displayName) + '</div>' +
+        '<div><div class="pname">' + escapeHtml(displayName) + '</div>' +
+        '<div class="psub">' + debts.length + (debts.length===1?' empréstimo':' empréstimos') + (lateCount ? ' · ' + lateCount + ' atrasado' + (lateCount>1?'s':'') : '') + '</div></div>' +
+      '</div>' +
+      '<div class="profile-grid">' +
+        '<div class="pg-item"><div class="pg-label">Total emprestado</div><div class="pg-val">' + money.format(totalPrincipal) + '</div></div>' +
+        '<div class="pg-item"><div class="pg-label">Já recebido</div><div class="pg-val" style="color:var(--green);">' + money.format(totalReceived) + '</div></div>' +
+        '<div class="pg-item"><div class="pg-label">Falta receber</div><div class="pg-val" style="color:var(--red);">' + money.format(totalPending) + '</div></div>' +
+        '<div class="pg-item"><div class="pg-label">Lucro estimado</div><div class="pg-val" style="color:var(--gold-soft);">' + money.format(totalProfit) + '</div></div>' +
+      '</div>' +
+      '<div class="profile-loans"><div class="pl-title">Empréstimos</div>' + loanRows + '</div>';
+
+    profileOverlay.classList.add('show');
+  }
+  document.getElementById('btnProfileClose').addEventListener('click', function(){ profileOverlay.classList.remove('show'); });
+  profileOverlay.addEventListener('click', function(e){ if(e.target === profileOverlay) profileOverlay.classList.remove('show'); });
+
+  // ---------- simulator ----------
+  var simOverlay = document.getElementById('simOverlay');
+  var simPrincipal = document.getElementById('simPrincipal');
+  var simRate = document.getElementById('simRate');
+  var simDays = document.getElementById('simDays');
+  function updateSimulator(){
+    var p = parseFloat(simPrincipal.value) || 0;
+    var r = parseFloat(simRate.value) || 0;
+    var days = parseInt(simDays.value,10) || 30;
+    var n = Math.max(1, Math.round(days/30));
+    var total = p * Math.pow(1 + (r/100), n);
+    var inst = total / n;
+    document.getElementById('simN').textContent = n + 'x';
+    document.getElementById('simInstallment').textContent = money.format(inst);
+    document.getElementById('simTotal').textContent = money.format(total);
+    document.getElementById('simProfit').textContent = money.format(total - p);
+  }
+  [simPrincipal, simRate, simDays].forEach(function(el){ el.addEventListener('input', updateSimulator); });
+  document.getElementById('btnSimulator').addEventListener('click', function(){
+    updateSimulator();
+    simOverlay.classList.add('show');
+  });
+  document.getElementById('btnSimClose').addEventListener('click', function(){ simOverlay.classList.remove('show'); });
+  simOverlay.addEventListener('click', function(e){ if(e.target === simOverlay) simOverlay.classList.remove('show'); });
+  document.getElementById('btnSimUse').addEventListener('click', function(){
+    simOverlay.classList.remove('show');
+    openModal(null);
+    fPrincipal.value = simPrincipal.value;
+    fRate.value = simRate.value;
+    fDays.value = simDays.value;
+  });
+
+  // ---------- delete modal ----------
+  var deleteOverlay = document.getElementById('deleteOverlay');
+  var delName = document.getElementById('delName');
+
+  function openDeleteModal(debt){
+    state.pendingDeleteId = debt.id;
+    delName.textContent = debt.name;
+    deleteOverlay.classList.add('show');
+  }
+  function closeDeleteModal(){ deleteOverlay.classList.remove('show'); state.pendingDeleteId = null; }
+  document.getElementById('btnDelCancel').addEventListener('click', closeDeleteModal);
+  deleteOverlay.addEventListener('click', function(e){ if(e.target === deleteOverlay) closeDeleteModal(); });
+  document.getElementById('btnDelConfirm').addEventListener('click', function(){
+    var idx = state.debts.findIndex(function(x){ return x.id === state.pendingDeleteId; });
+    if(idx === -1){ closeDeleteModal(); return; }
+    var removed = state.debts[idx];
+    state.debts.splice(idx, 1);
+    if(state.openId === state.pendingDeleteId) state.openId = null;
+    closeDeleteModal();
+    render();
+    showUndoToast(removed, idx);
+  });
+
+  // ---------- undo delete ----------
+  var undoToastEl = document.getElementById('undoToast');
+  var undoToastMsg = document.getElementById('undoToastMsg');
+  var pendingUndo = null;
+  var undoTimer = null;
+
+  function showUndoToast(debt, idx){
+    pendingUndo = {debt: debt, idx: idx};
+    undoToastMsg.textContent = 'Dívida de ' + debt.name + ' excluída';
+    undoToastEl.classList.add('show');
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(function(){
+      undoToastEl.classList.remove('show');
+      pendingUndo = null;
+    }, 6000);
+  }
+  document.getElementById('btnUndo').addEventListener('click', function(){
+    if(!pendingUndo) return;
+    var i = Math.min(pendingUndo.idx, state.debts.length);
+    state.debts.splice(i, 0, pendingUndo.debt);
+    clearTimeout(undoTimer);
+    undoToastEl.classList.remove('show');
+    pendingUndo = null;
+    render();
+    showToast('Dívida restaurada');
+  });
+
+  // ---------- keyboard shortcuts ----------
+  document.addEventListener('keydown', function(e){
+    if(deleteOverlay.classList.contains('show')){
+      if(e.key === 'Escape'){ closeDeleteModal(); }
+      if(e.key === 'Enter'){ document.getElementById('btnDelConfirm').click(); }
+      return;
+    }
+    if(overlay.classList.contains('show')){
+      if(e.key === 'Escape'){ closeModal(); }
+      if(e.key === 'Enter' && e.target.tagName !== 'TEXTAREA'){ e.preventDefault(); saveForm(); }
+    }
+  });
+
+  // ---------- export / import ----------
+  var exportMenu = document.getElementById('exportMenu');
+  document.getElementById('btnExportMenuToggle').addEventListener('click', function(e){
+    e.stopPropagation();
+    exportMenu.classList.toggle('show');
+  });
+  document.addEventListener('click', function(e){
+    if(!exportMenu.contains(e.target) && e.target.id !== 'btnExportMenuToggle'){
+      exportMenu.classList.remove('show');
+    }
+  });
+
+  document.getElementById('btnExportJson').addEventListener('click', function(){
+    var blob = new Blob([JSON.stringify({debts: state.debts, contacts: state.contacts}, null, 2)], {type:'application/json'});
+    downloadBlob(blob, 'barnabank-backup-' + todayISO() + '.json');
+    exportMenu.classList.remove('show');
+    showToast('Backup exportado em JSON');
+  });
+
+  function csvEscape(v){
+    var s = String(v);
+    if(/[",\n;]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  }
+  document.getElementById('btnExportCsv').addEventListener('click', function(){
+    var headers = ['Nome','Valor Emprestado','Data do Emprestimo','Prazo (dias)','Dia de Vencimento','Taxa de Juros (%)',
+      'Valor Final a Receber','Valor da Parcela','Status','Proximo Vencimento',
+      'Ja Recebido','Falta Receber','Lucro Estimado','Anotacoes'];
+    var rows = state.debts.map(function(d){
+      var due = nextDueDate(d);
+      return [
+        d.name,
+        d.principal.toFixed(2).replace('.',','),
+        fmtDate(d.date),
+        d.days,
+        d.dueDay,
+        d.rate.toString().replace('.',','),
+        finalValue(d).toFixed(2).replace('.',','),
+        installmentValue(d).toFixed(2).replace('.',','),
+        statusLabel(d),
+        due ? fmtDate(toISO(due)) : '-',
+        paidAmount(d).toFixed(2).replace('.',','),
+        remaining(d).toFixed(2).replace('.',','),
+        profit(d).toFixed(2).replace('.',','),
+        d.notes || ''
+      ].map(csvEscape).join(';');
+    });
+    var csv = '\uFEFF' + headers.join(';') + '\n' + rows.join('\n');
+    var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    downloadBlob(blob, 'barnabank-' + todayISO() + '.csv');
+    exportMenu.classList.remove('show');
+    showToast('Backup exportado em CSV');
+  });
+  document.getElementById('btnImportJson').addEventListener('click', function(){
+    document.getElementById('fileImport').click();
+  });
+  document.getElementById('fileImport').addEventListener('change', function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var data = JSON.parse(reader.result);
+        if(Array.isArray(data)){
+          state.debts = migrateDebts(data);
+        } else if(data && Array.isArray(data.debts)){
+          state.debts = migrateDebts(data.debts);
+          state.contacts = data.contacts || {};
+        } else {
+          throw new Error('formato inválido');
+        }
+        state.openId = null;
+        render();
+        showToast('Backup importado com sucesso');
+      }catch(err){
+        alert('Não foi possível ler esse arquivo. Verifique se é um backup válido do BarnaBank.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+  document.getElementById('btnExportHtml').addEventListener('click', function(){
+    var seedEl = document.getElementById('seed-data');
+    seedEl.textContent = JSON.stringify({debts: state.debts, contacts: state.contacts}, null, 2);
+    var htmlStr = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    var blob = new Blob([htmlStr], {type:'text/html'});
+    downloadBlob(blob, 'barnabank.html');
+    showToast('Cópia atualizada baixada');
+  });
+  function downloadBlob(blob, filename){
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
+  // ---------- printable statement ----------
+  function openStatement(d){
+    var n = installments(d);
+    var issued = new Date();
+    var issuedStr = issued.toLocaleDateString('pt-BR') + ' às ' + issued.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+    var due = nextDueDate(d);
+
+    var sortedPayments = (d.payments||[]).slice().sort(function(a,b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    var rows = sortedPayments.length ? sortedPayments.map(function(p, idx){
+      return '<tr>' +
+        '<td>' + (idx+1) + '</td>' +
+        '<td>' + fmtDate(p.date) + '</td>' +
+        '<td>' + money.format(p.amount) + '</td>' +
+        '<td><span class="pill pill-paid">Recebido</span></td>' +
+      '</tr>';
+    }).join('') : '<tr><td colspan="4" style="color:#9a8f6a;font-style:italic;">Nenhum pagamento registrado ainda.</td></tr>';
+    if(!isPaid(d)){
+      rows += '<tr>' +
+        '<td>—</td>' +
+        '<td>' + (due ? fmtDate(toISO(due)) : '—') + '</td>' +
+        '<td>' + money.format(remaining(d)) + '</td>' +
+        '<td><span class="pill pill-pending">' + statusLabel(d) + '</span></td>' +
+      '</tr>';
+    }
+
+    var notesSection = d.notes
+      ? '<div class="s-notes"><div class="s-label">Anotações</div><p>' + escapeHtml(d.notes) + '</p></div>'
+      : '';
+
+    var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">' +
+      '<title>Extrato — ' + escapeHtml(d.name) + ' — BarnaBank</title>' +
+      '<link rel="preconnect" href="https://fonts.googleapis.com">' +
+      '<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Nunito:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">' +
+      '<style>' +
+        '*{box-sizing:border-box;}' +
+        'body{margin:0;background:#e9e4d6;font-family:"Inter",sans-serif;color:#232418;padding:36px 18px;}' +
+        '.sheet{max-width:680px;margin:0 auto;background:#fbf8f0;border:1px solid #d8d0ba;position:relative;padding:56px 56px 44px;box-shadow:0 18px 50px rgba(30,25,10,0.18);}' +
+        '.sheet::before{content:"";position:absolute;inset:14px;border:1px solid #cbbf9c;pointer-events:none;}' +
+        '.s-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}' +
+        '.s-brand{display:flex;align-items:center;gap:12px;}' +
+        '.s-mark{width:38px;height:38px;border-radius:9px;background:linear-gradient(155deg,#e8cd8a,#c9a24a 65%,#8a6c25);display:flex;align-items:center;justify-content:center;font-family:"Baloo 2",sans-serif;font-weight:700;color:#241a04;font-size:17px;}' +
+        '.s-brandname{font-family:"Baloo 2",sans-serif;font-weight:600;font-size:19px;letter-spacing:0.3px;}' +
+        '.s-doctype{text-align:right;font-family:"Nunito",sans-serif;font-style:italic;color:#8a7a4e;font-size:15px;}' +
+        '.s-rule{height:1px;background:linear-gradient(90deg,transparent,#c9a24a,transparent);margin:22px 0 26px;}' +
+        '.s-title{font-family:"Baloo 2",sans-serif;font-weight:600;font-size:28px;margin:0 0 4px;}' +
+        '.s-sub{font-family:"Nunito",sans-serif;font-size:17px;color:#6b6248;margin-bottom:28px;}' +
+        '.s-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:28px;}' +
+        '.s-label{font-size:10px;text-transform:uppercase;letter-spacing:0.8px;color:#9a8f6a;margin-bottom:5px;font-weight:600;}' +
+        '.s-val{font-family:"Baloo 2",sans-serif;font-size:16px;font-weight:600;color:#2a2410;}' +
+        '.s-val.accent{color:#a5822b;}' +
+        '.s-summary{background:#f3ecda;border:1px solid #e2d6b1;border-radius:2px;padding:20px 24px;margin-bottom:28px;display:grid;grid-template-columns:1fr 1fr;gap:16px;}' +
+        '.s-summary .row{display:flex;justify-content:space-between;font-size:14px;padding:4px 0;border-bottom:1px dotted #d6c99b;}' +
+        '.s-summary .row:last-child{border-bottom:none;}' +
+        '.s-summary .row b{font-family:"Nunito","Courier New",sans-serif;font-weight:600;}' +
+        'table{width:100%;border-collapse:collapse;margin-bottom:24px;}' +
+        'thead th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.6px;color:#9a8f6a;font-weight:600;padding:0 0 8px;border-bottom:1px solid #cbbf9c;}' +
+        'tbody td{padding:9px 0;border-bottom:1px solid #ece4cc;font-size:13.5px;font-family:"Nunito","Courier New",sans-serif;}' +
+        'tbody tr:last-child td{border-bottom:none;}' +
+        '.pill{font-family:"Inter",sans-serif;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;}' +
+        '.pill-paid{background:#dfeee3;color:#3f7d57;}' +
+        '.pill-pending{background:#f2e6cf;color:#a5822b;}' +
+        '.s-notes{margin-bottom:24px;}' +
+        '.s-notes p{font-family:"Nunito",sans-serif;font-size:16px;line-height:1.5;color:#3a3320;margin:4px 0 0;}' +
+        '.s-footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:36px;padding-top:18px;border-top:1px solid #d8d0ba;}' +
+        '.s-footer .issued{font-size:11px;color:#9a8f6a;}' +
+        '.s-seal{width:56px;height:56px;border-radius:50%;border:1.5px solid #c9a24a;display:flex;align-items:center;justify-content:center;font-family:"Baloo 2",sans-serif;font-size:11px;color:#a5822b;text-align:center;line-height:1.2;transform:rotate(-8deg);}' +
+        '.no-print{max-width:680px;margin:0 auto 18px;text-align:right;}' +
+        '.no-print button{font-family:"Inter";font-weight:600;font-size:13px;background:#232418;color:#fbf8f0;border:none;padding:10px 18px;border-radius:8px;cursor:pointer;}' +
+        '@media print{.no-print{display:none;} body{background:#fff;padding:0;} .sheet{box-shadow:none;border:none;margin:0;max-width:none;}}' +
+      '</style></head><body>' +
+        '<div class="no-print"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div>' +
+        '<div class="sheet">' +
+          '<div class="s-top">' +
+            '<div class="s-brand"><div class="s-mark">B</div><div class="s-brandname">BarnaBank</div></div>' +
+            '<div class="s-doctype">Extrato de Empréstimo</div>' +
+          '</div>' +
+          '<div class="s-rule"></div>' +
+          '<div class="s-title">' + escapeHtml(d.name) + '</div>' +
+          '<div class="s-sub">Referente ao empréstimo concedido em ' + fmtDate(d.date) + '</div>' +
+          '<div class="s-grid">' +
+            '<div><div class="s-label">Valor original</div><div class="s-val">' + money.format(d.principal) + '</div></div>' +
+            '<div><div class="s-label">Juros ao mês</div><div class="s-val accent">' + d.rate.toString().replace('.',',') + '%</div></div>' +
+            '<div><div class="s-label">Prazo</div><div class="s-val">' + d.days + ' dias · ' + n + 'x</div></div>' +
+          '</div>' +
+          '<div class="s-summary">' +
+            '<div class="row"><span>Valor total a receber</span><b>' + money.format(finalValue(d)) + '</b></div>' +
+            '<div class="row"><span>Lucro estimado</span><b>' + money.format(profit(d)) + '</b></div>' +
+            '<div class="row"><span>Já recebido</span><b>' + money.format(paidAmount(d)) + '</b></div>' +
+            '<div class="row"><span>Falta receber</span><b>' + money.format(remaining(d)) + '</b></div>' +
+          '</div>' +
+          '<table><thead><tr><th>Parcela</th><th>Valor</th><th>Pagamento</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+          notesSection +
+          '<div class="s-footer">' +
+            '<div class="issued">Documento gerado por BarnaBank em ' + issuedStr + '<br>Caráter informativo, uso pessoal entre as partes.</div>' +
+            '<div class="s-seal">BARNA<br>BANK</div>' +
+          '</div>' +
+        '</div>' +
+      '</body></html>';
+
+    var win = window.open('', '_blank');
+    if(!win){ alert('Seu navegador bloqueou a abertura da janela. Permita pop-ups para gerar o extrato.'); return; }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  }
+
+  // ---------- ranking PDF (estilo gacha/RPG, pra mostrar aos amigos) ----------
+  function openRanking(){
+    var byKey = {};
+    state.debts.forEach(function(d){
+      var key = nameKey(d.name);
+      if(!byKey[key]) byKey[key] = {name: d.name, loans: 0, principal: 0, received: 0, pending: 0, late: 0};
+      var g = byKey[key];
+      g.loans++;
+      g.principal += d.principal;
+      g.received += paidAmount(d);
+      g.pending += remaining(d);
+      if(statusOf(d) === 'atrasado') g.late++;
+    });
+    var people = Object.keys(byKey).map(function(k){ return byKey[k]; });
+    if(!people.length){ showToast('Cadastre pelo menos uma dívida para gerar o ranking.'); return; }
+    people.sort(function(a,b){ return b.received - a.received; });
+
+    var medals = ['🥇','🥈','🥉'];
+    var titles = ['Lenda Suprema','Herói de Ouro','Guardião Brilhante'];
+
+    var podium = people.slice(0,3).map(function(p, i){
+      return '<div class="podium-card rank-' + (i+1) + '">' +
+        '<div class="pc-medal">' + medals[i] + '</div>' +
+        '<div class="pc-avatar">' + initials(p.name) + '</div>' +
+        '<div class="pc-name">' + escapeHtml(p.name) + '</div>' +
+        '<div class="pc-title">' + titles[i] + '</div>' +
+        '<div class="pc-val">' + money.format(p.received) + '</div>' +
+        '<div class="pc-sub">pago até agora</div>' +
+      '</div>';
+    }).join('');
+
+    var restRows = people.slice(3).map(function(p, i){
+      return '<div class="rank-row">' +
+        '<div class="rr-pos">#' + (i+4) + '</div>' +
+        '<div class="rr-avatar">' + initials(p.name) + '</div>' +
+        '<div class="rr-name">' + escapeHtml(p.name) + '<span class="rr-sub">' + p.loans + (p.loans===1?' empréstimo':' empréstimos') + (p.late ? ' · ' + p.late + ' atrasado' + (p.late>1?'s':'') : ' · em dia ✨') + '</span></div>' +
+        '<div class="rr-val">' + money.format(p.received) + '</div>' +
+      '</div>';
+    }).join('');
+
+    var totalReceived = people.reduce(function(s,p){ return s+p.received; }, 0);
+    var issued = new Date();
+    var issuedStr = issued.toLocaleDateString('pt-BR');
+
+    var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">' +
+      '<title>Ranking — BarnaBank</title>' +
+      '<link rel="preconnect" href="https://fonts.googleapis.com">' +
+      '<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">' +
+      '<style>' +
+        '*{box-sizing:border-box;}' +
+        'body{margin:0;font-family:"Nunito",sans-serif;color:#fff3d6;padding:32px 16px;' +
+          'background:radial-gradient(900px 500px at 15% -10%, rgba(255,214,120,0.25), transparent 60%),' +
+          'radial-gradient(700px 500px at 100% 10%, rgba(120,170,255,0.18), transparent 55%),' +
+          'linear-gradient(180deg,#1b1240,#0c0a24 60%, #070613);}' +
+        '.sheet{max-width:720px;margin:0 auto;position:relative;}' +
+        '.r-top{text-align:center;margin-bottom:6px;}' +
+        '.r-eyebrow{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#ffd67a;font-weight:700;}' +
+        '.r-title{font-family:"Baloo 2",sans-serif;font-size:38px;font-weight:800;margin:6px 0 2px;' +
+          'background:linear-gradient(155deg,#fff2c6,#ffd67a 55%,#f3a63c);-webkit-background-clip:text;background-clip:text;color:transparent;' +
+          'text-shadow:0 2px 24px rgba(255,214,120,0.35);}' +
+        '.r-sub{color:#b9aee0;font-size:13.5px;margin-bottom:26px;}' +
+        '.podium{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:30px;align-items:end;}' +
+        '.podium-card{border-radius:18px;padding:20px 12px 16px;text-align:center;position:relative;' +
+          'background:linear-gradient(165deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02));' +
+          'border:1px solid rgba(255,214,120,0.35);box-shadow:0 10px 30px rgba(0,0,0,0.35);}' +
+        '.podium-card.rank-1{transform:translateY(-14px);border-color:#ffd67a;box-shadow:0 14px 40px rgba(255,214,120,0.25);}' +
+        '.pc-medal{font-size:30px;margin-bottom:4px;}' +
+        '.pc-avatar{width:54px;height:54px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;' +
+          'font-family:"Baloo 2",sans-serif;font-weight:700;font-size:19px;color:#2a1a02;' +
+          'background:linear-gradient(155deg,#ffe9ad,#ffd67a 60%,#e0a83f);box-shadow:0 4px 14px rgba(255,214,120,0.4);}' +
+        '.pc-name{font-family:"Baloo 2",sans-serif;font-weight:700;font-size:16px;color:#fff3d6;}' +
+        '.pc-title{font-size:10.5px;color:#c9a24a;text-transform:uppercase;letter-spacing:0.6px;margin:2px 0 10px;}' +
+        '.pc-val{font-family:"Baloo 2",sans-serif;font-weight:800;font-size:18px;color:#ffe9ad;}' +
+        '.pc-sub{font-size:10.5px;color:#a599c9;margin-top:2px;}' +
+        '.rank-list{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:8px;margin-bottom:22px;}' +
+        '.rank-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;}' +
+        '.rank-row:nth-child(even){background:rgba(255,255,255,0.03);}' +
+        '.rr-pos{font-family:"Baloo 2",sans-serif;font-weight:700;color:#a599c9;width:28px;}' +
+        '.rr-avatar{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;' +
+          'font-family:"Baloo 2",sans-serif;font-weight:700;font-size:12.5px;color:#2a1a02;background:linear-gradient(155deg,#e7d9ff,#b9a2f0);}' +
+        '.rr-name{flex:1;font-weight:700;font-size:13.5px;color:#fff3d6;}' +
+        '.rr-sub{display:block;font-weight:500;font-size:11px;color:#a599c9;margin-top:2px;}' +
+        '.rr-val{font-family:"Baloo 2",sans-serif;font-weight:700;font-size:14px;color:#ffe9ad;}' +
+        '.r-footer-stat{text-align:center;margin-bottom:24px;}' +
+        '.r-footer-stat .fs-label{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:#a599c9;margin-bottom:6px;}' +
+        '.r-footer-stat .fs-val{font-family:"Baloo 2",sans-serif;font-size:26px;font-weight:800;color:#ffe9ad;}' +
+        '.r-footer{text-align:center;font-size:11px;color:#7a70a0;padding-top:14px;border-top:1px dashed rgba(255,255,255,0.12);}' +
+        '.no-print{max-width:720px;margin:0 auto 18px;text-align:right;}' +
+        '.no-print button{font-family:"Nunito",sans-serif;font-weight:700;font-size:13px;background:linear-gradient(155deg,#ffe9ad,#ffd67a);color:#2a1a02;border:none;padding:10px 18px;border-radius:20px;cursor:pointer;}' +
+        '@media print{.no-print{display:none;} body{padding:0;} }' +
+        '@media (max-width:560px){.podium{grid-template-columns:1fr;} .podium-card.rank-1{transform:none;}}' +
+      '</style></head><body>' +
+        '<div class="no-print"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div>' +
+        '<div class="sheet">' +
+          '<div class="r-top">' +
+            '<div class="r-eyebrow">✦ BarnaBank Presents ✦</div>' +
+            '<div class="r-title">Ranking dos Pagadores</div>' +
+            '<div class="r-sub">Gerado em ' + issuedStr + ' · quem mais honrou seus compromissos até agora</div>' +
+          '</div>' +
+          '<div class="podium">' + podium + '</div>' +
+          (restRows ? '<div class="rank-list">' + restRows + '</div>' : '') +
+          '<div class="r-footer-stat"><div class="fs-label">Total já recebido por todos</div><div class="fs-val">' + money.format(totalReceived) + '</div></div>' +
+          '<div class="r-footer">Documento gerado por BarnaBank · uso pessoal e divertido entre amigos 🎲</div>' +
+        '</div>' +
+      '</body></html>';
+
+    var win = window.open('', '_blank');
+    if(!win){ alert('Seu navegador bloqueou a abertura da janela. Permita pop-ups para gerar o ranking.'); return; }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  }
+  document.getElementById('btnRanking').addEventListener('click', openRanking);
+
+  // ---------- PWA manifest (best effort, works over http/https and many mobile browsers) ----------
+  try{
+    var manifest = {
+      name: "BarnaBank",
+      short_name: "BarnaBank",
+      description: "Controle pessoal de empréstimos entre amigos",
+      start_url: ".",
+      display: "standalone",
+      background_color: "#10152a",
+      theme_color: "#10152a",
+      icons: [{
+        src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2310152a'/%3E%3Ctext x='50' y='68' font-family='Georgia,serif' font-weight='700' font-size='58' fill='%23c9a24a' text-anchor='middle'%3EB%3C/text%3E%3C/svg%3E",
+        sizes: "100x100",
+        type: "image/svg+xml"
+      }]
+    };
+    var manifestBlob = new Blob([JSON.stringify(manifest)], {type:'application/manifest+json'});
+    document.getElementById('manifestLink').href = URL.createObjectURL(manifestBlob);
+  }catch(e){}
+
+  render();
+})();
+</script>
+
+</body>
+</html>
