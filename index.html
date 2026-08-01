@@ -227,8 +227,6 @@
   .history{margin-bottom:16px;}
   .history .hl{font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin-bottom:6px;}
   .history-list{display:flex;flex-direction:column;gap:4px;}
-  .history-row{display:flex;justify-content:space-between;font-family:'Nunito',sans-serif;font-size:12px;color:var(--muted);padding:4px 8px;background:var(--ink-2);border-radius:6px;}
-  .history-row b{color:var(--text);font-weight:600;}
   .history-empty{font-size:12px;color:var(--muted-2);font-style:italic;}
 
   .meta-row{display:flex;gap:22px;flex-wrap:wrap;margin-bottom:16px;font-size:12.5px;color:var(--muted);}
@@ -255,6 +253,7 @@
   .field textarea{resize:vertical;min-height:60px;font-family:'Inter';}
   .field input:focus, .field textarea:focus{outline:none;border-color:var(--gold);}
   .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  #settleOverlay .field-row .field label{min-height:32px;display:flex;align-items:flex-end;}
   .modal-actions{display:flex;gap:10px;margin-top:18px;justify-content:flex-end;}
   .err{color:var(--red);font-size:12px;margin-top:8px;min-height:14px;}
   .kbd-hint{font-size:11px;color:var(--muted-2);margin-top:14px;text-align:right;}
@@ -395,7 +394,7 @@
   </div>
   <button class="btn btn-ghost btn-sm" id="btnImportJson">Importar backup (.json)</button>
   <button class="btn btn-ghost btn-sm" id="btnRanking">🏆 Ranking em PDF</button>
-  <button class="btn btn-ghost btn-sm" id="btnExportHtml">Baixar cópia atualizada (.html)</button>
+  <button class="btn btn-ghost btn-sm" id="btnExportHtml" title="Dica: se abrir esse arquivo no mesmo navegador e ele mostrar dados antigos, adicione ?snapshot=1 no fim da URL para forçar os dados deste arquivo.">Baixar cópia atualizada (.html)</button>
   <input type="file" id="fileImport" accept="application/json" style="display:none;">
   <div class="foot-note">Os dados ficam salvos neste navegador automaticamente. Use os botões acima para ter uma cópia de segurança. Dica: no Chrome do celular, use "Adicionar à tela inicial" para abrir o BarnaBank como um app.</div>
 </footer>
@@ -603,9 +602,16 @@
     });
   }
 
+  function isSnapshotMode(){
+    try{
+      return new URLSearchParams(window.location.search).get('snapshot') === '1';
+    }catch(e){ return false; }
+  }
   function loadData(){
     var raw = null;
-    try{ raw = localStorage.getItem(STORAGE_KEY); }catch(e){}
+    if(!isSnapshotMode()){
+      try{ raw = localStorage.getItem(STORAGE_KEY); }catch(e){}
+    }
     var parsed = null;
     if(raw){
       try{ parsed = JSON.parse(raw); }catch(e){ parsed = null; }
@@ -1077,9 +1083,10 @@
         var val = parseFloat((amountInput.value || '').replace(',','.'));
         if(isNaN(val) || val <= 0){ showToast('Informe um valor válido.'); return; }
         var dt = dateInput.value || todayISO();
+        var isFuture = dt > todayISO();
         d.payments.push({date: dt, amount: val});
         render();
-        showToast('Pagamento de ' + money.format(val) + ' registrado');
+        showToast(isFuture ? '⚠️ Pagamento registrado com data futura (' + fmtDate(dt) + ')' : 'Pagamento de ' + money.format(val) + ' registrado');
       });
       amountInput.addEventListener('click', function(e){ e.stopPropagation(); });
       dateInput.addEventListener('click', function(e){ e.stopPropagation(); });
@@ -1300,6 +1307,10 @@
     if(!name){ formErr.textContent = isPayable ? 'Informe o nome da empresa ou pessoa.' : 'Informe o nome do amigo.'; return; }
     if(isNaN(principal) || principal <= 0){ formErr.textContent = 'Informe um valor válido.'; return; }
     if(!isPayable && (isNaN(rate) || rate < 0)){ formErr.textContent = 'Informe uma taxa de juros válida (pode ser 0 para sem juros).'; return; }
+    if(!isPayable && rate > 100){
+      var okHighRate = confirm('Taxa de ' + rate.toString().replace('.',',') + '% ao mês é bem acima do comum — o valor final pode ficar altíssimo. Quer continuar mesmo assim?');
+      if(!okHighRate) return;
+    }
     if(!date){ formErr.textContent = isPayable ? 'Informe quando a dívida começou.' : 'Informe a data do empréstimo.'; return; }
     if(isNaN(daysRaw) || daysRaw <= 0){ formErr.textContent = isPayable ? 'Informe um número de parcelas válido.' : 'Informe um prazo válido em dias.'; return; }
     if(!isPayable && phoneDigits && phoneDigits.length < 10){ formErr.textContent = 'Telefone incompleto — inclua DDD (ex: 11999998888).'; return; }
@@ -1592,17 +1603,28 @@
     reader.onload = function(){
       try{
         var data = JSON.parse(reader.result);
+        var rawDebts;
         if(Array.isArray(data)){
-          state.debts = migrateDebts(data);
+          rawDebts = data;
         } else if(data && Array.isArray(data.debts)){
-          state.debts = migrateDebts(data.debts);
+          rawDebts = data.debts;
           state.contacts = data.contacts || {};
         } else {
           throw new Error('formato inválido');
         }
+        var migrated = migrateDebts(rawDebts);
+        var valid = migrated.filter(function(d){
+          return d && typeof d.name === 'string' && d.name.trim() !== '' &&
+            typeof d.principal === 'number' && !isNaN(d.principal) && d.principal > 0 &&
+            typeof d.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.date);
+        });
+        var skipped = migrated.length - valid.length;
+        state.debts = valid;
         state.openId = null;
         render();
-        showToast('Backup importado com sucesso');
+        showToast(skipped > 0
+          ? 'Backup importado — ' + skipped + ' registro(s) inválido(s) foram ignorados'
+          : 'Backup importado com sucesso');
       }catch(err){
         alert('Não foi possível ler esse arquivo. Verifique se é um backup válido do BarnaBank.');
       }
