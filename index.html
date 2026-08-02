@@ -85,6 +85,12 @@
   .stat.gold .value{color:var(--gold-soft);}
   .stat.green .value{color:var(--green);}
   .smart-cards{margin-bottom:16px;}
+  .backup-banner{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    background:rgba(201,162,74,0.1);border:1px solid rgba(201,162,74,0.35);border-radius:12px;
+    padding:12px 16px;margin-bottom:18px;font-size:13px;color:var(--gold-soft);
+  }
+  .backup-banner .bb-actions{display:flex;gap:8px;flex-shrink:0;}
   .stat .value.sc-small{font-size:14.5px;line-height:1.4;}
 
   /* Chart */
@@ -322,10 +328,19 @@
       </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-ghost" id="btnSettings" title="Configurações">⚙️</button>
       <button class="btn btn-ghost" id="btnSimulator">🧮 Simular empréstimo</button>
       <button class="btn btn-primary" id="btnNew">+ Nova dívida</button>
     </div>
   </header>
+
+  <div class="backup-banner" id="backupBanner" style="display:none;">
+    <span id="backupBannerMsg"></span>
+    <div class="bb-actions">
+      <button class="btn btn-primary btn-sm" id="btnBannerExport">Exportar agora</button>
+      <button class="btn btn-ghost btn-sm" id="btnBannerDismiss">Agora não</button>
+    </div>
+  </div>
 
   <div class="filters" id="kindToggle" style="margin-bottom:16px;display:inline-flex;">
     <button data-k="receivable" class="active">💰 Me devem</button>
@@ -448,6 +463,7 @@
           </select>
         </div>
       </div>
+      <div class="formula-box" id="formFormula" style="display:none;"></div>
     </div>
     <div class="field-row">
       <div class="field">
@@ -528,6 +544,46 @@
   </div>
 </div>
 
+<div class="overlay" id="settingsOverlay">
+  <div class="modal" style="max-width:440px;">
+    <h2>⚙️ Configurações</h2>
+    <div class="field-row">
+      <div class="field">
+        <label>Moeda</label>
+        <select id="setCurrency" class="select" style="width:100%;">
+          <option value="BRL">Real (R$)</option>
+          <option value="USD">Dólar (US$)</option>
+          <option value="EUR">Euro (€)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Formato de data</label>
+        <select id="setDateFormat" class="select" style="width:100%;">
+          <option value="dmy">DD/MM/AAAA</option>
+          <option value="mdy">MM/DD/AAAA</option>
+          <option value="iso">AAAA-MM-DD</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Juros padrão ao criar dívida (% ao mês)</label>
+      <input type="number" id="setDefaultRate" step="0.01" min="0" placeholder="0">
+    </div>
+    <div class="field" style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+      <input type="checkbox" id="setConfirmDelete" style="width:16px;height:16px;">
+      <label style="margin-bottom:0;" for="setConfirmDelete">Pedir confirmação antes de excluir uma dívida</label>
+    </div>
+    <div class="field" style="display:flex;align-items:center;gap:10px;">
+      <input type="checkbox" id="setBackupReminder" style="width:16px;height:16px;">
+      <label style="margin-bottom:0;" for="setBackupReminder">Lembrar de fazer backup se eu passar tempo sem exportar</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnSettingsClose">Fechar</button>
+      <button class="btn btn-primary" id="btnSettingsSave">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="simOverlay">
   <div class="modal" style="max-width:440px;">
     <h2>🧮 Simulador de empréstimo</h2>
@@ -580,11 +636,50 @@
   "use strict";
 
   var STORAGE_KEY = "barnabank_debts_v3";
-  var money = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'});
+  var SETTINGS_KEY = "barnabank_settings_v1";
+  var LAST_EXPORT_KEY = "barnabank_last_export";
+  var BANNER_SNOOZE_KEY = "barnabank_backup_banner_snooze";
+
+  var DEFAULT_SETTINGS = {
+    currency: 'BRL',
+    dateFormat: 'dmy',
+    confirmDelete: true,
+    backupReminder: true,
+    defaultRate: 0
+  };
+  function loadSettings(){
+    try{
+      var raw = localStorage.getItem(SETTINGS_KEY);
+      if(raw){
+        var parsed = JSON.parse(raw);
+        var merged = {};
+        Object.keys(DEFAULT_SETTINGS).forEach(function(k){
+          merged[k] = (parsed[k] !== undefined) ? parsed[k] : DEFAULT_SETTINGS[k];
+        });
+        return merged;
+      }
+    }catch(e){}
+    return Object.assign({}, DEFAULT_SETTINGS);
+  }
+  function saveSettings(){
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }
+
+  var CURRENCY_LOCALE = {BRL:'pt-BR', USD:'en-US', EUR:'de-DE'};
+  var money;
+  function rebuildMoneyFormatter(){
+    var cur = settings.currency || 'BRL';
+    var locale = CURRENCY_LOCALE[cur] || 'pt-BR';
+    money = new Intl.NumberFormat(locale, {style:'currency', currency:cur});
+  }
   var fmtDate = function(iso){
     if(!iso) return '—';
     var p = iso.split('-');
-    return p[2]+'/'+p[1]+'/'+p[0].slice(2);
+    var yyyy = p[0], mm = p[1], dd = p[2];
+    var fmt = settings.dateFormat || 'dmy';
+    if(fmt === 'mdy') return mm+'/'+dd+'/'+yyyy.slice(2);
+    if(fmt === 'iso') return yyyy+'-'+mm+'-'+dd;
+    return dd+'/'+mm+'/'+yyyy.slice(2);
   };
   var todayISO = function(){ return new Date().toISOString().slice(0,10); };
   function pad2(n){ return (n<10?'0':'')+n; }
@@ -651,6 +746,8 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify({debts: state.debts, contacts: state.contacts}));
   }
 
+  var settings = loadSettings();
+  rebuildMoneyFormatter();
   var loaded = loadData();
   var state = {
     debts: loaded.debts,
@@ -1120,23 +1217,12 @@
       '<div class="detail-item"><div class="dl">Próximo vencimento</div><div class="dv">' + (due ? fmtDate(toISO(due)) : '—') + '</div></div>' +
       (d.discount > 0.005 ? '<div class="detail-item"><div class="dl">Desconto concedido</div><div class="dv" style="color:var(--red);">' + money.format(d.discount) + '</div></div>' : '');
 
-    var formulaBoxHtml = '';
-    if(!isPayable && d.rate > 0){
-      var rStr = d.rate.toString().replace('.',',') + '%';
-      var calc = d.interestType === 'simples'
-        ? money.format(d.principal) + ' × (1 + ' + rStr + ' × ' + n + ') = ' + money.format(finalValue(d))
-        : money.format(d.principal) + ' × (1 + ' + rStr + ')' + toSuperscript(n) + ' = ' + money.format(finalValue(d));
-      calc += '<br>' + money.format(finalValue(d)) + ' ÷ ' + n + ' parcela' + (n>1?'s':'') + ' = ' + money.format(installmentValue(d)) + '/parcela';
-      formulaBoxHtml = '<div class="formula-box"><div class="fl">Como chegamos nesse valor</div>' + calc + '</div>';
-    }
-
     inner.innerHTML =
       '<div class="progress-wrap">' +
         '<div class="progress-top"><span>Quitado</span><b>' + progressPct(d).toFixed(0) + '%</b></div>' +
         '<div class="progress-track"><div class="progress-fill" style="width:' + progressPct(d).toFixed(1) + '%;"></div></div>' +
       '</div>' +
       '<div class="detail-grid">' + detailItems + '</div>' +
-      formulaBoxHtml +
       '<div class="stamps">' + stampsHtml + '</div>' +
       notesHtml +
       (isPaid(d) ? '' :
@@ -1222,7 +1308,11 @@
     });
     inner.querySelector('[data-act="del"]').addEventListener('click', function(e){
       e.stopPropagation();
-      openDeleteModal(d);
+      if(settings.confirmDelete){
+        openDeleteModal(d);
+      } else {
+        performDelete(d);
+      }
     });
 
     body.appendChild(inner);
@@ -1295,7 +1385,29 @@
   var fPhone = document.getElementById('fPhone');
   var fNotes = document.getElementById('fNotes');
   var formErr = document.getElementById('formErr');
+  var formFormula = document.getElementById('formFormula');
   var currentFormKind = 'receivable';
+
+  function updateFormFormula(){
+    var isPayable = currentFormKind === 'payable';
+    var p = parseFloat(fPrincipal.value) || 0;
+    var r = fRate.value.trim() === '' ? 0 : (parseFloat(fRate.value) || 0);
+    var n = Math.max(1, parseInt(fInstallments.value,10) || 1);
+    if(isPayable || p <= 0 || r <= 0){
+      formFormula.style.display = 'none';
+      return;
+    }
+    var isSimples = fInterestType.value === 'simples';
+    var total = finalValue({principal:p, rate:r, installments:n, interestType: fInterestType.value});
+    var inst = total / n;
+    var rStr = r.toString().replace('.',',') + '%';
+    var calc = isSimples
+      ? money.format(p) + ' × (1 + ' + rStr + ' × ' + n + ') = ' + money.format(total)
+      : money.format(p) + ' × (1 + ' + rStr + ')' + toSuperscript(n) + ' = ' + money.format(total);
+    calc += '<br>' + money.format(total) + ' ÷ ' + n + ' parcela' + (n>1?'s':'') + ' = ' + money.format(inst) + '/parcela';
+    formFormula.innerHTML = '<div class="fl">Como vai ficar</div>' + calc;
+    formFormula.style.display = '';
+  }
 
   function setFormKind(kind){
     currentFormKind = kind === 'payable' ? 'payable' : 'receivable';
@@ -1309,11 +1421,16 @@
     fName.placeholder = isPayable ? 'Ex: Cartão Nubank' : 'Ex: Vinicius';
     lblPrincipal.textContent = isPayable ? 'Valor total da dívida (R$)' : 'Valor emprestado (R$)';
     lblDate.textContent = isPayable ? 'Data que a dívida começou' : 'Data do empréstimo';
+    updateFormFormula();
   }
   formKindToggle.addEventListener('click', function(e){
     var btn = e.target.closest('button[data-k]');
     if(!btn) return;
     setFormKind(btn.getAttribute('data-k'));
+  });
+  [fPrincipal, fRate, fInstallments, fInterestType].forEach(function(el){
+    el.addEventListener('input', updateFormFormula);
+    el.addEventListener('change', updateFormFormula);
   });
 
   // ---------- phone mask ----------
@@ -1351,7 +1468,7 @@
     setFormKind(debt ? debt.kind : state.viewKind);
     fName.value = debt ? debt.name : '';
     fPrincipal.value = debt ? debt.principal : '';
-    fRate.value = debt ? debt.rate : '';
+    fRate.value = debt ? debt.rate : (settings.defaultRate || '');
     fInterestType.value = debt ? (debt.interestType || 'composto') : 'composto';
     fDate.value = debt ? debt.date : todayISO();
     fInstallments.value = debt ? installments(debt) : 1;
@@ -1360,6 +1477,7 @@
     fPhone.value = contact ? formatPhoneDisplay(contact.phone) : '';
     fNotes.value = debt ? debt.notes : '';
     formErr.textContent = '';
+    updateFormFormula();
     overlay.classList.add('show');
     fName.focus();
   }
@@ -1415,6 +1533,35 @@
     render();
   }
   document.getElementById('btnSave').addEventListener('click', saveForm);
+
+  // ---------- settings modal ----------
+  var settingsOverlay = document.getElementById('settingsOverlay');
+  function openSettings(){
+    document.getElementById('setCurrency').value = settings.currency;
+    document.getElementById('setDateFormat').value = settings.dateFormat;
+    document.getElementById('setDefaultRate').value = settings.defaultRate;
+    document.getElementById('setConfirmDelete').checked = !!settings.confirmDelete;
+    document.getElementById('setBackupReminder').checked = !!settings.backupReminder;
+    settingsOverlay.classList.add('show');
+  }
+  function closeSettings(){ settingsOverlay.classList.remove('show'); }
+  document.getElementById('btnSettings').addEventListener('click', openSettings);
+  document.getElementById('btnSettingsClose').addEventListener('click', closeSettings);
+  settingsOverlay.addEventListener('click', function(e){ if(e.target === settingsOverlay) closeSettings(); });
+  document.getElementById('btnSettingsSave').addEventListener('click', function(){
+    settings.currency = document.getElementById('setCurrency').value;
+    settings.dateFormat = document.getElementById('setDateFormat').value;
+    var dr = parseFloat(document.getElementById('setDefaultRate').value);
+    settings.defaultRate = isNaN(dr) || dr < 0 ? 0 : dr;
+    settings.confirmDelete = document.getElementById('setConfirmDelete').checked;
+    settings.backupReminder = document.getElementById('setBackupReminder').checked;
+    saveSettings();
+    rebuildMoneyFormatter();
+    closeSettings();
+    render();
+    checkBackupReminder();
+    showToast('Configurações salvas');
+  });
 
   // ---------- profile modal ----------
   var profileOverlay = document.getElementById('profileOverlay');
@@ -1489,7 +1636,7 @@
       ? money.format(p) + ' × (1 + ' + rStr + ' × ' + n + ') = ' + money.format(total)
       : money.format(p) + ' × (1 + ' + rStr + ')' + toSuperscript(n) + ' = ' + money.format(total);
     formula += '<br>' + money.format(total) + ' ÷ ' + n + ' parcela' + (n>1?'s':'') + ' = ' + money.format(inst) + '/parcela';
-    document.getElementById('simFormula').innerHTML = formula;
+    document.getElementById('simFormula').innerHTML = '<div class="fl">Como chegamos nesse valor</div>' + formula;
   }
   function toSuperscript(n){
     var map = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
@@ -1515,6 +1662,15 @@
   var deleteOverlay = document.getElementById('deleteOverlay');
   var delName = document.getElementById('delName');
 
+  function performDelete(debt){
+    var idx = state.debts.findIndex(function(x){ return x.id === debt.id; });
+    if(idx === -1) return;
+    var removed = state.debts[idx];
+    state.debts.splice(idx, 1);
+    if(state.openId === debt.id) state.openId = null;
+    render();
+    showUndoToast(removed, idx);
+  }
   function openDeleteModal(debt){
     state.pendingDeleteId = debt.id;
     delName.textContent = debt.name;
@@ -1524,14 +1680,9 @@
   document.getElementById('btnDelCancel').addEventListener('click', closeDeleteModal);
   deleteOverlay.addEventListener('click', function(e){ if(e.target === deleteOverlay) closeDeleteModal(); });
   document.getElementById('btnDelConfirm').addEventListener('click', function(){
-    var idx = state.debts.findIndex(function(x){ return x.id === state.pendingDeleteId; });
-    if(idx === -1){ closeDeleteModal(); return; }
-    var removed = state.debts[idx];
-    state.debts.splice(idx, 1);
-    if(state.openId === state.pendingDeleteId) state.openId = null;
+    var d = state.debts.find(function(x){ return x.id === state.pendingDeleteId; });
     closeDeleteModal();
-    render();
-    showUndoToast(removed, idx);
+    if(d) performDelete(d);
   });
 
   // ---------- undo delete (empilhado, até 3, mais recente embaixo) ----------
@@ -1647,6 +1798,7 @@
     var blob = new Blob([JSON.stringify({debts: state.debts, contacts: state.contacts}, null, 2)], {type:'application/json'});
     downloadBlob(blob, 'barnabank-backup-' + todayISO() + '.json');
     exportMenu.classList.remove('show');
+    markBackupDone();
     showToast('Backup exportado em JSON');
   });
 
@@ -1685,6 +1837,7 @@
     var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
     downloadBlob(blob, 'barnabank-' + todayISO() + '.csv');
     exportMenu.classList.remove('show');
+    markBackupDone();
     showToast('Backup exportado em CSV');
   });
   document.getElementById('btnImportJson').addEventListener('click', function(){
@@ -1741,6 +1894,50 @@
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
   }
+
+  // ---------- backup reminder ----------
+  var backupBanner = document.getElementById('backupBanner');
+  function daysSince(iso){
+    if(!iso) return null;
+    var t = new Date(); t.setHours(0,0,0,0);
+    var d = new Date(iso + 'T00:00:00');
+    return Math.round((t - d) / 86400000);
+  }
+  function markBackupDone(){
+    localStorage.setItem(LAST_EXPORT_KEY, todayISO());
+    localStorage.removeItem(BANNER_SNOOZE_KEY);
+    backupBanner.style.display = 'none';
+  }
+  function checkBackupReminder(){
+    if(!settings.backupReminder || state.debts.length === 0){
+      backupBanner.style.display = 'none';
+      return;
+    }
+    var snoozeUntil = localStorage.getItem(BANNER_SNOOZE_KEY);
+    if(snoozeUntil && snoozeUntil >= todayISO()){
+      backupBanner.style.display = 'none';
+      return;
+    }
+    var lastExport = localStorage.getItem(LAST_EXPORT_KEY);
+    var days = daysSince(lastExport);
+    if(days === null || days >= 14){
+      var msg = days === null
+        ? '💾 Você ainda não fez nenhum backup dos seus dados.'
+        : '💾 Já faz ' + days + ' dias sem backup dos seus dados.';
+      document.getElementById('backupBannerMsg').textContent = msg;
+      backupBanner.style.display = 'flex';
+    } else {
+      backupBanner.style.display = 'none';
+    }
+  }
+  document.getElementById('btnBannerExport').addEventListener('click', function(){
+    document.getElementById('btnExportJson').click();
+  });
+  document.getElementById('btnBannerDismiss').addEventListener('click', function(){
+    var snooze = new Date(); snooze.setDate(snooze.getDate() + 3);
+    localStorage.setItem(BANNER_SNOOZE_KEY, toISO(snooze));
+    backupBanner.style.display = 'none';
+  });
 
   // ---------- printable statement ----------
   function openStatement(d){
@@ -1985,6 +2182,7 @@
   }catch(e){}
 
   render();
+  checkBackupReminder();
 })();
 </script>
 
