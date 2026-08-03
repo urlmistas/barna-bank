@@ -112,7 +112,7 @@
   .page-tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--stroke);padding:4px;border-radius:12px;margin-bottom:20px;width:fit-content;}
   .page-tabs button{background:transparent;border:none;color:var(--muted);font-family:'Inter';font-size:13.5px;font-weight:700;padding:9px 16px;border-radius:9px;cursor:pointer;}
   .page-tabs button.active{background:linear-gradient(155deg,var(--gold-soft),var(--gold));color:#1b1404;}
-  .wallet-tx-row{display:flex;justify-content:space-between;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--muted);padding:6px 9px;background:var(--ink-2);border-radius:8px;gap:8px;margin-bottom:4px;}
+  .wallet-tx-row{display:flex;justify-content:space-between;align-items:center;font-family:'Nunito',sans-serif;font-size:12.5px;color:var(--muted);padding:6px 9px;background:var(--ink-2);border-radius:8px;gap:8px;margin-bottom:4px;}
   .wallet-tx-row .wtx-info{display:flex;flex-direction:column;}
   .wallet-tx-row .wtx-cat{color:var(--text);font-weight:600;font-family:'Inter';font-size:12.5px;}
   .wallet-tx-row .wtx-date{font-size:10.5px;color:var(--muted-2);}
@@ -120,6 +120,14 @@
   .wallet-tx-row .wtx-amount.entrada{color:var(--green);}
   .wallet-tx-row .wtx-del{background:transparent;border:none;color:var(--muted-2);cursor:pointer;font-size:14px;padding:2px 4px;}
   .wallet-tx-row .wtx-del:hover{color:var(--red);}
+  .cat-bar-row{margin-bottom:12px;}
+  .cat-bar-row .cbr-top{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px;}
+  .cat-bar-row .cbr-name{color:var(--text);font-weight:600;}
+  .cat-bar-row .cbr-val{font-family:'Nunito',sans-serif;color:var(--muted);}
+  .cat-bar-track{height:8px;background:var(--ink-2);border-radius:4px;overflow:hidden;}
+  .cat-bar-fill{height:100%;border-radius:4px;}
+  .cat-bar-fill.gasto{background:var(--red);}
+  .cat-bar-fill.entrada{background:var(--green);}
   .tx-type-toggle{display:flex;gap:6px;background:var(--card);border:1px solid var(--stroke);padding:4px;border-radius:10px;margin-bottom:14px;}
   .tx-type-toggle button{flex:1;background:transparent;border:none;color:var(--muted);font-family:'Inter';font-size:13px;font-weight:700;padding:9px;border-radius:7px;cursor:pointer;}
   .tx-type-toggle button.active.gasto{background:var(--red-soft);color:var(--red);}
@@ -275,7 +283,7 @@
 
   .notes-block{background:var(--ink-2);border:1px solid var(--stroke);border-radius:9px;padding:10px 12px;margin-bottom:14px;font-size:12.5px;color:var(--muted);line-height:1.5;}
   .notes-block b{color:var(--text);display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;color:var(--muted);}
-  .formula-box{margin-top:12px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);background:var(--ink-2);border:1px solid var(--stroke);border-radius:9px;padding:10px 12px;line-height:1.6;}
+  .formula-box{margin-top:12px;font-family:'Nunito',sans-serif;font-size:12px;color:var(--muted);background:var(--ink-2);border:1px solid var(--stroke);border-radius:9px;padding:10px 12px;line-height:1.6;}
   .formula-box .fl{font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted-2);margin-bottom:4px;}
 
   .history{margin-bottom:16px;}
@@ -379,11 +387,44 @@
   </header>
 
   <div class="page-tabs" id="pageTabs">
-    <button data-page="pessoas" class="active">👥 Pessoas</button>
+    <button data-page="dashboard" class="active">🏠 Dashboard</button>
+    <button data-page="pessoas">👥 Pessoas</button>
     <button data-page="carteiras">👛 Carteiras</button>
+    <button data-page="relatorios">📊 Relatórios</button>
   </div>
 
-  <div id="pagePessoas">
+  <div id="pageDashboard">
+    <div class="stats" style="grid-template-columns:1fr;margin-bottom:16px;">
+      <div class="stat gold"><div class="label">💰 Saldo total em carteiras</div><div class="value" id="dashTotalBalance" style="font-size:26px;">—</div></div>
+    </div>
+
+    <div class="stats" style="margin-bottom:16px;">
+      <div class="stat green"><div class="label">📈 Entradas este mês</div><div class="value" id="dashMonthIn">—</div></div>
+      <div class="stat"><div class="label">📉 Gastos este mês</div><div class="value" id="dashMonthOut" style="color:var(--red);">—</div></div>
+      <div class="stat gold"><div class="label">= Sobrou este mês</div><div class="value" id="dashMonthNet">—</div></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-head">
+        <div class="title">Evolução do saldo em carteiras</div>
+        <div class="sub" id="dashChartSub"></div>
+      </div>
+      <div id="dashChartHolder"></div>
+    </div>
+
+    <div class="chart-head" style="margin:22px 0 10px;">
+      <div class="title">📋 Empréstimos (Pessoas)</div>
+      <div class="sub"></div>
+    </div>
+    <div class="stats" id="dashSmartCards">
+      <div class="stat"><div class="label">📅 Próximo vencimento</div><div class="value sc-small" id="dashNextDue">—</div></div>
+      <div class="stat"><div class="label">⚠️ Em atraso</div><div class="value" id="dashLate">—</div></div>
+      <div class="stat gold"><div class="label">💰 Movimenta este mês</div><div class="value" id="dashDebtMonth">—</div></div>
+      <div class="stat green"><div class="label">🏆 Melhor pagador</div><div class="value sc-small" id="dashBest">—</div></div>
+    </div>
+  </div>
+
+  <div id="pagePessoas" style="display:none;">
   <div class="backup-banner" id="backupBanner" style="display:none;">
     <span id="backupBannerMsg"></span>
     <div class="bb-actions">
@@ -471,6 +512,47 @@
       </div>
     </div>
     <div class="list" id="walletList"></div>
+  </div>
+
+  <div id="pageRelatorios" style="display:none;">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <button class="btn btn-ghost btn-sm" id="relPrevMonth">‹</button>
+        <div style="font-weight:700;font-family:'Baloo 2',sans-serif;font-size:16px;min-width:150px;text-align:center;" id="relPeriodLabel">—</div>
+        <button class="btn btn-ghost btn-sm" id="relNextMonth">›</button>
+      </div>
+    </div>
+
+    <div class="stats" style="margin-bottom:16px;">
+      <div class="stat green"><div class="label">📈 Entradas</div><div class="value" id="relTotalIn">—</div></div>
+      <div class="stat"><div class="label">📉 Gastos</div><div class="value" id="relTotalOut" style="color:var(--red);">—</div></div>
+      <div class="stat gold"><div class="label">= Saldo do período</div><div class="value" id="relNet">—</div></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-head">
+        <div class="title">Gastos por categoria</div>
+        <div class="sub" id="relOutSub"></div>
+      </div>
+      <div id="relOutCategories"></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-head">
+        <div class="title">Entradas por categoria</div>
+        <div class="sub" id="relInSub"></div>
+      </div>
+      <div id="relInCategories"></div>
+    </div>
+
+    <div class="chart-head" style="margin:22px 0 10px;">
+      <div class="title">📋 Empréstimos no período</div>
+      <div class="sub"></div>
+    </div>
+    <div class="stats">
+      <div class="stat green"><div class="label">Recebido de amigos</div><div class="value" id="relLoanReceived">—</div></div>
+      <div class="stat"><div class="label">Pago em dívidas próprias</div><div class="value" id="relLoanPaid" style="color:var(--red);">—</div></div>
+    </div>
   </div>
 </div>
 
@@ -942,7 +1024,7 @@
     viewKind: 'receivable',
     editingId: null,
     pendingDeleteId: null,
-    page: 'pessoas',
+    page: 'dashboard',
     openWalletId: null
   };
 
@@ -1187,6 +1269,48 @@
   }
 
   // ---------- evolution chart ----------
+  function buildEvoChartSVG(points, gradId){
+    gradId = gradId || 'areaGrad';
+    var W = 640, H = 160, padL = 8, padR = 8, padT = 14, padB = 26;
+    var dates = points.map(function(p){ return p.date; });
+    var minD = dates[0], maxD = dates[dates.length-1];
+    var minTime = new Date(minD).getTime(), maxTime = new Date(maxD).getTime();
+    var span = Math.max(1, maxTime - minTime);
+    var vals = points.map(function(p){ return p.total; });
+    var maxVal = Math.max.apply(null, vals.concat([0]));
+    var minVal = Math.min.apply(null, vals.concat([0]));
+    var range = Math.max(1, maxVal - minVal);
+
+    function x(t){
+      if(points.length === 1) return (W-padL-padR)/2 + padL;
+      return padL + ((new Date(t).getTime() - minTime) / span) * (W - padL - padR);
+    }
+    function y(v){
+      return H - padB - ((v - minVal) / range) * (H - padT - padB);
+    }
+    var baselineY = y(0);
+
+    var linePts = points.map(function(p){ return x(p.date).toFixed(1) + ',' + y(p.total).toFixed(1); });
+    var lineStr = 'M ' + linePts.join(' L ');
+    var areaStr = lineStr + ' L ' + x(points[points.length-1].date).toFixed(1) + ',' + baselineY.toFixed(1) + ' L ' + x(points[0].date).toFixed(1) + ',' + baselineY.toFixed(1) + ' Z';
+
+    var dots = points.map(function(p){
+      return '<circle cx="'+x(p.date).toFixed(1)+'" cy="'+y(p.total).toFixed(1)+'" r="3" fill="#e8cd8a" stroke="#10152a" stroke-width="1"/>';
+    }).join('');
+
+    return '<svg class="evochart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">' +
+        '<defs><linearGradient id="'+gradId+'" x1="0" y1="0" x2="0" y2="1">' +
+          '<stop offset="0%" stop-color="#c9a24a" stop-opacity="0.35"/>' +
+          '<stop offset="100%" stop-color="#c9a24a" stop-opacity="0"/>' +
+        '</linearGradient></defs>' +
+        '<path d="'+areaStr+'" fill="url(#'+gradId+')" stroke="none"/>' +
+        '<path d="'+lineStr+'" fill="none" stroke="#e8cd8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+        dots +
+        '<text x="'+padL+'" y="'+(H-6)+'" font-size="10" fill="#8d94b8" font-family="Nunito, sans-serif">'+fmtDate(minD)+'</text>' +
+        '<text x="'+(W-padR)+'" y="'+(H-6)+'" font-size="10" fill="#8d94b8" font-family="Nunito, sans-serif" text-anchor="end">'+fmtDate(maxD)+'</text>' +
+      '</svg>';
+  }
+
   function renderChart(){
     var holder = document.getElementById('chartHolder');
     var sub = document.getElementById('chartSub');
@@ -1206,43 +1330,7 @@
     var points = events.map(function(e){ cum += e.amount; return {date:e.date, total:cum}; });
 
     sub.textContent = money.format(cum) + (isPayable ? ' pagos até agora' : ' recebidos até agora');
-
-    var W = 640, H = 160, padL = 8, padR = 8, padT = 14, padB = 26;
-    var dates = points.map(function(p){ return p.date; });
-    var minD = dates[0], maxD = dates[dates.length-1];
-    var minTime = new Date(minD).getTime(), maxTime = new Date(maxD).getTime();
-    var span = Math.max(1, maxTime - minTime);
-    var maxVal = points[points.length-1].total;
-
-    function x(t){
-      if(points.length === 1) return (W-padL-padR)/2 + padL;
-      return padL + ((new Date(t).getTime() - minTime) / span) * (W - padL - padR);
-    }
-    function y(v){
-      return H - padB - (v / (maxVal || 1)) * (H - padT - padB);
-    }
-
-    var linePts = points.map(function(p){ return x(p.date).toFixed(1) + ',' + y(p.total).toFixed(1); });
-    var lineStr = 'M ' + linePts.join(' L ');
-    var areaStr = lineStr + ' L ' + x(points[points.length-1].date).toFixed(1) + ',' + (H-padB) + ' L ' + x(points[0].date).toFixed(1) + ',' + (H-padB) + ' Z';
-
-    var dots = points.map(function(p){
-      return '<circle cx="'+x(p.date).toFixed(1)+'" cy="'+y(p.total).toFixed(1)+'" r="3" fill="#e8cd8a" stroke="#10152a" stroke-width="1"/>';
-    }).join('');
-
-    var svg =
-      '<svg class="evochart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">' +
-        '<defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">' +
-          '<stop offset="0%" stop-color="#c9a24a" stop-opacity="0.35"/>' +
-          '<stop offset="100%" stop-color="#c9a24a" stop-opacity="0"/>' +
-        '</linearGradient></defs>' +
-        '<path d="'+areaStr+'" fill="url(#areaGrad)" stroke="none"/>' +
-        '<path d="'+lineStr+'" fill="none" stroke="#e8cd8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
-        dots +
-        '<text x="'+padL+'" y="'+(H-6)+'" font-size="10" fill="#8d94b8" font-family="Nunito, sans-serif">'+fmtDate(minD)+'</text>' +
-        '<text x="'+(W-padR)+'" y="'+(H-6)+'" font-size="10" fill="#8d94b8" font-family="Nunito, sans-serif" text-anchor="end">'+fmtDate(maxD)+'</text>' +
-      '</svg>';
-    holder.innerHTML = svg;
+    holder.innerHTML = buildEvoChartSVG(points, 'areaGradPessoas');
   }
 
   // ---------- list rendering ----------
@@ -2385,10 +2473,184 @@
     if(!btn) return;
     state.page = btn.getAttribute('data-page');
     document.querySelectorAll('#pageTabs button').forEach(function(b){ b.classList.toggle('active', b === btn); });
+    document.getElementById('pageDashboard').style.display = state.page === 'dashboard' ? '' : 'none';
     document.getElementById('pagePessoas').style.display = state.page === 'pessoas' ? '' : 'none';
     document.getElementById('pageCarteiras').style.display = state.page === 'carteiras' ? '' : 'none';
+    document.getElementById('pageRelatorios').style.display = state.page === 'relatorios' ? '' : 'none';
     if(state.page === 'carteiras') renderWalletsPage();
+    if(state.page === 'dashboard') renderDashboard();
+    if(state.page === 'relatorios') renderRelatorios();
   });
+
+  // ---------- relatórios ----------
+  var MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  var relState = {year: new Date().getFullYear(), month: new Date().getMonth()};
+
+  function renderCategoryBars(containerEl, type, y, m){
+    var byCat = {};
+    var total = 0;
+    state.transactions.forEach(function(t){
+      if(t.type !== type) return;
+      var dt = new Date(t.date + 'T00:00:00');
+      if(dt.getFullYear() !== y || dt.getMonth() !== m) return;
+      byCat[t.category] = (byCat[t.category] || 0) + t.amount;
+      total += t.amount;
+    });
+    var cats = Object.keys(byCat).map(function(c){ return {name: c, amount: byCat[c]}; });
+    cats.sort(function(a,b){ return b.amount - a.amount; });
+    if(!cats.length){
+      containerEl.innerHTML = '<div class="chart-empty">Nenhum lançamento nesse período.</div>';
+      return total;
+    }
+    var max = cats[0].amount;
+    containerEl.innerHTML = cats.map(function(c){
+      var pct = total > 0 ? (c.amount / total * 100) : 0;
+      var widthPct = max > 0 ? (c.amount / max * 100) : 0;
+      return '<div class="cat-bar-row"><div class="cbr-top"><span class="cbr-name">' + escapeHtml(c.name) + '</span><span class="cbr-val">' + money.format(c.amount) + ' · ' + pct.toFixed(0) + '%</span></div>' +
+        '<div class="cat-bar-track"><div class="cat-bar-fill ' + type + '" style="width:' + widthPct.toFixed(1) + '%;"></div></div></div>';
+    }).join('');
+    return total;
+  }
+
+  function renderRelatorios(){
+    var y = relState.year, m = relState.month;
+    document.getElementById('relPeriodLabel').textContent = MONTH_NAMES[m] + ' ' + y;
+
+    var totalOut = renderCategoryBars(document.getElementById('relOutCategories'), 'gasto', y, m);
+    var totalIn = renderCategoryBars(document.getElementById('relInCategories'), 'entrada', y, m);
+    document.getElementById('relTotalIn').textContent = money.format(totalIn);
+    document.getElementById('relTotalOut').textContent = money.format(totalOut);
+    var net = totalIn - totalOut;
+    var netEl = document.getElementById('relNet');
+    netEl.textContent = money.format(net);
+    netEl.style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
+
+    // comparação com o mês anterior (gastos)
+    var prevM = m === 0 ? 11 : m - 1, prevY = m === 0 ? y - 1 : y;
+    var prevOut = 0;
+    state.transactions.forEach(function(t){
+      if(t.type !== 'gasto') return;
+      var dt = new Date(t.date + 'T00:00:00');
+      if(dt.getFullYear() === prevY && dt.getMonth() === prevM) prevOut += t.amount;
+    });
+    var subEl = document.getElementById('relOutSub');
+    if(prevOut > 0){
+      var diffPct = (totalOut - prevOut) / prevOut * 100;
+      subEl.textContent = (diffPct >= 0 ? '▲ ' : '▼ ') + Math.abs(diffPct).toFixed(0) + '% vs mês anterior';
+      subEl.style.color = diffPct > 0 ? 'var(--red)' : 'var(--green)';
+    } else {
+      subEl.textContent = '';
+    }
+
+    // empréstimos no período
+    var loanReceived = 0, loanPaid = 0;
+    state.debts.forEach(function(d){
+      (d.payments || []).forEach(function(p){
+        var dt = new Date(p.date + 'T00:00:00');
+        if(dt.getFullYear() === y && dt.getMonth() === m){
+          if(d.kind === 'payable') loanPaid += p.amount; else loanReceived += p.amount;
+        }
+      });
+    });
+    document.getElementById('relLoanReceived').textContent = money.format(loanReceived);
+    document.getElementById('relLoanPaid').textContent = money.format(loanPaid);
+  }
+
+  document.getElementById('relPrevMonth').addEventListener('click', function(){
+    relState.month--;
+    if(relState.month < 0){ relState.month = 11; relState.year--; }
+    renderRelatorios();
+  });
+  document.getElementById('relNextMonth').addEventListener('click', function(){
+    relState.month++;
+    if(relState.month > 11){ relState.month = 0; relState.year++; }
+    renderRelatorios();
+  });
+
+  // ---------- dashboard ----------
+  function renderDashboard(){
+    document.getElementById('dashTotalBalance').textContent = money.format(totalWalletsBalance());
+
+    var now = new Date(); var y = now.getFullYear(), m = now.getMonth();
+    var monthIn = 0, monthOut = 0;
+    state.wallets.forEach(function(w){
+      walletEvents(w.id).forEach(function(e){
+        var dt = new Date(e.date);
+        if(dt.getFullYear() === y && dt.getMonth() === m){
+          if(e.kind === 'entrada') monthIn += e.amount; else monthOut += e.amount;
+        }
+      });
+    });
+    document.getElementById('dashMonthIn').textContent = money.format(monthIn);
+    document.getElementById('dashMonthOut').textContent = money.format(monthOut);
+    var net = monthIn - monthOut;
+    var netEl = document.getElementById('dashMonthNet');
+    netEl.textContent = money.format(net);
+    netEl.style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
+
+    // evolução do saldo em carteiras
+    var holder = document.getElementById('dashChartHolder');
+    var sub = document.getElementById('dashChartSub');
+    var events = [];
+    state.wallets.forEach(function(w){
+      walletEvents(w.id).forEach(function(e){ events.push({date: e.date, amount: e.kind === 'entrada' ? e.amount : -e.amount}); });
+    });
+    if(!events.length){
+      holder.innerHTML = '<div class="chart-empty">Assim que você tiver lançamentos ou pagamentos vinculados a carteiras, o gráfico aparece aqui.</div>';
+      sub.textContent = '';
+    } else {
+      events.sort(function(a,b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+      var cum = 0;
+      var points = events.map(function(e){ cum += e.amount; return {date: e.date, total: cum}; });
+      sub.textContent = 'Saldo atual: ' + money.format(cum);
+      holder.innerHTML = buildEvoChartSVG(points, 'areaGradDash');
+    }
+
+    // empréstimos (todas as pessoas, receivable + payable)
+    var pending = state.debts.filter(function(d){ return !isPaid(d); });
+    var withDue = pending.map(function(d){ return {d:d, due: nextDueDate(d)}; }).filter(function(x){ return x.due; });
+    withDue.sort(function(a,b){ return a.due - b.due; });
+    var dashNextDue = document.getElementById('dashNextDue');
+    if(withDue.length){
+      var item = withDue[0];
+      var diff = daysUntilDue(item.d);
+      var whenStr = diff < 0 ? Math.abs(diff) + 'd atrasado' : diff === 0 ? 'Hoje' : diff === 1 ? 'Amanhã' : 'em ' + diff + 'd';
+      var kindTag = item.d.kind === 'payable' ? ' (eu devo)' : '';
+      dashNextDue.textContent = item.d.name + kindTag + ' · ' + whenStr;
+    } else {
+      dashNextDue.textContent = 'Nada pendente 🎉';
+    }
+    var lateCount = pending.filter(function(d){ return statusOf(d) === 'atrasado'; }).length;
+    document.getElementById('dashLate').textContent = lateCount > 0 ? (lateCount + (lateCount===1?' dívida':' dívidas')) : '0';
+
+    var monthDebt = 0;
+    pending.forEach(function(d){
+      var due = nextDueDate(d);
+      if(due && due.getFullYear() === y && due.getMonth() === m){
+        monthDebt += (d.kind === 'payable' ? -1 : 1) * installmentValue(d);
+      }
+    });
+    var dashDebtMonth = document.getElementById('dashDebtMonth');
+    dashDebtMonth.textContent = money.format(monthDebt);
+    dashDebtMonth.style.color = monthDebt >= 0 ? 'var(--gold-soft)' : 'var(--red)';
+
+    var byKey = {};
+    state.debts.filter(function(d){ return d.kind === 'receivable'; }).forEach(function(d){
+      var key = nameKey(d.name);
+      if(!byKey[key]) byKey[key] = {name: d.name, late: 0, received: 0};
+      byKey[key].late += (statusOf(d) === 'atrasado' ? 1 : 0);
+      byKey[key].received += paidAmount(d);
+    });
+    var people = Object.keys(byKey).map(function(k){ return byKey[k]; });
+    var dashBest = document.getElementById('dashBest');
+    if(!people.length){
+      dashBest.textContent = '—';
+    } else {
+      people.sort(function(a,b){ if(a.late !== b.late) return a.late - b.late; return b.received - a.received; });
+      var best = people[0];
+      dashBest.textContent = best.name + (best.late === 0 ? ' ✓' : ' (' + best.late + ' atraso' + (best.late>1?'s':'') + ')');
+    }
+  }
 
   // ---------- carteiras (wallets) ----------
   function renderWalletsPage(){
@@ -2581,6 +2843,7 @@
 
   pruneOldTransactions();
   render();
+  renderDashboard();
   checkBackupReminder();
 })();
 </script>
