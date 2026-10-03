@@ -195,6 +195,30 @@
   .history-row b{color:var(--text);font-weight:700;}
   .history-row .hr-del{background:transparent;border:none;color:var(--muted-2);cursor:pointer;font-size:14px;line-height:1;padding:2px 4px;}
   .history-row .hr-del:hover{color:var(--red);}
+  .history-row > span{flex:1;min-width:0;}
+  .history-row .hr-tag{color:var(--muted-2);font-size:11px;}
+  .history-row .hr-edit{background:transparent;border:none;color:var(--muted-2);cursor:pointer;font-size:13px;line-height:1;padding:2px 4px;}
+  .history-row .hr-edit:hover{color:var(--gold);}
+  .stamp{font-size:10px;font-weight:700;color:var(--muted);font-family:'Nunito',sans-serif;}
+  .stamp.partial{background:linear-gradient(135deg,var(--green) 0 50%,transparent 50% 100%);border-color:var(--green);color:var(--text);}
+  .stamp.late{border-color:var(--red);color:var(--red);background:var(--red-soft);}
+  .stamp.late.partial{background:linear-gradient(135deg,var(--green) 0 50%,var(--red-soft) 50% 100%);}
+  .inst-list{margin:-4px 0 14px;font-family:'Nunito',sans-serif;font-size:12.5px;}
+  .inst-list summary{cursor:pointer;color:var(--muted);font-size:12px;padding:4px 0;user-select:none;}
+  .inst-row{display:grid;grid-template-columns:44px 72px 1fr auto;gap:2px 10px;align-items:center;padding:6px 9px;margin-top:4px;background:var(--ink-2);border-radius:8px;border-left:3px solid var(--stroke);color:var(--muted);}
+  .inst-row .ir-n{color:var(--text);font-weight:700;}
+  .inst-row .ir-val{color:var(--text);}
+  .inst-row .ir-st{font-weight:700;text-align:right;}
+  .inst-row .ir-det{grid-column:2 / -1;font-size:11.5px;}
+  .inst-row.st-paga{border-left-color:var(--green);} .inst-row.st-paga .ir-st{color:var(--green);}
+  .inst-row.st-parcial{border-left-color:var(--gold);} .inst-row.st-parcial .ir-st{color:var(--gold-soft);}
+  .inst-row.st-atrasada{border-left-color:var(--red);} .inst-row.st-atrasada .ir-st{color:var(--red);}
+  .pay-form .pf-info,.pay-form .pf-pending{flex-basis:100%;font-family:'Nunito',sans-serif;font-size:12.5px;color:var(--muted);line-height:1.5;}
+  .pay-form .pf-info b,.pay-form .pf-pending b{color:var(--text);}
+  .pay-form .pf-muted{color:var(--muted-2);font-size:11.5px;}
+  .pay-form .pf-pending{background:var(--red-soft);border:1px solid rgba(226,102,92,0.35);border-radius:10px;padding:8px 10px;}
+  .pay-form .pf-pend-row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-top:8px;}
+  .pay-form input.pf-pend-amount{width:130px;}
 
   .btn-whats{background:var(--whats);color:#062b16;}
   .btn-whats:hover{filter:brightness(1.08);}
@@ -606,6 +630,7 @@
           <select id="fInterestType" class="select" style="width:100%;">
             <option value="composto">Composto (padrão)</option>
             <option value="simples">Simples</option>
+            <option value="price">Tabela Price (juros só sobre o saldo)</option>
           </select>
         </div>
       </div>
@@ -621,6 +646,17 @@
         <input type="number" id="fDueDay" placeholder="Ex: 10" step="1" min="1" max="31">
       </div>
     </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Multa por atraso (%)</label>
+        <input type="number" id="fLateFee" placeholder="0 = sem multa" step="0.01" min="0">
+      </div>
+      <div class="field">
+        <label>Juros de mora (% ao mês)</label>
+        <input type="number" id="fLateInterest" placeholder="0 = sem mora" step="0.01" min="0">
+      </div>
+    </div>
+    <div class="field-hint" style="font-size:11.5px;color:var(--muted);margin:-6px 0 14px;">Só são cobrados sobre o valor de parcelas vencidas e não pagas. Deixe 0 para não cobrar.</div>
     <div id="receivableOnlyBlock2">
       <div class="field-row">
         <div class="field">
@@ -828,6 +864,7 @@
         <select id="simInterestType" class="select" style="width:100%;">
           <option value="composto">Composto (padrão)</option>
           <option value="simples">Simples</option>
+          <option value="price">Tabela Price (juros só sobre o saldo)</option>
         </select>
       </div>
     </div>
@@ -882,7 +919,8 @@
     return Object.assign({}, DEFAULT_SETTINGS);
   }
   function saveSettings(){
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
+    catch(e){ warnSaveFailed(e); }
   }
 
   var CURRENCY_LOCALE = {BRL:'pt-BR', USD:'en-US', EUR:'de-DE'};
@@ -901,7 +939,7 @@
     if(fmt === 'iso') return yyyy+'-'+mm+'-'+dd;
     return dd+'/'+mm+'/'+yyyy.slice(2);
   };
-  var todayISO = function(){ return new Date().toISOString().slice(0,10); };
+  var todayISO = function(){ return toISO(new Date()); };
   function pad2(n){ return (n<10?'0':'')+n; }
   function toISO(dateObj){ return dateObj.getFullYear()+'-'+pad2(dateObj.getMonth()+1)+'-'+pad2(dateObj.getDate()); }
   function nameKey(name){ return (name||'').trim().toLowerCase(); }
@@ -931,17 +969,6 @@
   function totalWalletsBalance(){
     return state.wallets.reduce(function(sum, w){ return sum + walletBalance(w.id); }, 0);
   }
-  function pruneOldTransactions(){
-    var cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - 3);
-    var cutoffISO = toISO(cutoff);
-    var before = state.transactions.length;
-    state.transactions = state.transactions.filter(function(t){ return t.date >= cutoffISO; });
-    var removed = before - state.transactions.length;
-    if(removed > 0){
-      showToast('🧹 ' + removed + ' lançamento' + (removed>1?'s':'') + ' de gasto/entrada com mais de 3 meses foi' + (removed>1?'ram':'') + ' removido' + (removed>1?'s':'') + ' do histórico local (empréstimos não são afetados)');
-    }
-  }
 
   function migrateDebts(arr){
     return (arr || []).map(function(d){
@@ -954,7 +981,9 @@
         d.payments = d.payments.map(function(dt){ return {date: dt, amount: instVal}; });
       }
       if(typeof d.notes !== 'string') d.notes = '';
-      if(d.interestType !== 'simples' && d.interestType !== 'composto') d.interestType = 'composto';
+      if(d.interestType !== 'simples' && d.interestType !== 'composto' && d.interestType !== 'price') d.interestType = 'composto';
+      if(typeof d.lateFeePct !== 'number' || isNaN(d.lateFeePct) || d.lateFeePct < 0) d.lateFeePct = 0;
+      if(typeof d.lateInterestPct !== 'number' || isNaN(d.lateInterestPct) || d.lateInterestPct < 0) d.lateInterestPct = 0;
       if(d.kind !== 'payable') d.kind = 'receivable';
       if(typeof d.discount !== 'number' || isNaN(d.discount)) d.discount = 0;
       if(!d.installments || isNaN(d.installments) || d.installments < 1){
@@ -1001,10 +1030,32 @@
     var transactions = Array.isArray(parsed.transactions) ? parsed.transactions : [];
     return {debts: migrateDebts(parsed.debts || []), contacts: contacts, wallets: wallets, transactions: transactions};
   }
+  var saveFailedWarned = false;
+  function warnSaveFailed(err){
+    if(saveFailedWarned) return;
+    saveFailedWarned = true;
+    var msg = '⚠️ Não consegui salvar neste navegador' + (err && err.name === 'QuotaExceededError' ? ' (armazenamento cheio)' : '') +
+      '. Exporte um backup JSON agora para não perder nada.';
+    if(typeof showToast === 'function') showToast(msg);
+    try{ console.error('BarnaBank: falha ao salvar', err); }catch(e){}
+  }
   function saveData(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      debts: state.debts, contacts: state.contacts, wallets: state.wallets, transactions: state.transactions
-    }));
+    invalidateSchedules();
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        debts: state.debts, contacts: state.contacts, wallets: state.wallets, transactions: state.transactions
+      }));
+      saveFailedWarned = false;
+    }catch(e){ warnSaveFailed(e); }
+  }
+  // backup completo: tudo que o app guarda
+  function buildBackup(){
+    return {
+      app: 'BarnaBank', version: 2, exportedAt: new Date().toISOString(),
+      debts: state.debts, contacts: state.contacts,
+      wallets: state.wallets, transactions: state.transactions,
+      settings: settings
+    };
   }
 
   var settings = loadSettings();
@@ -1029,11 +1080,16 @@
   };
 
   function installments(d){ return Math.max(1, d.installments || 1); }
+  // Valor total contratado (sem encargos de atraso)
   function finalValue(d){
     var n = installments(d);
-    var r = d.rate/100;
+    var r = (d.rate||0)/100;
     if(d.interestType === 'simples'){
       return d.principal * (1 + r * n);
+    }
+    if(d.interestType === 'price'){
+      if(r <= 0) return d.principal;
+      return n * (d.principal * r / (1 - Math.pow(1 + r, -n)));
     }
     return d.principal * Math.pow(1 + r, n);
   }
@@ -1041,17 +1097,10 @@
   function paidAmount(d){
     return (d.payments||[]).reduce(function(sum,p){ return sum + (p.amount||0); }, 0);
   }
-  function effectiveTotal(d){ return Math.max(0, finalValue(d) - (d.discount||0)); }
-  function remaining(d){ return Math.max(0, effectiveTotal(d) - paidAmount(d)); }
-  function profit(d){ return effectiveTotal(d) - d.principal; }
-  function isPaid(d){ return remaining(d) <= 0.005 && (paidAmount(d) > 0 || (d.discount||0) > 0); }
-  function progressPct(d){ return Math.max(0, Math.min(100, (paidAmount(d)/(effectiveTotal(d)||1))*100)); }
-  // how many installments-worth have effectively been covered (for stamps + due-date calc)
-  function installmentsCovered(d){
-    var n = installments(d);
-    var iv = installmentValue(d);
-    if(isPaid(d)) return n;
-    return Math.min(n, Math.floor((paidAmount(d)/iv) + 0.0001));
+  function round2(v){ return Math.round(v*100)/100; }
+  function daysBetweenISO(a, b){
+    var da = new Date(a + 'T00:00:00'), db = new Date(b + 'T00:00:00');
+    return Math.round((db - da)/86400000);
   }
   function daysInMonth(y,m){ return new Date(y, m+1, 0).getDate(); }
   function dueDateForInstallment(d, idx){
@@ -1063,12 +1112,158 @@
     var day = Math.min(d.dueDay || base.getDate(), daysInMonth(y,m));
     return new Date(y, m, day);
   }
+
+  // ---------- motor de parcelas ----------
+  // Reproduz todos os pagamentos em ordem de data e calcula, parcela por parcela,
+  // quanto foi pago, quanto falta e os encargos de atraso (multa + juros de mora).
+  // Tipos de pagamento:
+  //   mode 'target' → paga primeiro `pendingPart` das parcelas anteriores em atraso
+  //                   (pendentes), depois a parcela `target`; o que sobrar adianta as
+  //                   próximas parcelas e, no fim, abate atrasados; o resto vira crédito.
+  //   mode 'fifo' (ou pagamentos antigos sem mode) → abate da parcela mais antiga em aberto.
+  var EPS = 0.005;
+  var scheduleCache = null;
+  function invalidateSchedules(){ scheduleCache = null; }
+  function debtSchedule(d){
+    var today = todayISO();
+    if(!scheduleCache || scheduleCache.day !== today) scheduleCache = {day: today, map: {}};
+    var key = d.id + '|' + JSON.stringify([d.principal, d.rate, d.interestType, d.installments, d.date, d.dueDay, d.discount, d.lateFeePct, d.lateInterestPct, d.settledDate, d.payments]);
+    var hit = scheduleCache.map[d.id];
+    if(hit && hit.key === key) return hit.sched;
+    var sched = computeSchedule(d, today);
+    scheduleCache.map[d.id] = {key: key, sched: sched};
+    return sched;
+  }
+  function computeSchedule(d, asOf){
+    var n = installments(d);
+    var V = installmentValue(d);
+    var multaPct = Math.max(0, d.lateFeePct || 0);
+    var moraPct = Math.max(0, d.lateInterestPct || 0);
+    var hasPenalty = multaPct > 0 || moraPct > 0;
+    var insts = [];
+    for(var i=0;i<n;i++){
+      var due = dueDateForInstallment(d, i);
+      insts.push({i: i, due: due, dueISO: toISO(due), value: V, rem: V, paid: 0, pen: 0, penPaid: 0, multaDone: false, lastISO: null, touched: false, lastPayISO: null});
+    }
+    function accrue(inst, tISO){
+      if(!hasPenalty || tISO <= inst.dueISO) return;
+      if(inst.rem > EPS){
+        if(!inst.multaDone){ inst.pen += inst.rem * multaPct/100; inst.multaDone = true; }
+        var from = (inst.lastISO && inst.lastISO > inst.dueISO) ? inst.lastISO : inst.dueISO;
+        var days = daysBetweenISO(from, tISO);
+        if(days > 0) inst.pen += inst.rem * (moraPct/100/30) * days;
+      }
+      inst.lastISO = tISO;
+    }
+    function payInst(inst, amount, tISO){
+      if(amount <= 0) return 0;
+      accrue(inst, tISO);
+      var a = Math.min(amount, inst.pen);
+      inst.pen -= a; inst.penPaid += a; amount -= a;
+      var b = Math.min(amount, inst.rem);
+      inst.rem -= b; inst.paid += b; amount -= b;
+      if(a + b > 0){ inst.touched = true; inst.lastPayISO = tISO; }
+      return amount;
+    }
+    function payRange(from, to, amount, tISO){
+      for(var k=from;k<to && amount > EPS;k++) amount = payInst(insts[k], amount, tISO);
+      return amount;
+    }
+    // em qual data os encargos param de correr (dívida quitada c/ desconto)
+    var endISO = asOf;
+    if(d.settledDate) endISO = d.settledDate < asOf ? d.settledDate : asOf;
+    else if((d.discount||0) > EPS && (d.payments||[]).length){
+      endISO = (d.payments||[]).reduce(function(mx,p){ return p.date > mx ? p.date : mx; }, '0000-00-00');
+    }
+    var credit = 0;
+    var ordered = (d.payments||[]).map(function(p, idx){ return {p:p, idx:idx}; });
+    ordered.sort(function(a,b){ return a.p.date < b.p.date ? -1 : (a.p.date > b.p.date ? 1 : a.idx - b.idx); });
+    ordered.forEach(function(o){
+      var p = o.p, t = p.date, left = p.amount || 0;
+      if(p.mode === 'target' && typeof p.target === 'number'){
+        var tgt = Math.max(0, Math.min(n-1, p.target));
+        var pend = Math.min(left, Math.max(0, p.pendingPart || 0));
+        var pendLeft = payRange(0, tgt, pend, t);
+        left = left - pend + pendLeft;
+        left = payRange(tgt, n, left, t);  // parcela escolhida + adiantamento
+        left = payRange(0, tgt, left, t);  // sobrou depois da última? abate atrasados
+      } else {
+        left = payRange(0, n, left, t);
+      }
+      credit += left;
+    });
+    insts.forEach(function(inst){ accrue(inst, endISO); });
+    // desconto concedido na quitação
+    var disc = Math.max(0, d.discount || 0);
+    insts.forEach(function(inst){
+      if(disc <= EPS) return;
+      var a = Math.min(disc, inst.pen); inst.pen -= a; disc -= a;
+      var b = Math.min(disc, inst.rem); inst.rem -= b; disc -= b;
+      inst.discounted = (inst.discounted||0) + a + b;
+    });
+    var open = 0, penCharged = 0, overdue = 0, overdueCount = 0;
+    insts.forEach(function(inst){
+      inst.open = inst.rem + inst.pen;
+      if(inst.open <= EPS){ inst.open = 0; inst.rem = 0; inst.pen = 0; }
+      inst.late = inst.open > 0 && inst.dueISO < asOf;
+      inst.state = inst.open === 0 ? 'paga' : (inst.late ? 'atrasada' : (inst.touched ? 'parcial' : 'aberta'));
+      open += inst.open;
+      if(inst.late){ overdue += inst.open; overdueCount++; }
+    });
+    // encargos gerados = pagos + ainda devidos (o perdoado entra em d.discount)
+    penCharged = insts.reduce(function(s, inst){ return s + inst.penPaid + inst.pen; }, 0);
+    var firstOpen = null;
+    for(var k=0;k<n;k++){ if(insts[k].open > 0){ firstOpen = insts[k]; break; } }
+    // parcela "da vez" para o formulário: a primeira em aberto que não é uma parcial já vencida
+    var target = null;
+    for(var j=0;j<n;j++){
+      var it = insts[j];
+      if(it.open > 0 && !(it.touched && it.late)){ target = it; break; }
+    }
+    var pending = 0, pendingList = [];
+    insts.forEach(function(it){
+      if(it.open > 0 && (target === null || it.i < target.i)){ pending += it.open; pendingList.push(it); }
+    });
+    return {
+      insts: insts, open: round2(open), credit: round2(credit), penaltiesCharged: penCharged,
+      penaltiesOpen: insts.reduce(function(s,it){ return s + it.pen; }, 0),
+      overdue: overdue, overdueCount: overdueCount, firstOpen: firstOpen,
+      target: target, pending: pending, pendingList: pendingList
+    };
+  }
+  function effectiveTotal(d){ var s = debtSchedule(d); return Math.max(0, finalValue(d) + s.penaltiesCharged - (d.discount||0)); }
+  function remaining(d){ return debtSchedule(d).open; }
+  function creditOf(d){ return debtSchedule(d).credit; }
+  function profit(d){ return effectiveTotal(d) - d.principal; }
+  function isPaid(d){ return remaining(d) <= EPS && (paidAmount(d) > 0 || (d.discount||0) > 0); }
+  function progressPct(d){
+    var paid = Math.min(paidAmount(d), effectiveTotal(d)), total = paid + remaining(d);
+    return Math.max(0, Math.min(100, (paid/(total||1))*100));
+  }
+  function overdueAmount(d){ return debtSchedule(d).overdue; }
+  // valor que está "na mesa" agora: atrasado (se houver) ou a próxima parcela em aberto
+  function amountDueNow(d){
+    var s = debtSchedule(d);
+    if(s.overdue > 0) return s.overdue;
+    return s.firstOpen ? s.firstOpen.open : 0;
+  }
+  // quanto vence (em aberto) num dado mês, incluindo o que já está atrasado se for o mês atual
+  function openInMonth(d, y, m){
+    var s = debtSchedule(d), now = new Date(), isCurrent = now.getFullYear() === y && now.getMonth() === m;
+    return s.insts.reduce(function(sum, it){
+      if(it.open <= 0) return sum;
+      var sameMonth = it.due.getFullYear() === y && it.due.getMonth() === m;
+      return sum + ((sameMonth || (isCurrent && it.late)) ? it.open : 0);
+    }, 0);
+  }
+  // compatibilidade: quantas parcelas estão totalmente pagas
+  function installmentsCovered(d){
+    return debtSchedule(d).insts.filter(function(it){ return it.open === 0; }).length;
+  }
   function nextDueDate(d){
     if(isPaid(d)) return null;
-    var idx = installmentsCovered(d);
-    var n = installments(d);
-    if(idx >= n) idx = n-1;
-    return dueDateForInstallment(d, idx);
+    var s = debtSchedule(d);
+    return s.firstOpen ? s.firstOpen.due : null;
   }
   function daysUntilDue(d){
     var due = nextDueDate(d);
@@ -1090,11 +1285,12 @@
     var s = statusOf(d);
     var diff = daysUntilDue(d);
     if(s === 'pago') return (d.discount||0) > 0.005 ? 'Pago (c/ desconto)' : 'Pago';
-    if(s === 'atrasado') return Math.abs(diff) + (Math.abs(diff)===1 ? ' dia atrasado' : ' dias atrasado');
+    if(s === 'atrasado') return money.format(overdueAmount(d)) + ' atrasado · ' + Math.abs(diff) + 'd';
     if(s === 'hoje') return 'Vence hoje';
     if(s === 'embreve') return 'Vence em ' + diff + (diff===1?' dia':' dias');
     return 'Em dia';
   }
+  function interestTypeLabel(t){ return t === 'simples' ? 'simples' : (t === 'price' ? 'Tabela Price' : 'composto'); }
   function initials(name){
     var parts = name.trim().split(/\s+/);
     var s = parts[0] ? parts[0][0] : '?';
@@ -1111,12 +1307,15 @@
     var due = nextDueDate(d);
     var msg;
     var st = statusOf(d);
+    var sch = debtSchedule(d);
     if(st === 'atrasado'){
-      msg = 'Oi ' + d.name + ', tudo bem? Passando pra lembrar que sua parcela de ' + money.format(installmentValue(d)) + ' venceu em ' + fmtDate(toISO(due)) + ' e ainda está em aberto. Consegue acertar comigo? 🙂';
+      msg = 'Oi ' + d.name + ', tudo bem? Passando pra lembrar que ' +
+        (sch.overdueCount > 1 ? 'tem ' + sch.overdueCount + ' parcelas em aberto, somando ' : 'ficou em aberto ') +
+        money.format(sch.overdue) + ' (vencimento em ' + fmtDate(toISO(due)) + '). Consegue acertar comigo? Pode ser uma parte também 🙂';
     } else if(st === 'hoje'){
-      msg = 'Oi ' + d.name + ', tudo bem? Só passando pra lembrar que sua parcela de ' + money.format(installmentValue(d)) + ' vence hoje. Consegue enviar? 🙂';
+      msg = 'Oi ' + d.name + ', tudo bem? Só passando pra lembrar que sua parcela de ' + money.format(amountDueNow(d)) + ' vence hoje. Consegue enviar? 🙂';
     } else {
-      msg = 'Oi ' + d.name + ', tudo bem? Sua próxima parcela é de ' + money.format(installmentValue(d)) + (due ? (', vencimento em ' + fmtDate(toISO(due))) : '') + '. Qualquer coisa me avisa 🙂';
+      msg = 'Oi ' + d.name + ', tudo bem? Sua próxima parcela é de ' + money.format(amountDueNow(d)) + (due ? (', vencimento em ' + fmtDate(toISO(due))) : '') + '. Qualquer coisa me avisa 🙂';
     }
     return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
   }
@@ -1151,22 +1350,20 @@
       var diff = daysUntilDue(item.d);
       var whenStr = diff < 0 ? Math.abs(diff) + 'd atrasado' : diff === 0 ? 'Hoje' : diff === 1 ? 'Amanhã' : 'em ' + diff + 'd';
       scNextDue.textContent = item.d.name + ' · ' + whenStr;
-      scNextDue.title = money.format(installmentValue(item.d));
+      scNextDue.title = money.format(amountDueNow(item.d));
     } else {
       scNextDue.textContent = 'Nada pendente 🎉';
     }
 
     // em atraso
-    var lateCount = pending.filter(function(d){ return statusOf(d) === 'atrasado'; }).length;
-    document.getElementById('scLate').textContent = lateCount > 0 ? (lateCount + (lateCount===1?' dívida':' dívidas')) : '0';
+    var lateDebts = pending.filter(function(d){ return statusOf(d) === 'atrasado'; });
+    var lateSum = lateDebts.reduce(function(s, d){ return s + overdueAmount(d); }, 0);
+    document.getElementById('scLate').textContent = lateDebts.length > 0 ? (money.format(lateSum) + ' · ' + lateDebts.length + (lateDebts.length===1?' dívida':' dívidas')) : '0';
 
     // receber/pagar este mês
     var now = new Date(); var y = now.getFullYear(), m = now.getMonth();
     var monthTotal = 0;
-    pending.forEach(function(d){
-      var due = nextDueDate(d);
-      if(due && due.getFullYear() === y && due.getMonth() === m){ monthTotal += installmentValue(d); }
-    });
+    pending.forEach(function(d){ monthTotal += openInMonth(d, y, m); });
     document.getElementById('scMonth').textContent = money.format(monthTotal);
 
     // melhor pagador / mais cobrado
@@ -1208,7 +1405,7 @@
       var due = nextDueDate(d);
       return '<div class="due-item" data-id="'+d.id+'">' +
         '<div><div class="di-name">'+escapeHtml(d.name)+'</div><div class="di-sub">'+statusLabel(d)+' · venc. '+(due?fmtDate(toISO(due)):'—')+'</div></div>' +
-        '<div class="di-val">'+money.format(installmentValue(d))+'</div>' +
+        '<div class="di-val">'+money.format(amountDueNow(d))+'</div>' +
       '</div>';
     }
     function fillCol(id, arr){
@@ -1425,7 +1622,6 @@
 
   function buildCard(d){
     var n = installments(d);
-    var covered = installmentsCovered(d);
     var open = state.openId === d.id;
     var status = statusOf(d);
     var isPayable = d.kind === 'payable';
@@ -1442,7 +1638,13 @@
         '<div class="sub">' + (isPayable ? 'dívida desde ' : 'emprestado em ') + fmtDate(d.date) + '</div>' +
       '</div>' +
       '<div class="badge ' + status + '">' + statusLabel(d) + '</div>' +
-      '<div class="head-amount">' + money.format(installmentValue(d)) + '<br><span style="font-size:10px;color:var(--muted);font-weight:400;">por parcela</span></div>' +
+      (function(){
+        var sch = debtSchedule(d), val, lbl;
+        if(isPaid(d)){ val = installmentValue(d); lbl = 'por parcela'; }
+        else if(sch.overdue > 0){ val = sch.overdue; lbl = 'em atraso'; }
+        else { val = sch.firstOpen ? sch.firstOpen.open : installmentValue(d); lbl = (sch.firstOpen && sch.firstOpen.touched) ? 'falta na parcela' : 'próxima parcela'; }
+        return '<div class="head-amount">' + money.format(val) + '<br><span style="font-size:10px;color:var(--muted);font-weight:400;">' + lbl + '</span></div>';
+      })() +
       '<div class="chev">▾</div>';
     head.addEventListener('click', function(){
       state.openId = open ? null : d.id;
@@ -1455,13 +1657,63 @@
     var inner = document.createElement('div');
     inner.className = 'card-body-inner';
 
-    var stampsHtml = '';
-    for(var i=0;i<n;i++){ stampsHtml += '<div class="stamp' + (i < covered ? ' filled' : '') + '"></div>'; }
+    var sched = debtSchedule(d);
+    var STATE_LABEL = {paga: isPayable ? 'Paga' : 'Recebida', parcial: 'Parcial', atrasada: 'Em atraso', aberta: 'Em aberto'};
+    var stampsHtml = sched.insts.map(function(it){
+      var cls = it.state === 'paga' ? ' filled' : it.state === 'atrasada' ? (it.touched ? ' late partial' : ' late') : it.state === 'parcial' ? ' partial' : '';
+      var tip = 'Parcela ' + (it.i+1) + '/' + n + ' · venc. ' + fmtDate(it.dueISO) + ' · ' + STATE_LABEL[it.state] +
+        (it.open > 0 ? ' · falta ' + money.format(it.open) : '');
+      return '<div class="stamp' + cls + '" title="' + escapeHtml(tip) + '">' + (it.state === 'paga' ? '' : (it.i+1)) + '</div>';
+    }).join('');
+    var instRows = sched.insts.map(function(it){
+      var detail;
+      if(it.state === 'paga'){
+        detail = (it.lastPayISO ? (isPayable ? 'paga em ' : 'recebida em ') + fmtDate(it.lastPayISO) : 'quitada');
+        if(it.lastPayISO && it.lastPayISO > it.dueISO) detail += ' (com atraso)';
+        else if(it.lastPayISO && it.lastPayISO < it.dueISO && it.i > 0) detail += ' (adiantada)';
+      } else {
+        detail = 'falta ' + money.format(it.open);
+        if(it.paid > 0) detail += ' · já ' + (isPayable?'pago':'recebido') + ' ' + money.format(it.paid + it.penPaid);
+        if(it.pen > 0.005) detail += ' · encargos ' + money.format(it.pen);
+      }
+      return '<div class="inst-row st-' + it.state + '">' +
+        '<span class="ir-n">' + (it.i+1) + '/' + n + '</span>' +
+        '<span class="ir-due">' + fmtDate(it.dueISO) + '</span>' +
+        '<span class="ir-val">' + money.format(it.value) + '</span>' +
+        '<span class="ir-st">' + STATE_LABEL[it.state] + '</span>' +
+        '<span class="ir-det">' + detail + '</span>' +
+      '</div>';
+    }).join('');
+    var instListHtml = '<details class="inst-list"' + (n <= 6 ? ' open' : '') + '><summary>Ver parcelas (' + installmentsCovered(d) + '/' + n + ' quitadas)</summary>' + instRows + '</details>';
+
+    // formulário de pagamento
+    var tgt = sched.target;
+    var payInfoHtml = '';
+    if(tgt){
+      payInfoHtml = '<div class="pf-info">Parcela <b>' + (tgt.i+1) + '/' + n + '</b> · vence ' + fmtDate(tgt.dueISO) +
+        ' · em aberto <b>' + money.format(tgt.open) + '</b>' +
+        (tgt.pen > 0.005 ? ' <span class="pf-muted">(inclui ' + money.format(tgt.pen) + ' de encargos)</span>' : '') +
+        '<div class="pf-muted">Se pagar a mais, o excedente adianta as próximas parcelas.</div></div>';
+    }
+    var pendingHtml = '';
+    if(sched.pending > 0.005){
+      var pendNames = sched.pendingList.map(function(it){ return (it.i+1) + 'ª (' + money.format(it.open) + ')'; }).join(', ');
+      pendingHtml = '<div class="pf-pending">' +
+        '<div>⚠️ ' + (tgt ? 'Pendente de parcelas anteriores' : 'Em aberto') + ': <b>' + money.format(sched.pending) + '</b> <span class="pf-muted">— parcela' + (sched.pendingList.length>1?'s ':' ') + pendNames + '</span></div>' +
+        (tgt
+          ? '<div class="pf-pend-row"><button class="btn btn-ghost btn-sm" data-act="incluir-pendente" type="button">+ Incluir pendente neste pagamento</button>' +
+            '<div class="pf-field pf-pend-field" style="display:none;"><label>Quanto do pendente</label><input type="number" class="pf-pend-amount" step="0.01" min="0" max="' + sched.pending.toFixed(2) + '" value="' + sched.pending.toFixed(2) + '"></div></div>'
+          : '') +
+      '</div>';
+    }
 
     var sortedPayments = (d.payments||[]).slice().sort(function(a,b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
     var historyRows = sortedPayments.map(function(p){
       var realIdx = d.payments.indexOf(p);
-      return '<div class="history-row"><span>' + fmtDate(p.date) + (p.note ? ' · ' + escapeHtml(p.note) : '') + '</span><b>' + money.format(p.amount) + '</b>' +
+      var tag = '';
+      if(p.mode === 'target' && typeof p.target === 'number') tag = ' · parcela ' + (p.target+1) + (p.pendingPart > 0.005 ? ' + ' + money.format(p.pendingPart) + ' de pendente' : '');
+      return '<div class="history-row"><span>' + fmtDate(p.date) + (p.note ? ' · ' + escapeHtml(p.note) : '') + '<span class="hr-tag">' + tag + '</span></span><b>' + money.format(p.amount) + '</b>' +
+        '<button class="hr-edit" data-idx="' + realIdx + '" title="Editar este pagamento">✎</button>' +
         '<button class="hr-del" data-idx="' + realIdx + '" title="Remover este pagamento">✕</button></div>';
     }).join('');
     var historyHtml = historyRows
@@ -1477,7 +1729,7 @@
 
     var detailItems = '<div class="detail-item"><div class="dl">Valor original</div><div class="dv">' + money.format(d.principal) + '</div></div>';
     if(!isPayable){
-      detailItems += '<div class="detail-item"><div class="dl">Juros ao mês</div><div class="dv gold">' + d.rate.toString().replace('.',',') + '% <span style="font-size:10px;color:var(--muted);font-weight:400;">(' + (d.interestType==='simples'?'simples':'composto') + ')</span></div></div>';
+      detailItems += '<div class="detail-item"><div class="dl">Juros ao mês</div><div class="dv gold">' + d.rate.toString().replace('.',',') + '% <span style="font-size:10px;color:var(--muted);font-weight:400;">(' + interestTypeLabel(d.interestType) + ')</span></div></div>';
     }
     detailItems +=
       '<div class="detail-item"><div class="dl">' + (isPayable?'Total da dívida':'Total a receber') + '</div><div class="dv">' + money.format(finalValue(d)) + '</div></div>' +
@@ -1486,7 +1738,10 @@
       '<div class="detail-item"><div class="dl">' + (isPayable?'Falta pagar':'Falta receber') + '</div><div class="dv red">' + money.format(remaining(d)) + '</div></div>' +
       '<div class="detail-item"><div class="dl">Parcelas</div><div class="dv">' + n + 'x</div></div>' +
       '<div class="detail-item"><div class="dl">Próximo vencimento</div><div class="dv">' + (due ? fmtDate(toISO(due)) : '—') + '</div></div>' +
-      (d.discount > 0.005 ? '<div class="detail-item"><div class="dl">Desconto concedido</div><div class="dv" style="color:var(--red);">' + money.format(d.discount) + '</div></div>' : '');
+      (d.discount > 0.005 ? '<div class="detail-item"><div class="dl">Desconto concedido</div><div class="dv" style="color:var(--red);">' + money.format(d.discount) + '</div></div>' : '') +
+      (sched.overdue > 0 ? '<div class="detail-item"><div class="dl">Em atraso</div><div class="dv red">' + money.format(sched.overdue) + ' <span style="font-size:10px;color:var(--muted);font-weight:400;">(' + sched.overdueCount + ' parcela' + (sched.overdueCount>1?'s':'') + ')</span></div></div>' : '') +
+      ((d.lateFeePct || d.lateInterestPct) ? '<div class="detail-item"><div class="dl">Encargos de atraso</div><div class="dv">' + money.format(sched.penaltiesCharged) + ' <span style="font-size:10px;color:var(--muted);font-weight:400;">(multa ' + String(d.lateFeePct||0).replace('.',',') + '% + mora ' + String(d.lateInterestPct||0).replace('.',',') + '%/mês)</span></div></div>' : '') +
+      (sched.credit > 0.005 ? '<div class="detail-item"><div class="dl">' + (isPayable?'Paguei a mais':'Recebido a mais (crédito)') + '</div><div class="dv gold">' + money.format(sched.credit) + '</div></div>' : '');
 
     inner.innerHTML =
       '<div class="progress-wrap">' +
@@ -1495,14 +1750,16 @@
       '</div>' +
       '<div class="detail-grid">' + detailItems + '</div>' +
       '<div class="stamps">' + stampsHtml + '</div>' +
+      instListHtml +
       notesHtml +
       (isPaid(d) ? '' :
         '<div class="pay-form">' +
-          '<div class="pf-field"><label>' + (isPayable?'Valor pago':'Valor recebido') + '</label><input type="number" class="pf-amount" step="0.01" min="0.01" placeholder="'+ installmentValue(d).toFixed(2).replace('.',',') +'"></div>' +
+          payInfoHtml + pendingHtml +
+          '<div class="pf-field"><label>' + (tgt ? (isPayable?'Valor pago desta parcela':'Valor recebido desta parcela') : (isPayable?'Valor pago':'Valor recebido')) + '</label><input type="number" class="pf-amount" step="0.01" min="0" value="' + (tgt ? tgt.open : sched.pending).toFixed(2) + '"></div>' +
           '<div class="pf-field"><label>Data</label><input type="date" class="pf-date" value="' + todayISO() + '"></div>' +
           '<div class="pf-field"><label>Carteira</label><select class="pf-wallet select">' +
             '<option value="">— não afetar carteira —</option>' +
-            state.wallets.map(function(w){ return '<option value="'+w.id+'">' + (w.icon?w.icon+' ':'') + escapeHtml(w.name) + '</option>'; }).join('') +
+            state.wallets.map(function(w){ return '<option value="'+escapeHtml(w.id)+'">' + (w.icon?escapeHtml(w.icon)+' ':'') + escapeHtml(w.name) + '</option>'; }).join('') +
           '</select></div>' +
           '<button class="btn btn-primary btn-sm" data-act="registrar">Registrar pagamento</button>' +
         '</div>'
@@ -1524,25 +1781,83 @@
     var dateInput = inner.querySelector('.pf-date');
     var walletInput = inner.querySelector('.pf-wallet');
 
+    var pendBtn = inner.querySelector('[data-act="incluir-pendente"]');
+    var pendField = inner.querySelector('.pf-pend-field');
+    var pendInput = inner.querySelector('.pf-pend-amount');
+    var includePending = false;
+    if(pendBtn){
+      pendBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        includePending = !includePending;
+        pendField.style.display = includePending ? '' : 'none';
+        pendBtn.textContent = includePending ? '− Não incluir pendente' : '+ Incluir pendente neste pagamento';
+        if(includePending){ pendInput.focus(); pendInput.select(); }
+      });
+      pendInput.addEventListener('click', function(e){ e.stopPropagation(); });
+    }
+
     var registrarBtn = inner.querySelector('[data-act="registrar"]');
     if(registrarBtn){
       registrarBtn.addEventListener('click', function(e){
         e.stopPropagation();
         var val = parseFloat((amountInput.value || '').replace(',','.'));
-        if(isNaN(val) || val <= 0){ showToast('Informe um valor válido.'); return; }
+        if(isNaN(val) || val < 0) val = 0;
+        var pend = 0;
+        if(includePending && pendInput){
+          pend = parseFloat((pendInput.value || '').replace(',','.'));
+          if(isNaN(pend) || pend < 0){ showToast('Informe um valor válido para o pendente.'); return; }
+        }
+        if(val + pend <= 0){ showToast('Informe um valor válido.'); return; }
         var dt = dateInput.value || todayISO();
         var isFuture = dt > todayISO();
         var walletId = walletInput ? walletInput.value : '';
-        var payment = {date: dt, amount: val};
+        var before = debtSchedule(d);
+        var payment = {id: Date.now().toString(36) + Math.random().toString(36).slice(2,6), date: dt, amount: round2(val + pend)};
+        if(before.target){
+          payment.mode = 'target';
+          payment.target = before.target.i;
+          if(pend > 0) payment.pendingPart = round2(pend);
+        } else {
+          payment.mode = 'fifo';
+        }
         if(walletId) payment.walletId = walletId;
         d.payments.push(payment);
+        invalidateSchedules();
+        var after = debtSchedule(d);
+        // resumo do que aconteceu
+        var adiantadas = after.insts.filter(function(it){ return before.target && it.i > before.target.i && it.open === 0 && before.insts[it.i].open > 0; }).length;
+        var msg = isFuture ? '⚠️ Pagamento registrado com data futura (' + fmtDate(dt) + ')' : 'Pagamento de ' + money.format(payment.amount) + ' registrado';
+        if(adiantadas > 0) msg += ' · ' + adiantadas + ' parcela' + (adiantadas>1?'s':'') + ' adiantada' + (adiantadas>1?'s':'');
+        if(after.credit - before.credit > 0.005) msg += ' · ' + money.format(after.credit - before.credit) + ' a mais (crédito)';
+        if(before.target && after.insts[before.target.i].open > 0.005) msg += ' · faltam ' + money.format(after.insts[before.target.i].open) + ' desta parcela';
+        if(walletId) msg += ' (carteira atualizada)';
         render();
-        showToast(isFuture ? '⚠️ Pagamento registrado com data futura (' + fmtDate(dt) + ')' : 'Pagamento de ' + money.format(val) + ' registrado' + (walletId ? ' (carteira atualizada)' : ''));
+        showToast(msg);
       });
       amountInput.addEventListener('click', function(e){ e.stopPropagation(); });
       dateInput.addEventListener('click', function(e){ e.stopPropagation(); });
       if(walletInput) walletInput.addEventListener('click', function(e){ e.stopPropagation(); });
     }
+
+    inner.querySelectorAll('.hr-edit').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var p = d.payments[parseInt(btn.getAttribute('data-idx'),10)];
+        if(!p) return;
+        var v = prompt('Valor do pagamento (R$):', p.amount.toFixed(2).replace('.',','));
+        if(v === null) return;
+        var nv = parseFloat(v.indexOf(',') >= 0 ? v.replace(/\./g,'').replace(',','.') : v);
+        if(isNaN(nv) || nv <= 0){ showToast('Valor inválido — nada foi alterado.'); return; }
+        var dt = prompt('Data do pagamento (AAAA-MM-DD):', p.date);
+        if(dt === null) return;
+        dt = dt.trim();
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(dt) || isNaN(new Date(dt + 'T00:00:00'))){ showToast('Data inválida — use o formato AAAA-MM-DD.'); return; }
+        if(p.pendingPart > nv) p.pendingPart = nv;
+        p.amount = round2(nv); p.date = dt;
+        render();
+        showToast('Pagamento atualizado');
+      });
+    });
 
     inner.querySelector('[data-act="undo"]').addEventListener('click', function(e){
       e.stopPropagation();
@@ -1664,10 +1979,31 @@
   var fInterestType = document.getElementById('fInterestType');
   var fPhone = document.getElementById('fPhone');
   var fNotes = document.getElementById('fNotes');
+  var fLateFee = document.getElementById('fLateFee');
+  var fLateInterest = document.getElementById('fLateInterest');
   var formErr = document.getElementById('formErr');
   var formFormula = document.getElementById('formFormula');
   var currentFormKind = 'receivable';
 
+  function formulaHtml(p, r, n, type){
+    var total = finalValue({principal:p, rate:r, installments:n, interestType: type});
+    var inst = total / n;
+    var rStr = r.toString().replace('.',',') + '%';
+    if(type === 'price'){
+      return 'Parcela = ' + money.format(p) + ' × ' + rStr + ' ÷ (1 − (1 + ' + rStr + ')<sup>−' + n + '</sup>) = ' + money.format(inst) +
+        '<br>' + n + ' × ' + money.format(inst) + ' = ' + money.format(total) +
+        '<br><span style="opacity:.75">Juros só sobre o que ainda falta pagar (padrão de financiamentos).</span>';
+    }
+    var calc = type === 'simples'
+      ? money.format(p) + ' × (1 + ' + rStr + ' × ' + n + ') = ' + money.format(total)
+      : money.format(p) + ' × (1 + ' + rStr + ')' + toSuperscript(n) + ' = ' + money.format(total);
+    calc += '<br>' + money.format(total) + ' ÷ ' + n + ' parcela' + (n>1?'s':'') + ' = ' + money.format(inst) + '/parcela';
+    if(type !== 'simples' && n > 1 && r > 0){
+      var priceTotal = finalValue({principal:p, rate:r, installments:n, interestType:'price'});
+      calc += '<br><span style="opacity:.75">Na Tabela Price daria ' + money.format(priceTotal) + ' no total.</span>';
+    }
+    return calc;
+  }
   function updateFormFormula(){
     var isPayable = currentFormKind === 'payable';
     var p = parseFloat(fPrincipal.value) || 0;
@@ -1677,14 +2013,7 @@
       formFormula.style.display = 'none';
       return;
     }
-    var isSimples = fInterestType.value === 'simples';
-    var total = finalValue({principal:p, rate:r, installments:n, interestType: fInterestType.value});
-    var inst = total / n;
-    var rStr = r.toString().replace('.',',') + '%';
-    var calc = isSimples
-      ? money.format(p) + ' × (1 + ' + rStr + ' × ' + n + ') = ' + money.format(total)
-      : money.format(p) + ' × (1 + ' + rStr + ')' + toSuperscript(n) + ' = ' + money.format(total);
-    calc += '<br>' + money.format(total) + ' ÷ ' + n + ' parcela' + (n>1?'s':'') + ' = ' + money.format(inst) + '/parcela';
+    var calc = formulaHtml(p, r, n, fInterestType.value);
     formFormula.innerHTML = '<div class="fl">Como vai ficar</div>' + calc;
     formFormula.style.display = '';
   }
@@ -1756,6 +2085,8 @@
     var contact = state.contacts[nameKey(debt ? debt.name : '')];
     fPhone.value = contact ? formatPhoneDisplay(contact.phone) : '';
     fNotes.value = debt ? debt.notes : '';
+    fLateFee.value = debt && debt.lateFeePct ? debt.lateFeePct : '';
+    fLateInterest.value = debt && debt.lateInterestPct ? debt.lateInterestPct : '';
     formErr.textContent = '';
     updateFormFormula();
     overlay.classList.add('show');
@@ -1777,7 +2108,9 @@
     var name = fName.value.trim();
     var principal = parseFloat(fPrincipal.value);
     var rate = isPayable ? 0 : (fRate.value.trim() === '' ? 0 : parseFloat(fRate.value));
-    var interestType = isPayable ? 'composto' : (fInterestType.value === 'simples' ? 'simples' : 'composto');
+    var interestType = isPayable ? 'composto' : (fInterestType.value === 'simples' || fInterestType.value === 'price' ? fInterestType.value : 'composto');
+    var lateFeePct = fLateFee.value.trim() === '' ? 0 : parseFloat(fLateFee.value);
+    var lateInterestPct = fLateInterest.value.trim() === '' ? 0 : parseFloat(fLateInterest.value);
     var date = fDate.value;
     var installmentsRaw = fInstallments.value.trim() === '' ? 1 : parseInt(fInstallments.value, 10);
     var days = installmentsRaw > 0 ? installmentsRaw * 30 : 0;
@@ -1792,6 +2125,8 @@
       var okHighRate = confirm('Taxa de ' + rate.toString().replace('.',',') + '% ao mês é bem acima do comum — o valor final pode ficar altíssimo. Quer continuar mesmo assim?');
       if(!okHighRate) return;
     }
+    if(isNaN(lateFeePct) || lateFeePct < 0 || lateFeePct > 100){ formErr.textContent = 'Multa por atraso inválida (use de 0 a 100%).'; return; }
+    if(isNaN(lateInterestPct) || lateInterestPct < 0 || lateInterestPct > 100){ formErr.textContent = 'Juros de mora inválidos (use de 0 a 100% ao mês).'; return; }
     if(!date){ formErr.textContent = isPayable ? 'Informe quando a dívida começou.' : 'Informe a data do empréstimo.'; return; }
     if(isNaN(installmentsRaw) || installmentsRaw <= 0){ formErr.textContent = 'Informe um número de parcelas válido.'; return; }
     if(!isPayable && phoneDigits && phoneDigits.length < 10){ formErr.textContent = 'Telefone incompleto — inclua DDD (ex: 11999998888).'; return; }
@@ -1799,12 +2134,12 @@
 
     if(state.editingId){
       var d = state.debts.find(function(x){ return x.id === state.editingId; });
-      d.name = name; d.principal = principal; d.rate = rate; d.interestType = interestType; d.date = date; d.days = days; d.installments = installmentsRaw; d.dueDay = dueDay; d.notes = notes; d.kind = currentFormKind;
+      d.name = name; d.principal = principal; d.rate = rate; d.interestType = interestType; d.date = date; d.days = days; d.installments = installmentsRaw; d.dueDay = dueDay; d.notes = notes; d.kind = currentFormKind; d.lateFeePct = lateFeePct; d.lateInterestPct = lateInterestPct;
       showToast('Dívida atualizada');
     } else {
       state.debts.push({
         id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
-        name: name, principal: principal, date: date, days: days, installments: installmentsRaw, rate: rate, interestType: interestType, dueDay: dueDay, payments: [], notes: notes, kind: currentFormKind, discount: 0
+        name: name, principal: principal, date: date, days: days, installments: installmentsRaw, rate: rate, interestType: interestType, dueDay: dueDay, payments: [], notes: notes, kind: currentFormKind, discount: 0, lateFeePct: lateFeePct, lateInterestPct: lateInterestPct
       });
       showToast('Dívida adicionada');
     }
@@ -1903,7 +2238,6 @@
     var p = parseFloat(simPrincipal.value) || 0;
     var r = parseFloat(simRate.value) || 0;
     var n = Math.max(1, parseInt(simInstallments.value,10) || 1);
-    var isSimples = simInterestType.value === 'simples';
     var total = finalValue({principal:p, rate:r, installments:n, interestType: simInterestType.value});
     var inst = total / n;
     document.getElementById('simN').textContent = n + 'x';
@@ -1911,11 +2245,7 @@
     document.getElementById('simTotal').textContent = money.format(total);
     document.getElementById('simProfit').textContent = money.format(total - p);
 
-    var rStr = r.toString().replace('.',',') + '%';
-    var formula = isSimples
-      ? money.format(p) + ' × (1 + ' + rStr + ' × ' + n + ') = ' + money.format(total)
-      : money.format(p) + ' × (1 + ' + rStr + ')' + toSuperscript(n) + ' = ' + money.format(total);
-    formula += '<br>' + money.format(total) + ' ÷ ' + n + ' parcela' + (n>1?'s':'') + ' = ' + money.format(inst) + '/parcela';
+    var formula = formulaHtml(p, r, n, simInterestType.value);
     document.getElementById('simFormula').innerHTML = '<div class="fl">Como chegamos nesse valor</div>' + formula;
   }
   function toSuperscript(n){
@@ -2021,7 +2351,7 @@
     document.getElementById('settleNote').value = '';
     var settleWalletSel = document.getElementById('settleWallet');
     settleWalletSel.innerHTML = '<option value="">— não afetar carteira —</option>' +
-      state.wallets.map(function(w){ return '<option value="'+w.id+'">' + (w.icon?w.icon+' ':'') + escapeHtml(w.name) + '</option>'; }).join('');
+      state.wallets.map(function(w){ return '<option value="'+escapeHtml(w.id)+'">' + (w.icon?escapeHtml(w.icon)+' ':'') + escapeHtml(w.name) + '</option>'; }).join('');
     document.getElementById('settleErr').textContent = '';
     settleOverlay.classList.add('show');
   }
@@ -2039,11 +2369,12 @@
     var dt = document.getElementById('settleDate').value || todayISO();
     var walletId = document.getElementById('settleWallet').value;
     if(val > 0){
-      var payment = {date: dt, amount: val, note: note || 'Quitação com desconto'};
+      var payment = {date: dt, amount: val, mode: 'fifo', note: note || 'Quitação com desconto'};
       if(walletId) payment.walletId = walletId;
       d.payments.push(payment);
     }
     d.discount = (d.discount||0) + discountGiven;
+    d.settledDate = dt;
     closeSettleModal();
     render();
     showToast(discountGiven > 0.005 ? 'Dívida quitada com desconto de ' + money.format(discountGiven) : 'Dívida quitada');
@@ -2081,7 +2412,7 @@
   });
 
   document.getElementById('btnExportJson').addEventListener('click', function(){
-    var blob = new Blob([JSON.stringify({debts: state.debts, contacts: state.contacts}, null, 2)], {type:'application/json'});
+    var blob = new Blob([JSON.stringify(buildBackup(), null, 2)], {type:'application/json'});
     downloadBlob(blob, 'barnabank-backup-' + todayISO() + '.json');
     exportMenu.classList.remove('show');
     markBackupDone();
@@ -2141,20 +2472,51 @@
           rawDebts = data;
         } else if(data && Array.isArray(data.debts)){
           rawDebts = data.debts;
-          state.contacts = data.contacts || {};
         } else {
           throw new Error('formato inválido');
         }
-        var migrated = migrateDebts(rawDebts);
+        var migrated = migrateDebts(JSON.parse(JSON.stringify(rawDebts)));
         var valid = migrated.filter(function(d){
           return d && typeof d.name === 'string' && d.name.trim() !== '' &&
             typeof d.principal === 'number' && !isNaN(d.principal) && d.principal > 0 &&
             typeof d.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.date);
         });
+        valid.forEach(function(d){
+          if(!d.id) d.id = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+          d.payments = (d.payments||[]).filter(function(p){
+            return p && typeof p.amount === 'number' && !isNaN(p.amount) && p.amount > 0 && typeof p.date === 'string';
+          });
+        });
+        var hasWallets = data && !Array.isArray(data) && Array.isArray(data.wallets);
+        var hasTx = data && !Array.isArray(data) && Array.isArray(data.transactions);
+        var wallets = hasWallets ? data.wallets.filter(function(w){ return w && w.id && typeof w.name === 'string'; }) : null;
+        var txs = hasTx ? data.transactions.filter(function(t){
+          return t && typeof t.amount === 'number' && !isNaN(t.amount) && typeof t.date === 'string' && (t.type === 'gasto' || t.type === 'entrada');
+        }) : null;
         var skipped = migrated.length - valid.length;
+
+        var msg = 'Importar este backup vai SUBSTITUIR os dados atuais:\n\n' +
+          '• Dívidas: ' + state.debts.length + ' atuais → ' + valid.length + ' do arquivo\n' +
+          (hasWallets ? '• Carteiras: ' + state.wallets.length + ' → ' + wallets.length + '\n' : '• Carteiras: o arquivo não tem (as atuais serão mantidas)\n') +
+          (hasTx ? '• Lançamentos: ' + state.transactions.length + ' → ' + txs.length + '\n' : '• Lançamentos: o arquivo não tem (os atuais serão mantidos)\n') +
+          (skipped > 0 ? '\n' + skipped + ' registro(s) inválido(s) serão ignorados.\n' : '') +
+          '\nDica: exporte um backup do estado atual antes, por segurança. Continuar?';
+        if(!confirm(msg)) return;
+
         state.debts = valid;
+        if(data && !Array.isArray(data) && data.contacts && typeof data.contacts === 'object') state.contacts = data.contacts;
+        if(hasWallets) state.wallets = wallets;
+        if(hasTx) state.transactions = txs;
+        if(data && data.settings && typeof data.settings === 'object'){
+          Object.keys(DEFAULT_SETTINGS).forEach(function(k){
+            if(data.settings[k] !== undefined) settings[k] = data.settings[k];
+          });
+          saveSettings();
+          rebuildMoneyFormatter();
+        }
         state.openId = null;
         render();
+        renderAll();
         showToast(skipped > 0
           ? 'Backup importado — ' + skipped + ' registro(s) inválido(s) foram ignorados'
           : 'Backup importado com sucesso');
@@ -2167,7 +2529,8 @@
   });
   document.getElementById('btnExportHtml').addEventListener('click', function(){
     var seedEl = document.getElementById('seed-data');
-    seedEl.textContent = JSON.stringify({debts: state.debts, contacts: state.contacts}, null, 2);
+    // "<" vira \u003c para que uma tag de fechamento de script dentro de uma anotação não quebre o arquivo
+    seedEl.textContent = JSON.stringify(buildBackup(), null, 2).replace(/</g, '\\u003c');
     var htmlStr = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
     var blob = new Blob([htmlStr], {type:'text/html'});
     downloadBlob(blob, 'barnabank.html');
@@ -2243,12 +2606,15 @@
       '</tr>';
     }).join('') : '<tr><td colspan="4" style="color:#9a8f6a;font-style:italic;">Nenhum pagamento registrado ainda.</td></tr>';
     if(!isPaid(d)){
-      rows += '<tr>' +
-        '<td>—</td>' +
-        '<td>' + (due ? fmtDate(toISO(due)) : '—') + '</td>' +
-        '<td>' + money.format(remaining(d)) + '</td>' +
-        '<td><span class="pill pill-pending">' + statusLabel(d) + '</span></td>' +
-      '</tr>';
+      debtSchedule(d).insts.forEach(function(it){
+        if(it.open <= 0) return;
+        rows += '<tr>' +
+          '<td>' + (it.i+1) + '/' + n + '</td>' +
+          '<td>Parcela venc. ' + fmtDate(it.dueISO) + (it.pen > 0.005 ? ' (inclui ' + money.format(it.pen) + ' de encargos)' : '') + '</td>' +
+          '<td>' + money.format(it.open) + '</td>' +
+          '<td><span class="pill pill-pending">' + (it.late ? 'Em atraso' : (it.touched ? 'Parcial' : 'A vencer')) + '</span></td>' +
+        '</tr>';
+      });
     }
 
     var notesSection = d.notes
@@ -2307,7 +2673,7 @@
           '<div class="s-sub">' + (isPayable ? 'Referente à dívida contraída em ' : 'Referente ao empréstimo concedido em ') + fmtDate(d.date) + '</div>' +
           '<div class="s-grid">' +
             '<div><div class="s-label">Valor original</div><div class="s-val">' + money.format(d.principal) + '</div></div>' +
-            (isPayable ? '' : '<div><div class="s-label">Juros ao mês</div><div class="s-val accent">' + d.rate.toString().replace('.',',') + '% (' + (d.interestType==='simples'?'simples':'composto') + ')</div></div>') +
+            (isPayable ? '' : '<div><div class="s-label">Juros ao mês</div><div class="s-val accent">' + d.rate.toString().replace('.',',') + '% (' + interestTypeLabel(d.interestType) + ')</div></div>') +
             '<div><div class="s-label">Parcelas</div><div class="s-val">' + n + 'x</div></div>' +
           '</div>' +
           '<div class="s-summary">' +
@@ -2482,6 +2848,12 @@
     if(state.page === 'relatorios') renderRelatorios();
   });
 
+  function renderAll(){
+    if(state.page === 'carteiras') renderWalletsPage();
+    if(state.page === 'dashboard') renderDashboard();
+    if(state.page === 'relatorios') renderRelatorios();
+  }
+
   // ---------- relatórios ----------
   var MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   var relState = {year: new Date().getFullYear(), month: new Date().getMonth()};
@@ -2620,15 +2992,13 @@
     } else {
       dashNextDue.textContent = 'Nada pendente 🎉';
     }
-    var lateCount = pending.filter(function(d){ return statusOf(d) === 'atrasado'; }).length;
+    var lateDebtsD = pending.filter(function(d){ return statusOf(d) === 'atrasado'; });
+    var lateCount = lateDebtsD.length;
     document.getElementById('dashLate').textContent = lateCount > 0 ? (lateCount + (lateCount===1?' dívida':' dívidas')) : '0';
 
     var monthDebt = 0;
     pending.forEach(function(d){
-      var due = nextDueDate(d);
-      if(due && due.getFullYear() === y && due.getMonth() === m){
-        monthDebt += (d.kind === 'payable' ? -1 : 1) * installmentValue(d);
-      }
+      monthDebt += (d.kind === 'payable' ? -1 : 1) * openInMonth(d, y, m);
     });
     var dashDebtMonth = document.getElementById('dashDebtMonth');
     dashDebtMonth.textContent = money.format(monthDebt);
@@ -2676,7 +3046,7 @@
     var head = document.createElement('div');
     head.className = 'card-head';
     head.innerHTML =
-      '<div class="avatar">' + (w.icon || '👛') + '</div>' +
+      '<div class="avatar">' + escapeHtml(w.icon || '👛') + '</div>' +
       '<div class="who"><div class="name">' + escapeHtml(w.name) + '</div></div>' +
       '<div class="head-amount" style="' + (bal < 0 ? 'color:var(--red);' : 'color:var(--green);') + '">' + money.format(bal) + '</div>' +
       '<div class="chev">▾</div>';
@@ -2782,7 +3152,7 @@
   var currentTxType = 'entrada';
   function populateWalletSelect(preselectId){
     var sel = document.getElementById('txWallet');
-    sel.innerHTML = state.wallets.map(function(w){ return '<option value="' + w.id + '">' + (w.icon ? w.icon + ' ' : '') + escapeHtml(w.name) + '</option>'; }).join('');
+    sel.innerHTML = state.wallets.map(function(w){ return '<option value="' + escapeHtml(w.id) + '">' + (w.icon ? escapeHtml(w.icon) + ' ' : '') + escapeHtml(w.name) + '</option>'; }).join('');
     if(preselectId) sel.value = preselectId;
   }
   function populateCategoryList(){
@@ -2841,7 +3211,6 @@
     showToast((currentTxType === 'gasto' ? 'Gasto' : 'Entrada') + ' de ' + money.format(amount) + ' registrad' + (currentTxType === 'gasto' ? 'o' : 'a'));
   });
 
-  pruneOldTransactions();
   render();
   renderDashboard();
   checkBackupReminder();
