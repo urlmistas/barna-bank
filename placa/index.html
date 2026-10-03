@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#163a9a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Placa Fácil">
+<meta name="robots" content="noindex">
+<title>Placa Fácil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: uma coluna estreita; a placa Mercosul é o campo de busca e o centro da página.
+   Abaixo dela, o resultado como um "documento do veículo". Asfalto no escuro, concreto no claro. */
+:root{
+  --bg:#e9ebee;          /* concreto */
+  --surface:#f7f8fa;
+  --ink:#16191f;
+  --muted:#5b6270;
+  --line:#cfd3da;
+  --mercosul:#163a9a;    /* faixa azul da placa */
+  --signal:#f1c232;      /* amarelo de sinalização (FIPE) */
+  --signal-ink:#2a2306;
+  --ok:#1f7a4a;
+  --warn:#a3361f;
+  --plate:#ffffff;
+  --plate-ink:#111317;
+  --shadow:0 18px 40px -22px rgba(22,25,31,.45);
+  --display:'Saira Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
+  --body:'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15181d; --surface:#1d2128; --ink:#eef0f3; --muted:#9aa2b1; --line:#2d333d;
+    --mercosul:#2a52c9; --signal:#f1c232; --signal-ink:#2a2306; --ok:#5cc38b; --warn:#f08a6f;
+    --plate:#f4f5f2; --plate-ink:#111317; --shadow:0 22px 50px -24px rgba(0,0,0,.8);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15181d; --surface:#1d2128; --ink:#eef0f3; --muted:#9aa2b1; --line:#2d333d;
+  --mercosul:#2a52c9; --signal:#f1c232; --signal-ink:#2a2306; --ok:#5cc38b; --warn:#f08a6f;
+  --plate:#f4f5f2; --plate-ink:#111317; --shadow:0 22px 50px -24px rgba(0,0,0,.8);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5;
+  background-image:radial-gradient(color-mix(in srgb,var(--ink) 7%,transparent) 1px,transparent 1.2px);background-size:5px 5px;}
+.wrap{max-width:520px;margin:0 auto;padding-inline:16px;padding-block:28px 48px;display:flex;flex-direction:column;gap:28px;}
+
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.brand{font-family:var(--display);font-weight:700;font-size:1.65rem;letter-spacing:.01em;margin:0;line-height:1}
+.mode{font-size:.8rem;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.mode.live{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+
+/* ---------- a placa ---------- */
+form.search{display:flex;flex-direction:column;gap:14px}
+.plate{container-type:inline-size;position:relative;background:var(--plate);border-radius:3.2cqw;
+  border:.9cqw solid #1b1d22;box-shadow:var(--shadow),inset 0 0 0 .6cqw #fff;overflow:hidden;aspect-ratio:3.08/1;width:100%;
+  display:grid;grid-template-rows:23% 1fr;}
+.plate:focus-within{outline:3px solid var(--signal);outline-offset:4px}
+.band{background:var(--mercosul);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 3.2cqw;color:#fff}
+.band .mc{width:5.2cqw;height:5.2cqw;border-radius:50%;border:.45cqw solid #fff;opacity:.9;justify-self:start;position:relative}
+.band .mc::after{content:"";position:absolute;inset:22%;border-radius:50%;background:radial-gradient(#fff 30%,transparent 32%)}
+.band .country{font-family:var(--display);font-weight:600;font-size:5.6cqw;letter-spacing:.32em;padding-left:.32em;line-height:1}
+.flag{justify-self:end;width:7.4cqw;height:5.1cqw;background:#169b52;position:relative;border-radius:.4cqw}
+.flag::before{content:"";position:absolute;inset:12% 9%;background:#f7d117;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.flag::after{content:"";position:absolute;width:2.3cqw;height:2.3cqw;border-radius:50%;background:#21409a;left:50%;top:50%;transform:translate(-50%,-50%)}
+.plate-field{position:relative;display:flex;align-items:center;justify-content:center;padding-inline:7cqw 4cqw;min-width:0}
+.plate-field .tag{position:absolute;left:3.4cqw;bottom:2.8cqw;font-family:var(--display);font-weight:700;font-size:3.6cqw;color:var(--plate-ink);opacity:.85;letter-spacing:.06em}
+#placa{all:unset;box-sizing:border-box;width:100%;text-align:center;font-family:var(--display);font-weight:600;
+  font-size:22cqw;line-height:1;letter-spacing:.055em;color:var(--plate-ink);text-transform:uppercase;caret-color:var(--mercosul);
+  padding-top:.5cqw;font-variant-numeric:tabular-nums}
+#placa::placeholder{color:color-mix(in srgb,var(--plate-ink) 16%,transparent)}
+.hint{margin:0;font-size:.85rem;color:var(--muted);text-align:center}
+.hint.err{color:var(--warn)}
+
+button{font:inherit;cursor:pointer}
+.btn{border:0;border-radius:10px;padding:14px 18px;font-weight:700;font-size:1rem;background:var(--ink);color:var(--bg);
+  transition:transform .12s ease, opacity .12s}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.55;cursor:progress}
+.btn:focus-visible,.link:focus-visible,.chip:focus-visible,summary:focus-visible,input:focus-visible{outline:3px solid var(--signal);outline-offset:3px}
+.link{background:none;border:0;color:var(--ink);text-decoration:underline;text-underline-offset:3px;padding:0;font-weight:600}
+
+/* ---------- histórico ---------- */
+.recent{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.recent > span{font-size:.85rem;color:var(--muted);margin-right:2px}
+.chip{border:1.5px solid #1b1d22;border-top:5px solid var(--mercosul);background:var(--plate);color:var(--plate-ink);
+  font-family:var(--display);font-weight:600;font-size:1.05rem;letter-spacing:.06em;border-radius:5px;padding:1px 9px 2px}
+
+/* ---------- resultado ---------- */
+.result{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.result[hidden]{display:none}
+.r-head{padding:20px 20px 16px;border-bottom:1px dashed var(--line);display:flex;gap:16px;align-items:flex-end;justify-content:space-between;flex-wrap:wrap}
+.r-head .make{margin:0;font-size:.95rem;color:var(--muted);font-weight:600}
+.r-head h2{margin:2px 0 0;font-family:var(--display);font-weight:700;font-size:clamp(1.9rem,8vw,2.6rem);line-height:1.02;text-wrap:balance}
+.year{font-family:var(--display);font-weight:700;font-size:1.6rem;line-height:1;text-align:right}
+.year small{display:block;font-family:var(--body);font-size:.75rem;color:var(--muted);font-weight:500;margin-top:4px}
+.example-flag{margin:0;padding:8px 20px;background:color-mix(in srgb,var(--signal) 22%,var(--surface));font-size:.85rem;border-bottom:1px solid var(--line)}
+
+.alerts{display:flex;flex-wrap:wrap;gap:8px;padding:14px 20px 0}
+.pill{font-size:.82rem;font-weight:600;border-radius:999px;padding:4px 11px;border:1px solid}
+.pill.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent);background:color-mix(in srgb,var(--ok) 10%,transparent)}
+.pill.bad{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 50%,transparent);background:color-mix(in srgb,var(--warn) 10%,transparent)}
+
+dl.specs{margin:0;padding:16px 20px 4px;display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}
+dl.specs div{min-width:0}
+dl.specs dt{font-size:.78rem;color:var(--muted);font-weight:500}
+dl.specs dd{margin:1px 0 0;font-weight:600;overflow-wrap:anywhere}
+
+.fipe{margin:16px 20px 20px;border-radius:10px;background:var(--signal);color:var(--signal-ink);padding:14px 16px;display:flex;flex-direction:column;gap:4px;
+  background-image:repeating-linear-gradient(-45deg,transparent 0 14px,rgba(0,0,0,.05) 14px 28px)}
+.fipe .label{font-size:.85rem;font-weight:600}
+.fipe .value{font-family:var(--display);font-weight:700;font-size:clamp(1.9rem,9vw,2.7rem);line-height:1.05;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fipe .meta{font-size:.82rem;line-height:1.35}
+.fipe.missing{background:transparent;color:var(--muted);border:1px dashed var(--line);background-image:none}
+.fipe.missing .value{font-size:1.1rem;font-family:var(--body);font-weight:600}
+
+details.more{border-top:1px dashed var(--line)}
+details.more summary{padding:14px 20px;cursor:pointer;font-weight:600;font-size:.92rem;list-style:none;display:flex;justify-content:space-between}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::after{content:"+";font-weight:700}
+details.more[open] summary::after{content:"−"}
+details.more dl{padding-top:0}
+.r-foot{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid var(--line);font-size:.85rem;color:var(--muted)}
+
+.loading .plate{animation:scan 1.1s ease-in-out infinite}
+@keyframes scan{50%{box-shadow:var(--shadow),inset 0 0 0 .6cqw #fff,0 0 0 4px color-mix(in srgb,var(--signal) 70%,transparent)}}
+
+footer{font-size:.85rem;color:var(--muted);display:flex;flex-direction:column;gap:10px}
+footer details summary{cursor:pointer;font-weight:600;color:var(--ink)}
+.access{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.access label{font-size:.82rem;color:var(--muted);font-weight:600;margin-top:4px}
+.access label.check{display:flex;gap:8px;align-items:center;color:var(--ink);font-weight:500;font-size:.9rem}
+.access select{font:inherit;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.access input{font:inherit;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.access .row{display:flex;gap:10px;flex-wrap:wrap}
+footer p{margin:0}
+@media (prefers-reduced-motion: reduce){ .loading .plate{animation:none} .btn{transition:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 class="brand">Placa Fácil</h1>
+    <span class="mode" id="mode">Demonstração</span>
+  </header>
+
+  <form class="search" id="form" autocomplete="off" novalidate>
+    <label class="plate" for="placa" aria-label="Placa do veículo">
+      <div class="band" aria-hidden="true"><span class="mc"></span><span class="country">BRASIL</span><span class="flag"></span></div>
+      <div class="plate-field">
+        <span class="tag" aria-hidden="true">BR</span>
+        <input id="placa" name="placa" inputmode="text" maxlength="8" placeholder="ABC1D23" spellcheck="false" autocapitalize="characters" enterkeyhint="search">
+      </div>
+    </label>
+    <p class="hint" id="hint">Digite a placa no formato antigo (ABC-1234) ou Mercosul (ABC1D23).</p>
+    <button class="btn" id="go" type="submit">Consultar placa</button>
+    <div class="recent" id="recent" hidden></div>
+  </form>
+
+  <section class="result" id="result" hidden aria-live="polite"></section>
+
+  <footer>
+    <details id="cfg">
+      <summary>Configurar APIBrasil</summary>
+      <div class="access">
+        <p>Cole os dados do painel da APIBrasil. Eles ficam salvos só neste aparelho e vão direto para a APIBrasil, sem passar por nenhum outro lugar.</p>
+        <label for="bearer">Bearer token</label>
+        <input id="bearer" type="password" placeholder="eyJ0eXAiOi…" autocomplete="off">
+        <label for="device">DeviceToken do serviço de Veículos</label>
+        <input id="device" type="password" placeholder="Só no modo plano" autocomplete="off">
+        <label for="modo">Como você paga</label>
+        <select id="modo"><option value="device">Plano (DeviceToken)</option><option value="credito">Saldo de créditos</option></select>
+        <label class="check"><input id="homolog" type="checkbox" checked> Modo teste: dados fictícios, sem cobrança</label>
+        <div class="row"><button class="link" type="button" id="saveKey">Salvar</button><button class="link" type="button" id="forget">Apagar tokens</button><button class="link" type="button" id="clearHist">Limpar histórico</button></div>
+      </div>
+    </details>
+    <p>Mostra apenas dados do veículo; dados do proprietário são descartados. Não compartilhe este aparelho desbloqueado com o token salvo.</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  // Versão sem servidor: chama a APIBrasil direto deste aparelho (o gateway libera CORS).
+  var BASE = 'https://gateway.apibrasil.io/api/v2';
+
+  var $ = function(id){ return document.getElementById(id); };
+  var form = $('form'), input = $('placa'), hint = $('hint'), go = $('go'), result = $('result'), recentEl = $('recent');
+  var HINT = hint.textContent;
+
+  function store(k, v){ try{ if(v === undefined) return localStorage.getItem(k); if(v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); }catch(e){ return null; } }
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  function cfg(){ return {bearer: store('pf_bearer') || '', device: store('pf_device') || '', modo: store('pf_modo') || 'device', homolog: store('pf_homolog') !== '0'}; }
+  var live;
+  function refreshMode(){
+    var c = cfg();
+    live = !!c.bearer && (c.modo === 'credito' || !!c.device);
+    $('mode').textContent = !live ? 'Demonstração' : (c.homolog ? 'Modo teste' : 'Conectado');
+    $('mode').classList.toggle('live', live && !c.homolog);
+  }
+  (function fill(){ var c = cfg(); $('bearer').value = c.bearer; $('device').value = c.device; $('modo').value = c.modo; $('homolog').checked = c.homolog; })();
+  refreshMode();
+  $('saveKey').addEventListener('click', function(){
+    store('pf_bearer', $('bearer').value.trim().replace(/^Bearer\s+/i,'') || null);
+    store('pf_device', $('device').value.trim() || null);
+    store('pf_modo', $('modo').value);
+    store('pf_homolog', $('homolog').checked ? '1' : '0');
+    refreshMode();
+    hintMsg(live ? 'Configuração salva neste aparelho.' : 'Faltou o Bearer token' + ($('modo').value === 'device' ? ' ou o DeviceToken.' : '.'), !live);
+  });
+  $('forget').addEventListener('click', function(){
+    ['pf_bearer','pf_device'].forEach(function(k){ store(k, null); });
+    $('bearer').value = ''; $('device').value = ''; refreshMode(); hintMsg('Tokens apagados deste aparelho.');
+  });
+  $('clearHist').addEventListener('click', function(){ store('pf_hist', null); renderRecent(); hintMsg('Histórico apagado.'); });
+
+  // ---------- placa ----------
+  function clean(v){ return (v||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,7); }
+  function valid(p){ return /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(p); }
+  function pretty(p){ return /^[A-Z]{3}[0-9]{4}$/.test(p) ? p.slice(0,3) + '-' + p.slice(3) : p; }
+  input.addEventListener('input', function(){
+    var p = clean(input.value);
+    input.value = pretty(p);
+    hintMsg(HINT);
+  });
+  // mantém os 7 caracteres dentro da placa, qualquer que seja a fonte carregada
+  var measureCtx = document.createElement('canvas').getContext('2d');
+  function fitPlate(){
+    var box = input.parentNode, avail = box.clientWidth - parseFloat(getComputedStyle(box).paddingLeft) - parseFloat(getComputedStyle(box).paddingRight);
+    if(avail <= 0) return;
+    var cs = getComputedStyle(input), base = box.clientWidth * 0.22, text = input.value || input.placeholder;
+    measureCtx.font = cs.fontWeight + ' ' + base + 'px ' + cs.fontFamily;
+    var w = measureCtx.measureText(text).width + base * 0.055 * text.length;
+    input.style.fontSize = Math.min(base, base * (avail * 0.96) / w) + 'px';
+  }
+  input.addEventListener('input', fitPlate);
+  window.addEventListener('resize', fitPlate);
+  try{ document.fonts.ready.then(fitPlate); }catch(e){}
+  fitPlate();
+  function hintMsg(t, isErr){ hint.textContent = t; hint.classList.toggle('err', !!isErr); }
+
+  // ---------- histórico ----------
+  function hist(){ try{ return JSON.parse(store('pf_hist') || '[]'); }catch(e){ return []; } }
+  function pushHist(p){ var h = hist().filter(function(x){ return x !== p; }); h.unshift(p); store('pf_hist', JSON.stringify(h.slice(0,6))); renderRecent(); }
+  function renderRecent(){
+    var h = hist();
+    recentEl.hidden = !h.length;
+    recentEl.innerHTML = h.length ? '<span>Recentes</span>' + h.map(function(p){ return '<button type="button" class="chip" data-p="' + esc(p) + '">' + esc(pretty(p)) + '</button>'; }).join('') : '';
+  }
+  recentEl.addEventListener('click', function(e){
+    var b = e.target.closest('.chip'); if(!b) return;
+    input.value = pretty(b.getAttribute('data-p')); consultar();
+  });
+
+  // ---------- leitura flexível da resposta ----------
+  function unwrap(r){ if(!r || typeof r !== 'object') return r; return r.response || r.data || r; }
+  function flat(obj, out, depth){
+    out = out || {}; depth = depth || 0;
+    if(!obj || typeof obj !== 'object' || depth > 2) return out;
+    Object.keys(obj).forEach(function(k){
+      var v = obj[k];
+      if(v === null || v === '' || v === undefined) return;
+      if(Array.isArray(v)){ if(v.length && typeof v[0] !== 'object') out[k] = v.join(', '); else if(v.length) flat(v[0], out, depth+1); return; }
+      if(typeof v === 'object'){ flat(v, out, depth+1); return; }
+      if(!(k in out)) out[k] = v;
+    });
+    return out;
+  }
+  function norm(k){ return k.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,''); }
+  var OWNER = /propriet|possuidor|arrendat|cpf|cnpj|documento|endereco|logradouro|bairro|telefone|celular|email|^cep$|^nome$|nomeproprietario/;
+  function pick(f, keys){
+    var map = {}; Object.keys(f).forEach(function(k){ map[norm(k)] = k; });
+    for(var i=0;i<keys.length;i++){ var k = map[keys[i]]; if(k !== undefined){ var v = f[k]; delete f[k]; return v; } }
+    return undefined;
+  }
+  function titleCase(s){ s = String(s); return s === s.toUpperCase() && s.length > 3 ? s.toLowerCase().replace(/(^|[\s\/-])(\S)/g, function(m,a,b){ return a + b.toUpperCase(); }) : s; }
+  function money(v){
+    if(v === undefined || v === null) return null;
+    if(typeof v === 'number') return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+    var s = String(v).trim();
+    if(/R\$/.test(s)) return s;
+    var n = parseFloat(s.replace(/\./g,'').replace(',','.'));
+    return isNaN(n) ? s : n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  }
+  function labelOf(k){
+    var s = k.replace(/_/g,' ').replace(/([a-z])([A-Z])/g,'$1 $2').toLowerCase();
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  function parse(payload){
+    var dadosRaw = unwrap(payload.dados);
+    if(dadosRaw && dadosRaw.veiculo) dadosRaw = dadosRaw.veiculo;
+    var f = flat(dadosRaw);
+    Object.keys(f).forEach(function(k){ if(OWNER.test(norm(k))) delete f[k]; });
+    var v = {
+      marca: pick(f, ['marca','marcaveiculo','fabricante']),
+      modelo: pick(f, ['modelo','modeloveiculo','marcamodelo','versao']),
+      anoFab: pick(f, ['anofabricacao','anofab','ano']),
+      anoMod: pick(f, ['anomodelo','anomod']),
+      cor: pick(f, ['cor','corveiculo']),
+      combustivel: pick(f, ['combustivel','tipocombustivel']),
+      municipio: pick(f, ['municipio','cidade','municipioemplacamento']),
+      uf: pick(f, ['uf','estado','ufemplacamento']),
+      tipo: pick(f, ['tipo','tipoveiculo','especie','segmento']),
+      chassi: pick(f, ['chassi','chassis']),
+      situacao: pick(f, ['situacao','situacaoveiculo','status'])
+    };
+    if(v.marca && v.modelo && String(v.modelo).indexOf('/') > 0 && String(v.modelo).toUpperCase().indexOf(String(v.marca).toUpperCase()) === 0){
+      v.modelo = String(v.modelo).split('/').slice(1).join('/');
+    }
+    if(!v.marca && v.modelo && String(v.modelo).indexOf('/') > 0){ var mm = String(v.modelo).split('/'); v.marca = mm[0]; v.modelo = mm.slice(1).join('/'); }
+    var restr = [];
+    Object.keys(f).forEach(function(k){
+      var n = norm(k);
+      if(/restric|roubo|furto|leilao|renajud|alienac|sinistr/.test(n)){ restr.push({k:k, v:f[k]}); delete f[k]; }
+    });
+    var fipeRaw = unwrap(payload.fipe);
+    if(fipeRaw && Array.isArray(fipeRaw.fipe)) fipeRaw = fipeRaw.fipe[0];
+    else if(Array.isArray(fipeRaw)) fipeRaw = fipeRaw[0];
+    var ff = flat(fipeRaw);
+    var fipe = {
+      valor: money(pick(ff, ['textovalor','valor','valorfipe','preco'])),
+      codigo: pick(ff, ['codigofipe','codigo','codfipe']),
+      ref: pick(ff, ['mesreferencia','referencia','datareferencia'])
+    };
+    if(!fipe.valor){ fipe.valor = money(pick(f, ['valorfipe','fipe'])); }
+    return {v: v, extra: f, restr: restr, fipe: fipe, cobranca: payload.cobranca || null};
+  }
+
+  // ---------- desenho do resultado ----------
+  function isBad(val){ var s = norm(String(val)); return !(s === '' || s === 'nao' || s === 'false' || s === 'n' || s === '0' || /nada|sem|nenhum|normal|naoconsta/.test(s)); }
+  function render(placa, data, example){
+    var v = data.v;
+    var year = v.anoFab && v.anoMod && String(v.anoFab) !== String(v.anoMod) ? v.anoFab + '/' + v.anoMod : (v.anoMod || v.anoFab || '');
+    var specs = [
+      ['Cor', v.cor], ['Combustível', v.combustivel],
+      ['Cidade', [v.municipio ? titleCase(v.municipio) : '', v.uf].filter(Boolean).join(' / ') || null],
+      ['Tipo', v.tipo], ['Chassi', v.chassi, true], ['Situação', v.situacao]
+    ].filter(function(r){ return r[1] !== undefined && r[1] !== null && r[1] !== ''; });
+
+    var alerts = data.restr.map(function(r){
+      var bad = isBad(r.v);
+      return '<span class="pill ' + (bad ? 'bad' : 'ok') + '">' + esc(labelOf(r.k)) + ': ' + esc(r.v === true ? 'sim' : r.v === false ? 'não' : r.v) + '</span>';
+    }).join('');
+
+    var extraKeys = Object.keys(data.extra);
+    var html =
+      (example ? '<p class="example-flag">Dados de exemplo. Abra Configurar APIBrasil, lá embaixo, para consultar placas de verdade.</p>' : '') +
+      '<div class="r-head"><div style="min-width:0">' +
+        '<p class="make">' + esc(titleCase(v.marca || 'Veículo')) + ' · ' + esc(pretty(placa)) + '</p>' +
+        '<h2>' + esc(titleCase(v.modelo || 'Modelo não informado')) + '</h2></div>' +
+        (year ? '<div class="year">' + esc(year) + '<small>fabricação/modelo</small></div>' : '') +
+      '</div>' +
+      (alerts ? '<div class="alerts">' + alerts + '</div>' : '') +
+      (specs.length ? '<dl class="specs">' + specs.map(function(r){ return '<div><dt>' + r[0] + '</dt><dd>' + esc(r[2] ? r[1] : titleCase(r[1])) + '</dd></div>'; }).join('') + '</dl>' : '') +
+      (data.fipe.valor
+        ? '<div class="fipe"><span class="label">Tabela FIPE</span><span class="value">' + esc(data.fipe.valor) + '</span>' +
+          '<span class="meta">' + [data.fipe.codigo ? 'Código ' + esc(data.fipe.codigo) : '', data.fipe.ref ? 'Referência: ' + esc(data.fipe.ref) : ''].filter(Boolean).join(' · ') + '</span></div>'
+        : '<div class="fipe missing"><span class="label">Tabela FIPE</span><span class="value">Sem valor FIPE para esta placa</span></div>') +
+      (extraKeys.length ? '<details class="more"><summary>Outros dados (' + extraKeys.length + ')</summary><dl class="specs">' +
+        extraKeys.map(function(k){ var val = data.extra[k]; return '<div><dt>' + esc(labelOf(k)) + '</dt><dd>' + esc(val === true ? 'sim' : val === false ? 'não' : val) + '</dd></div>'; }).join('') +
+        '</dl></details>' : '') +
+      '<div class="r-foot"><span>' + cobrancaText(data.cobranca, example) + '</span><button class="link" type="button" id="copy">Copiar resumo</button></div>';
+    result.innerHTML = html;
+    result.hidden = false;
+    $('copy').addEventListener('click', function(){
+      var lines = [pretty(placa) + ' · ' + titleCase(v.marca||'') + ' ' + titleCase(v.modelo||'')];
+      if(year) lines.push('Ano: ' + year);
+      specs.forEach(function(r){ lines.push(r[0] + ': ' + (r[2] ? r[1] : titleCase(r[1]))); });
+      if(data.fipe.valor) lines.push('FIPE: ' + data.fipe.valor + (data.fipe.ref ? ' (' + data.fipe.ref + ')' : ''));
+      var text = lines.join('\n'), btn = this;
+      function done(){ btn.textContent = 'Resumo copiado'; setTimeout(function(){ btn.textContent = 'Copiar resumo'; }, 1800); }
+      try{ navigator.clipboard.writeText(text).then(done, fallback); }catch(e){ fallback(); }
+      function fallback(){ var t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try{ document.execCommand('copy'); done(); }catch(e){} t.remove(); }
+    });
+  }
+  function cobrancaText(c, example){
+    if(example) return 'Nenhum crédito foi usado.';
+    if(!c) return 'Consulta concluída.';
+    var parts = [];
+    if(c.homolog) parts.push('Modo teste (sem cobrança)');
+    if(c.custo != null) parts.push('Custo: ' + money(c.custo));
+    if(c.saldo != null) parts.push('Saldo: ' + money(c.saldo));
+    return parts.join(' · ') || 'Consulta concluída.';
+  }
+
+  // ---------- exemplo para o modo demonstração ----------
+  function exemplo(placa){
+    return {
+      dados: {data: {MARCA: 'FIAT', MODELO: 'FIAT/ARGO DRIVE 1.0', anoFabricacao: '2021', anoModelo: '2022', cor: 'Prata', combustivel: 'Flex',
+        municipio: 'CURITIBA', uf: 'PR', tipo: 'Automóvel', chassi: '9BD358A1*****1234', situacao: 'Em circulação',
+        restricao_roubo_furto: 'Nada consta', categoria: 'Particular', potencia: '75 cv', cilindradas: '999', procedencia: 'Nacional'}},
+      fipe: {data: {fipe: [{texto_valor: 'R$ 63.412,00', codigo_fipe: '001518-6', mes_referencia: 'setembro de 2026'}]}}
+    };
+  }
+
+  // ---------- consulta ----------
+  var busy = false;
+  function consultar(){
+    var placa = clean(input.value);
+    if(!valid(placa)){ hintMsg('Essa placa não parece válida. Use 3 letras e 4 caracteres, como ABC1234 ou ABC1D23.', true); input.focus(); return; }
+    if(busy) return;
+
+    busy = true; go.disabled = true; go.textContent = 'Consultando…'; form.classList.add('loading'); hintMsg('Buscando dados de ' + pretty(placa) + '…');
+    var job = live ? consultaDireta(placa) : new Promise(function(res){ setTimeout(function(){ res(exemplo(placa)); }, 650); });
+    job.then(function(payload){
+      if(payload.erros && payload.erros.dados && !payload.dados) throw new Error(payload.erros.dados);
+      render(placa, parse(payload), !live);
+      pushHist(placa);
+      hintMsg(payload.erros && payload.erros.fipe ? 'Dados encontrados. A FIPE não respondeu: ' + payload.erros.fipe : HINT);
+    }).catch(function(err){
+      result.hidden = true;
+      var m = String(err && err.message || err);
+      if(/Failed to fetch|NetworkError|Load failed/i.test(m)) m = 'Não consegui falar com a APIBrasil. Confira sua internet e tente de novo.';
+      hintMsg(m, true);
+    }).then(function(){
+      busy = false; go.disabled = false; go.textContent = 'Consultar placa'; form.classList.remove('loading');
+    });
+  }
+  var STATUS_MSG = {401:'Bearer token inválido ou expirado. Confira em Configurar APIBrasil.', 402:'Saldo insuficiente na APIBrasil.', 403:'Sem permissão: o DeviceToken precisa ser do serviço de Veículos.', 404:'Placa não encontrada.', 422:'A APIBrasil recusou a placa enviada.', 429:'Muitas consultas seguidas. Espere um pouco e tente de novo.'};
+  function chamar(caminho, corpo, comDevice){
+    var c = cfg(), h = {'Content-Type':'application/json', 'Accept':'application/json', 'Authorization':'Bearer ' + c.bearer};
+    if(comDevice) h.DeviceToken = c.device;
+    return fetch(BASE + caminho, {method:'POST', headers:h, body: JSON.stringify(corpo)}).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(j){
+        if(!r.ok || j.error === true) throw new Error(j.message || STATUS_MSG[r.status] || ('A APIBrasil respondeu com erro ' + r.status + '.'));
+        return j;
+      });
+    });
+  }
+  function consultaDireta(placa){
+    var c = cfg(), corpo = {placa: placa};
+    if(c.homolog) corpo.homolog = true;
+    if(c.modo === 'credito'){
+      return chamar('/consulta/veiculos/credits', corpo, false).then(function(j){
+        return {dados: j, fipe: j, cobranca: {custo: j.valor_consulta, saldo: j.balance, homolog: c.homolog}, erros: {}};
+      });
+    }
+    var settle = function(p){ return p.then(function(v){ return {ok:true, v:v}; }, function(e){ return {ok:false, e:e.message}; }); };
+    return Promise.all([settle(chamar('/vehicles/dados', corpo, true)), settle(chamar('/vehicles/fipe', corpo, true))]).then(function(rs){
+      if(!rs[0].ok && !rs[1].ok) throw new Error(rs[0].e);
+      return {dados: rs[0].ok ? rs[0].v : null, fipe: rs[1].ok ? rs[1].v : null, cobranca: c.homolog ? {homolog: true} : null,
+              erros: {dados: rs[0].ok ? undefined : rs[0].e, fipe: rs[1].ok ? undefined : rs[1].e}};
+    });
+  }
+  form.addEventListener('submit', function(e){ e.preventDefault(); consultar(); });
+
+  renderRecent();
+  // abre já mostrando um resultado de exemplo no modo demonstração
+  if(!live){ input.value = 'BRA2E19'; render('BRA2E19', parse(exemplo('BRA2E19')), true); input.value = ''; }
+})();
+</script>
+</body>
+</html>
