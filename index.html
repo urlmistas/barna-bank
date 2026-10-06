@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BarnaBank — controle de empréstimos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>BarnaBank</title>
 <meta name="theme-color" content="#10152a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -303,7 +303,7 @@
   .stamps{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px;}
   .stamp{width:20px;height:20px;border-radius:5px;border:1.5px solid var(--stroke);display:flex;align-items:center;justify-content:center;}
   .stamp.filled{background:var(--green);border-color:var(--green);}
-  .stamp.filled::after{content:'✓';font-size:11px;color:#0b241a;font-weight:700;}
+  
 
   .notes-block{background:var(--ink-2);border:1px solid var(--stroke);border-radius:9px;padding:10px 12px;margin-bottom:14px;font-size:12.5px;color:var(--muted);line-height:1.5;}
   .notes-block b{color:var(--text);display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;color:var(--muted);}
@@ -467,9 +467,193 @@
     .field-row{grid-template-columns:1fr;}
     .group-children{margin-left:8px;padding-left:10px;}
   }
+
+  /* =====================================================================
+     Repaginação visual: ícones Lucide, cartão de saldo, navegação de app
+     ===================================================================== */
+  .i{width:1em;height:1em;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-0.14em;}
+  .i.i-sm{width:13px;height:13px;}
+  .i-ok{color:var(--green);}
+  .btn .i{width:17px;height:17px;}
+  .btn-sm .i{width:15px;height:15px;}
+  .btn-icon{padding:11px;justify-content:center;}
+  .btn-sm.btn-icon{padding:8px;}
+  .btn-danger .i{color:var(--red);}
+  button:focus-visible, a:focus-visible, select:focus-visible, input[type=checkbox]:focus-visible{outline:2px solid var(--gold-soft);outline-offset:2px;}
+  .num, .value, .dv, .head-amount, .gr-val, .gp-amt, .di-val, .pg-val, .sv, .plr-val, .wtx-amount, .history-row b{font-variant-numeric:tabular-nums;}
+
+  /* cabeçalho */
+  .header-actions{display:flex;gap:8px;align-items:center;}
+  .mark{font-size:21px;}
+
+  /* abas com ícone */
+  .page-tabs button{display:inline-flex;align-items:center;gap:8px;}
+  .page-tabs button .i{width:17px;height:17px;}
+
+  /* toggles e filtros com ícone */
+  .filters button{display:inline-flex;align-items:center;gap:6px;}
+  .filters button .i{width:15px;height:15px;}
+  .tx-type-toggle button{display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+  .tx-type-toggle button .i{width:16px;height:16px;}
+
+  /* cartão de saldo: o "cartão do banco", com guilhochê de cédula */
+  .balance-card{
+    position:relative;overflow:hidden;border-radius:22px;padding:20px 22px 18px;margin-bottom:16px;
+    border:1px solid rgba(232,205,138,0.28);
+    background:
+      radial-gradient(120% 130% at 100% 0%, rgba(232,205,138,0.20), transparent 52%),
+      repeating-radial-gradient(circle at 92% 118%, rgba(232,205,138,0.10) 0 1px, transparent 1.6px 10px),
+      repeating-radial-gradient(circle at -12% -35%, rgba(255,255,255,0.045) 0 1px, transparent 1.6px 12px),
+      linear-gradient(140deg, #222d60 0%, #161d40 55%, #10162f 100%);
+    box-shadow:0 22px 44px -22px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .bc-top{display:flex;justify-content:space-between;align-items:center;gap:12px;}
+  .bc-label{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:rgba(238,233,218,0.78);}
+  .bc-label .i{width:17px;height:17px;color:var(--gold-soft);}
+  .bc-chip{width:40px;height:30px;border-radius:7px;flex-shrink:0;position:relative;
+    background:linear-gradient(135deg,#f5e2ab 0%,#d2ab52 50%,#9d7a2c 100%);box-shadow:inset 0 0 0 1px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.3);}
+  .bc-chip::before{content:'';position:absolute;inset:6px 9px;border:1px solid rgba(70,48,8,0.38);border-radius:4px;}
+  .bc-chip::after{content:'';position:absolute;left:0;right:0;top:50%;border-top:1px solid rgba(70,48,8,0.38);}
+  .bc-value{font-family:'Baloo 2',sans-serif;font-weight:700;font-size:clamp(32px,8.5vw,42px);line-height:1;color:var(--gold-soft);margin:16px 0 12px;letter-spacing:0.2px;font-variant-numeric:tabular-nums;text-shadow:0 2px 18px rgba(232,205,138,0.18);}
+  .bc-sub{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;font-size:12px;color:var(--muted);}
+  .bc-w{display:inline-flex;align-items:center;gap:5px;padding:3px 10px 3px 8px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:var(--text);max-width:160px;}
+  .bc-w .i{width:13px;height:13px;color:var(--gold-soft);}
+  .bc-w .wi-txt{font-size:12px;}
+
+  /* cards de número com ícone */
+  .stats.three{grid-template-columns:repeat(3,1fr);}
+  .stat{box-shadow:inset 0 1px 0 rgba(255,255,255,0.03);}
+  .stat .label{display:flex;align-items:center;gap:9px;text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600;margin-bottom:10px;line-height:1.25;}
+  .stat .label .i{width:15px;height:15px;padding:6px;box-sizing:content-box;border-radius:9px;background:rgba(255,255,255,0.05);color:var(--muted);}
+  .stat.gold .label .i{background:rgba(201,162,74,0.14);color:var(--gold-soft);}
+  .stat.green .label .i{background:var(--green-soft);color:var(--green);}
+  .stat.red .label .i{background:var(--red-soft);color:var(--red);}
+  .stat.blue .label .i{background:var(--blue-soft);color:var(--blue);}
+  .stat .value .i{width:16px;height:16px;vertical-align:-2px;}
+  .section-title{display:inline-flex;align-items:center;gap:8px;}
+  .section-title .i{width:18px;height:18px;color:var(--gold-soft);}
+
+  /* calendário de vencimentos */
+  .due-panel .dp-title{display:flex;align-items:center;gap:8px;}
+  .due-panel .dp-title .i{width:18px;height:18px;color:var(--gold-soft);}
+  .due-col .dc-head .i{width:14px;height:14px;}
+
+  /* busca */
+  .search-wrap{position:relative;display:flex;align-items:center;}
+  .search-wrap .i{position:absolute;left:12px;width:15px;height:15px;color:var(--muted-2);pointer-events:none;}
+  .search-wrap .search{padding-left:35px;}
+
+  /* cards de dívida e carteira */
+  .chev{display:grid;place-items:center;}
+  .chev .i{width:18px;height:18px;}
+  .who .name{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;}
+  .grp-pill{display:inline-flex;align-items:center;gap:4px;max-width:100%;margin-left:0;}
+  .grp-pill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+  .grp-pill .i{width:12px;height:12px;}
+  .card-head .badge{flex-shrink:0;}
+  @media (hover:hover){ .card:hover, .gcard:hover{border-color:#36427c;} }
+  .stamp.filled::after{content:'';width:12px;height:12px;background:#0b241a;
+    -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/contain no-repeat;
+            mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/contain no-repeat;}
+  .history-row .hr-edit, .history-row .hr-del, .wallet-tx-row .wtx-del{display:inline-grid;place-items:center;}
+  .history-row .hr-edit .i, .history-row .hr-del .i, .wallet-tx-row .wtx-del .i{width:14px;height:14px;}
+  .pf-undo{display:inline-flex;align-items:center;gap:5px;}
+  .pf-undo .i{width:13px;height:13px;}
+  .pay-form .pf-pending .i{width:14px;height:14px;color:var(--red);vertical-align:-2px;}
+  .wallet-avatar{background:rgba(201,162,74,0.14);color:var(--gold-soft);border:1px solid rgba(201,162,74,0.3);}
+  .wallet-avatar .i{width:18px;height:18px;}
+  .wi-txt{font-size:17px;line-height:1;}
+
+  /* grupos */
+  .g-icon .i{width:19px;height:19px;color:var(--blue);}
+  .g-av .g-av-st{display:inline-grid;place-items:center;}
+  .g-av .g-av-st .i{width:13px;height:13px;}
+  .gr-st .i{width:12px;height:12px;vertical-align:-1px;}
+  .gp-del{display:grid;place-items:center;}
+  .gp-del .i{width:16px;height:16px;}
+  .g-sum{display:flex;gap:8px;align-items:flex-start;}
+  .g-sum .i{width:16px;height:16px;margin-top:1px;}
+  .g-row .btn .i{width:13px;height:13px;}
+
+  /* seletor de ícone da carteira */
+  .icon-picker{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;}
+  .ip-opt{aspect-ratio:1;display:grid;place-items:center;border-radius:10px;background:var(--card);border:1px solid var(--stroke);color:var(--muted);cursor:pointer;padding:0;}
+  .ip-opt:hover{border-color:var(--muted-2);color:var(--text);}
+  .ip-opt .i{width:18px;height:18px;}
+  .ip-opt.active{border-color:var(--gold);color:var(--gold-soft);background:rgba(201,162,74,0.14);}
+
+  /* títulos de modal com ícone */
+  .modal h2{display:flex;align-items:center;gap:10px;}
+  .modal h2 .h-ic{width:22px;height:22px;color:var(--gold-soft);}
+  .replay-close{display:grid;place-items:center;}
+  .replay-close .i{width:18px;height:18px;}
+
+  /* aviso de backup e toast */
+  #backupBannerMsg{display:inline-flex;align-items:center;gap:8px;}
+  #backupBannerMsg .i{width:17px;height:17px;}
+  .toast{display:flex;align-items:center;gap:9px;max-width:calc(100vw - 32px);width:max-content;line-height:1.4;box-shadow:0 12px 30px rgba(0,0,0,0.4);}
+  .toast .i{width:17px;height:17px;color:var(--gold-soft);}
+
+  /* painel "Seus dados" (antes: botões soltos no rodapé) */
+  footer{display:block;}
+  .data-panel{background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px 18px;flex-wrap:wrap;}
+  .dp-head{display:flex;align-items:center;gap:12px;min-width:0;}
+  .dp-icon{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(201,162,74,0.12);color:var(--gold-soft);flex-shrink:0;}
+  .dp-icon .i{width:19px;height:19px;}
+  .dp-h{font-family:'Baloo 2',sans-serif;font-weight:600;font-size:16px;line-height:1.2;}
+  .dp-s{font-size:12px;color:var(--muted);margin-top:2px;}
+  .dp-actions{display:flex;gap:8px;flex-wrap:wrap;}
+
+  @media (max-width:640px){
+    .wrap{padding:18px 16px 0;}
+    header{flex-wrap:nowrap;align-items:center;margin-bottom:18px;}
+    .brand{gap:11px;min-width:0;}
+    .mark{width:40px;height:40px;font-size:18px;}
+    h1{font-size:25px;}
+    .tagline{display:none;}
+    .header-actions .btn-label{display:none;}
+    #btnSimulator{padding:11px;}
+
+    /* botão flutuante "Nova dívida" */
+    .fab{position:fixed;right:16px;bottom:calc(86px + env(safe-area-inset-bottom, 0px));z-index:45;border-radius:16px;padding:14px 18px;
+      box-shadow:0 12px 28px rgba(201,162,74,0.32), 0 4px 12px rgba(0,0,0,0.45);}
+
+    /* navegação inferior de app */
+    .page-tabs{position:fixed;left:0;right:0;bottom:0;z-index:44;margin:0;width:auto;
+      display:grid;grid-template-columns:repeat(4,1fr);gap:2px;border-radius:20px 20px 0 0;border-width:1px 0 0;
+      padding:7px 6px calc(7px + env(safe-area-inset-bottom, 0px));
+      background:rgba(17,22,45,0.92);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);box-shadow:0 -12px 30px rgba(0,0,0,0.35);}
+    .page-tabs button{flex-direction:column;gap:3px;font-size:11px;font-weight:600;padding:4px 2px;border-radius:12px;}
+    .page-tabs button.active{background:transparent;color:var(--gold-soft);}
+    .page-tabs button .i{width:21px;height:21px;padding:5px 15px;box-sizing:content-box;border-radius:999px;transition:background .2s ease;}
+    .page-tabs button.active .i{background:rgba(201,162,74,0.18);}
+    body{padding-bottom:calc(160px + env(safe-area-inset-bottom, 0px));}
+    .toast, #undoStack{bottom:calc(150px + env(safe-area-inset-bottom, 0px));}
+
+    .stats.three{grid-template-columns:repeat(2,1fr);}
+    .stats.three .stat:last-child{grid-column:1 / -1;}
+    .stat .label{font-size:12px;gap:8px;}
+    .head-amount.wallet-amount{display:block;min-width:0;}
+    .search-wrap{flex:1 1 100%;}
+    .search-wrap .search{width:100%;min-width:0;}
+    .icon-picker{grid-template-columns:repeat(6,1fr);}
+    .data-panel{padding:16px;}
+    .dp-actions{width:100%;}
+    .dp-actions > .btn, .dp-actions > .export-wrap{flex:1 1 calc(50% - 4px);}
+    .dp-actions .btn{width:100%;justify-content:center;white-space:nowrap;}
+    .hide-sm{display:none;}
+    .pay-form .pf-field{flex:1 1 calc(50% - 4px);min-width:0;}
+    .pay-form .pf-field input, .pay-form .pf-field select, .pay-form input.pf-amount, .pay-form input.pf-date, .pay-form input.pf-note{width:100%;}
+    .pay-form > .btn{flex:1 1 100%;justify-content:center;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{transition-duration:.01ms !important;animation-duration:.01ms !important;}
+  }
 </style>
 </head>
 <body>
+<!-- Ícones: Lucide (https://lucide.dev), licença ISC. Copyright (c) Lucide Icons and Contributors -->
+<svg id="iconSprite" xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><symbol id="i-settings" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></symbol><symbol id="i-calculator" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2" /><line x1="8" x2="16" y1="6" y2="6" /><line x1="16" x2="16" y1="14" y2="18" /><path d="M16 10h.01" /><path d="M12 10h.01" /><path d="M8 10h.01" /><path d="M12 14h.01" /><path d="M8 14h.01" /><path d="M12 18h.01" /><path d="M8 18h.01" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14" /><path d="M12 5v14" /></symbol><symbol id="i-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></symbol><symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><path d="M16 3.128a4 4 0 0 1 0 7.744" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><circle cx="9" cy="7" r="4" /></symbol><symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></symbol><symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" /><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" /></symbol><symbol id="i-chart-column" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" /></symbol><symbol id="i-trending-up" viewBox="0 0 24 24"><path d="M16 7h6v6" /><path d="m22 7-8.5 8.5-5-5L2 17" /></symbol><symbol id="i-trending-down" viewBox="0 0 24 24"><path d="M16 17h6v-6" /><path d="m22 17-8.5-8.5-5 5L2 7" /></symbol><symbol id="i-piggy-bank" viewBox="0 0 24 24"><path d="M11 17h3v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-3a3.16 3.16 0 0 0 2-2h1a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-1a5 5 0 0 0-2-4V3a4 4 0 0 0-3.2 1.6l-.3.4H11a6 6 0 0 0-6 6v1a5 5 0 0 0 2 4v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1z" /><path d="M16 10h.01" /><path d="M2 8v1a2 2 0 0 0 2 2h1" /></symbol><symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 3v18" /><path d="m19 8 3 8a5 5 0 0 1-6 0zV7" /><path d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1" /><path d="m5 8 3 8a5 5 0 0 1-6 0zV7" /><path d="M7 21h10" /></symbol><symbol id="i-calendar-clock" viewBox="0 0 24 24"><path d="M16 14v2.2l1.6 1" /><path d="M16 2v3" /><path d="M21 7.338V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h2.338" /><path d="M3 9h5.859" /><path d="M8 2v3" /><circle cx="16" cy="16" r="6" /></symbol><symbol id="i-calendar-days" viewBox="0 0 24 24"><path d="M8 2v3" /><path d="M16 2v3" /><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M8 13h.01" /><path d="M12 13h.01" /><path d="M16 13h.01" /><path d="M8 17h.01" /><path d="M12 17h.01" /><path d="M16 17h.01" /></symbol><symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" /></symbol><symbol id="i-circle-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></symbol><symbol id="i-coins" viewBox="0 0 24 24"><path d="M13.744 17.736a6 6 0 1 1-7.48-7.48" /><path d="M15 6h1v4" /><path d="m6.134 14.768.866-.5 2 3.464" /><circle cx="16" cy="8" r="6" /></symbol><symbol id="i-trophy" viewBox="0 0 24 24"><path d="M10 14.66V17a1 1 0 0 1-1 1 2 2 0 0 0-2 2v2" /><path d="M14 14.66V17a1 1 0 0 0 1 1 2 2 0 0 1 2 2v2" /><path d="M17.916 10H19.5A2.5 2.5 0 0 0 22 7.5V5a1 1 0 0 0-1-1h-3" /><path d="M4 22h16" /><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z" /><path d="M6.084 10H4.5A2.5 2.5 0 0 1 2 7.5V5a1 1 0 0 1 1-1h3" /></symbol><symbol id="i-hand-coins" viewBox="0 0 24 24"><path d="M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17" /><path d="m7 21 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9" /><path d="m2 16 6 6" /><circle cx="16" cy="9" r="2.9" /><circle cx="6" cy="5" r="3" /></symbol><symbol id="i-banknote-arrow-up" viewBox="0 0 24 24"><path d="M12 18H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5" /><path d="M18 12h.01" /><path d="M19 22v-6" /><path d="m22 19-3-3-3 3" /><path d="M6 12h.01" /><circle cx="12" cy="12" r="2" /></symbol><symbol id="i-handshake" viewBox="0 0 24 24"><path d="m11 17 2 2a1 1 0 1 0 3-3" /><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4" /><path d="m21 3 1 11h-2" /><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3" /><path d="M3 4h8" /></symbol><symbol id="i-badge-percent" viewBox="0 0 24 24"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" /><path d="m15 9-6 6" /><path d="M9 9h.01" /><path d="M15 15h.01" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" /></symbol><symbol id="i-file-text" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /><path d="M14 2v5a1 1 0 0 0 1 1h5" /><path d="M10 9H8" /><path d="M16 13H8" /><path d="M16 17H8" /></symbol><symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" /></symbol><symbol id="i-trash" viewBox="0 0 24 24"><path d="M10 11v6" /><path d="M14 11v6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol><symbol id="i-undo-2" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol><symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></symbol><symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol><symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 3v12" /><path d="m17 8-5-5-5 5" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /></symbol><symbol id="i-file-down" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /><path d="M14 2v5a1 1 0 0 0 1 1h5" /><path d="M12 18v-6" /><path d="m9 15 3 3 3-3" /></symbol><symbol id="i-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" /><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" /><path d="M7 3v4a1 1 0 0 0 1 1h7" /></symbol><symbol id="i-arrow-up-right" viewBox="0 0 24 24"><path d="M7 7h10v10" /><path d="M7 17 17 7" /></symbol><symbol id="i-arrow-down-left" viewBox="0 0 24 24"><path d="M17 7 7 17" /><path d="M17 17H7V7" /></symbol><symbol id="i-party-popper" viewBox="0 0 24 24"><path d="M5.8 11.3 2 22l10.7-3.79" /><path d="M4 3h.01" /><path d="M22 8h.01" /><path d="M15 2h.01" /><path d="M22 20h.01" /><path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10" /><path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11c-.11.7-.72 1.22-1.43 1.22H17" /><path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98C9.52 4.9 9 5.52 9 6.23V7" /><path d="M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2Z" /></symbol><symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" /><path d="M20 2v4" /><path d="M22 4h-4" /><circle cx="4" cy="20" r="2" /></symbol><symbol id="i-medal" viewBox="0 0 24 24"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15" /><path d="M11 12 5.12 2.2" /><path d="m13 12 5.88-9.8" /><path d="M8 7h8" /><circle cx="12" cy="17" r="5" /><path d="M12 18v-2h-.5" /></symbol><symbol id="i-credit-card" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="5" rx="2" /><line x1="2" x2="22" y1="10" y2="10" /><path d="M6 14h2" /></symbol><symbol id="i-landmark" viewBox="0 0 24 24"><path d="M10 18v-7" /><path d="M11.119 2.205a2 2 0 0 1 1.762 0l7.84 3.846A.5.5 0 0 1 20.5 7h-17a.5.5 0 0 1-.22-.949z" /><path d="M14 18v-7" /><path d="M18 18v-7" /><path d="M3 22h18" /><path d="M6 18v-7" /></symbol><symbol id="i-banknote" viewBox="0 0 24 24"><rect width="20" height="12" x="2" y="6" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" /></symbol><symbol id="i-smartphone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2" /><path d="M12 18h.01" /></symbol><symbol id="i-building" viewBox="0 0 24 24"><path d="M12 10h.01" /><path d="M12 14h.01" /><path d="M12 6h.01" /><path d="M16 10h.01" /><path d="M16 14h.01" /><path d="M16 6h.01" /><path d="M8 10h.01" /><path d="M8 14h.01" /><path d="M8 6h.01" /><path d="M9 22v-3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" /><rect x="4" y="2" width="16" height="20" rx="2" /></symbol><symbol id="i-briefcase" viewBox="0 0 24 24"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /><rect width="20" height="14" x="2" y="6" rx="2" /></symbol><symbol id="i-gem" viewBox="0 0 24 24"><path d="M10.5 3 8 9l4 13 4-13-2.5-6" /><path d="M17 3a2 2 0 0 1 1.6.8l3 4a2 2 0 0 1 .013 2.382l-7.99 10.986a2 2 0 0 1-3.247 0l-7.99-10.986A2 2 0 0 1 2.4 7.8l2.998-3.997A2 2 0 0 1 7 3z" /><path d="M2 9h20" /></symbol><symbol id="i-gift" viewBox="0 0 24 24"><path d="M12 7v14" /><path d="M20 11v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8" /><path d="M7.5 7a1 1 0 0 1 0-5A4.8 8 0 0 1 12 7a4.8 8 0 0 1 4.5-5 1 1 0 0 1 0 5" /><rect x="3" y="7" width="18" height="4" rx="1" /></symbol><symbol id="i-shopping-bag" viewBox="0 0 24 24"><path d="M16 10a4 4 0 0 1-8 0" /><path d="M3.103 6.034h17.794" /><path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z" /></symbol><symbol id="i-car" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" /><circle cx="7" cy="17" r="2" /><path d="M9 17h6" /><circle cx="17" cy="17" r="2" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" /></symbol><symbol id="i-vault" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" /><circle cx="7.5" cy="7.5" r=".5" fill="currentColor" /><path d="m7.9 7.9 2.7 2.7" /><circle cx="16.5" cy="7.5" r=".5" fill="currentColor" /><path d="m13.4 10.6 2.7-2.7" /><circle cx="7.5" cy="16.5" r=".5" fill="currentColor" /><path d="m7.9 16.1 2.7-2.7" /><circle cx="16.5" cy="16.5" r=".5" fill="currentColor" /><path d="m13.4 13.4 2.7 2.7" /><circle cx="12" cy="12" r="2" /></symbol><symbol id="i-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" x2="19" y1="8" y2="14" /><line x1="22" x2="16" y1="11" y2="11" /></symbol><symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></symbol><symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5V19A9 3 0 0 0 21 19V5" /><path d="M3 12A9 3 0 0 0 21 12" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m16 9-5.5 5.5L8 12" /></symbol><symbol id="i-badge-check" viewBox="0 0 24 24"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" /><path d="m16 9-5.5 5.5L8 12" /></symbol><symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /><circle cx="11" cy="11" r="8" /></symbol><symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M5 22h14" /><path d="M5 2h14" /><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22" /><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" /></symbol></svg>
 
 <div class="wrap">
   <header>
@@ -480,29 +664,31 @@
         <div class="tagline">seu controle pessoal de empréstimos entre amigos</div>
       </div>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn btn-ghost" id="btnSettings" title="Configurações">⚙️</button>
-      <button class="btn btn-ghost" id="btnSimulator">🧮 Simular empréstimo</button>
-      <button class="btn btn-primary" id="btnNew">+ Nova dívida</button>
+    <div class="header-actions">
+      <button class="btn btn-ghost btn-icon" id="btnSettings" title="Configurações" aria-label="Configurações"><svg class="i" aria-hidden="true"><use href="#i-settings"></use></svg></button>
+      <button class="btn btn-ghost" id="btnSimulator" title="Simular empréstimo" aria-label="Simular empréstimo"><svg class="i" aria-hidden="true"><use href="#i-calculator"></use></svg><span class="btn-label">Simular empréstimo</span></button>
+      <button class="btn btn-primary fab" id="btnNew"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg><span>Nova dívida</span></button>
     </div>
   </header>
 
   <div class="page-tabs" id="pageTabs">
-    <button data-page="dashboard" class="active">🏠 Dashboard</button>
-    <button data-page="pessoas">👥 Pessoas</button>
-    <button data-page="carteiras">👛 Carteiras</button>
-    <button data-page="relatorios">📊 Relatórios</button>
+    <button data-page="dashboard" class="active"><svg class="i" aria-hidden="true"><use href="#i-house"></use></svg><span>Início</span></button>
+    <button data-page="pessoas"><svg class="i" aria-hidden="true"><use href="#i-users"></use></svg><span>Pessoas</span></button>
+    <button data-page="carteiras"><svg class="i" aria-hidden="true"><use href="#i-wallet"></use></svg><span>Carteiras</span></button>
+    <button data-page="relatorios"><svg class="i" aria-hidden="true"><use href="#i-chart-column"></use></svg><span>Relatórios</span></button>
   </div>
 
   <div id="pageDashboard">
-    <div class="stats" style="grid-template-columns:1fr;margin-bottom:16px;">
-      <div class="stat gold"><div class="label">💰 Saldo total em carteiras</div><div class="value" id="dashTotalBalance" style="font-size:26px;">—</div></div>
+    <div class="balance-card">
+      <div class="bc-top"><span class="bc-label"><svg class="i" aria-hidden="true"><use href="#i-wallet"></use></svg> Saldo total em carteiras</span><span class="bc-chip" aria-hidden="true"></span></div>
+      <div class="bc-value" id="dashTotalBalance">—</div>
+      <div class="bc-sub" id="dashWalletsSub"></div>
     </div>
 
-    <div class="stats" style="margin-bottom:16px;">
-      <div class="stat green"><div class="label">📈 Entradas este mês</div><div class="value" id="dashMonthIn">—</div></div>
-      <div class="stat"><div class="label">📉 Gastos este mês</div><div class="value" id="dashMonthOut" style="color:var(--red);">—</div></div>
-      <div class="stat gold"><div class="label">= Sobrou este mês</div><div class="value" id="dashMonthNet">—</div></div>
+    <div class="stats three" style="margin-bottom:16px;">
+      <div class="stat green"><div class="label"><svg class="i" aria-hidden="true"><use href="#i-trending-up"></use></svg> Entradas este mês</div><div class="value" id="dashMonthIn">—</div></div>
+      <div class="stat red"><div class="label"><svg class="i" aria-hidden="true"><use href="#i-trending-down"></use></svg> Gastos este mês</div><div class="value" id="dashMonthOut" style="color:var(--red);">—</div></div>
+      <div class="stat gold"><div class="label"><svg class="i" aria-hidden="true"><use href="#i-piggy-bank"></use></svg> Sobrou este mês</div><div class="value" id="dashMonthNet">—</div></div>
     </div>
 
     <div class="chart-card">
@@ -514,14 +700,14 @@
     </div>
 
     <div class="chart-head" style="margin:22px 0 10px;">
-      <div class="title">📋 Empréstimos (Pessoas)</div>
+      <div class="title section-title"><svg class="i" aria-hidden="true"><use href="#i-handshake"></use></svg> Empréstimos</div>
       <div class="sub"></div>
     </div>
     <div class="stats" id="dashSmartCards">
-      <div class="stat"><div class="label">📅 Próximo vencimento</div><div class="value sc-small" id="dashNextDue">—</div></div>
-      <div class="stat"><div class="label">⚠️ Em atraso</div><div class="value" id="dashLate">—</div></div>
-      <div class="stat gold"><div class="label">💰 Movimenta este mês</div><div class="value" id="dashDebtMonth">—</div></div>
-      <div class="stat green"><div class="label">🏆 Melhor pagador</div><div class="value sc-small" id="dashBest">—</div></div>
+      <div class="stat blue"><div class="label"><svg class="i" aria-hidden="true"><use href="#i-calendar-clock"></use></svg> Próximo vencimento</div><div class="value sc-small" id="dashNextDue">—</div></div>
+      <div class="stat red"><div class="label"><svg class="i" aria-hidden="true"><use href="#i-triangle-alert"></use></svg> Em atraso</div><div class="value" id="dashLate">—</div></div>
+      <div class="stat gold"><div class="label"><svg class="i" aria-hidden="true"><use href="#i-coins"></use></svg> Movimenta este mês</div><div class="value" id="dashDebtMonth">—</div></div>
+      <div class="stat green"><div class="label"><svg class="i" aria-hidden="true"><use href="#i-trophy"></use></svg> Melhor pagador</div><div class="value sc-small" id="dashBest">—</div></div>
     </div>
   </div>
 
@@ -535,22 +721,22 @@
   </div>
 
   <div class="filters" id="kindToggle" style="margin-bottom:16px;display:inline-flex;">
-    <button data-k="receivable" class="active">💰 Me devem</button>
-    <button data-k="payable">💸 Eu devo</button>
+    <button data-k="receivable" class="active"><svg class="i" aria-hidden="true"><use href="#i-hand-coins"></use></svg> Me devem</button>
+    <button data-k="payable"><svg class="i" aria-hidden="true"><use href="#i-banknote-arrow-up"></use></svg> Eu devo</button>
   </div>
 
   <div class="stats smart-cards" id="smartCards">
-    <div class="stat"><div class="label">📅 Próximo vencimento</div><div class="value sc-small" id="scNextDue">—</div></div>
-    <div class="stat"><div class="label" id="scLateLabel">⚠️ Em atraso</div><div class="value" id="scLate">—</div></div>
-    <div class="stat gold"><div class="label" id="scMonthLabel">💰 Receber este mês</div><div class="value" id="scMonth">—</div></div>
-    <div class="stat green"><div class="label" id="scBestLabel">🏆 Melhor pagador</div><div class="value sc-small" id="scBest">—</div></div>
+    <div class="stat blue"><div class="label"><svg class="i" aria-hidden="true"><use href="#i-calendar-clock"></use></svg> Próximo vencimento</div><div class="value sc-small" id="scNextDue">—</div></div>
+    <div class="stat red"><div class="label" id="scLateLabel"><svg class="i" aria-hidden="true"><use href="#i-triangle-alert"></use></svg> Em atraso</div><div class="value" id="scLate">—</div></div>
+    <div class="stat gold"><div class="label" id="scMonthLabel"><svg class="i" aria-hidden="true"><use href="#i-coins"></use></svg> Receber este mês</div><div class="value" id="scMonth">—</div></div>
+    <div class="stat green"><div class="label" id="scBestLabel"><svg class="i" aria-hidden="true"><use href="#i-trophy"></use></svg> Melhor pagador</div><div class="value sc-small" id="scBest">—</div></div>
   </div>
 
   <div class="stats">
-    <div class="stat"><div class="label" id="statLabel1">Total emprestado</div><div class="value" id="statPrincipal">—</div></div>
-    <div class="stat gold"><div class="label" id="statLabel2">A receber ainda</div><div class="value" id="statRemaining">—</div></div>
-    <div class="stat green"><div class="label" id="statLabel3">Já recebido</div><div class="value" id="statReceived">—</div></div>
-    <div class="stat gold"><div class="label" id="statLabel4">Lucro estimado</div><div class="value" id="statProfit">—</div></div>
+    <div class="stat"><div class="label" id="statLabel1"><svg class="i" aria-hidden="true"><use href="#i-hand-coins"></use></svg> Total emprestado</div><div class="value" id="statPrincipal">—</div></div>
+    <div class="stat gold"><div class="label" id="statLabel2"><svg class="i" aria-hidden="true"><use href="#i-hourglass"></use></svg> A receber ainda</div><div class="value" id="statRemaining">—</div></div>
+    <div class="stat green"><div class="label" id="statLabel3"><svg class="i" aria-hidden="true"><use href="#i-circle-check"></use></svg> Já recebido</div><div class="value" id="statReceived">—</div></div>
+    <div class="stat gold"><div class="label" id="statLabel4"><svg class="i" aria-hidden="true"><use href="#i-trending-up"></use></svg> Lucro estimado</div><div class="value" id="statProfit">—</div></div>
   </div>
 
   <div class="chart-card">
@@ -562,18 +748,18 @@
   </div>
 
   <div class="due-panel">
-    <div class="dp-title">📅 Calendário de vencimentos</div>
+    <div class="dp-title"><svg class="i" aria-hidden="true"><use href="#i-calendar-days"></use></svg> Calendário de vencimentos</div>
     <div class="due-cols">
       <div class="due-col late">
-        <div class="dc-head">🔴 Atrasadas</div>
+        <div class="dc-head"><svg class="i" aria-hidden="true"><use href="#i-circle-alert"></use></svg> Atrasadas</div>
         <div id="dueLate"></div>
       </div>
       <div class="due-col today">
-        <div class="dc-head">🟡 Vencem hoje</div>
+        <div class="dc-head"><svg class="i" aria-hidden="true"><use href="#i-clock"></use></svg> Vencem hoje</div>
         <div id="dueToday"></div>
       </div>
       <div class="due-col soon">
-        <div class="dc-head">🔵 Próximos 7 dias</div>
+        <div class="dc-head"><svg class="i" aria-hidden="true"><use href="#i-calendar-clock"></use></svg> Próximos 7 dias</div>
         <div id="dueSoon"></div>
       </div>
     </div>
@@ -596,7 +782,7 @@
       </select>
       <button class="btn btn-ghost btn-sm" id="btnGroup">Agrupar por amigo</button>
     </div>
-    <input class="search" id="search" placeholder="Buscar por nome…">
+    <label class="search-wrap"><svg class="i" aria-hidden="true"><use href="#i-search"></use></svg><input class="search" id="search" placeholder="Buscar por nome ou grupo…" aria-label="Buscar"></label>
   </div>
 
   <div class="glist" id="groupList"></div>
@@ -604,13 +790,15 @@
   </div>
 
   <div id="pageCarteiras" style="display:none;">
-    <div class="stats" style="grid-template-columns:1fr;margin-bottom:16px;">
-      <div class="stat gold"><div class="label">💰 Saldo total em carteiras</div><div class="value" id="walletsTotalBalance">—</div></div>
+    <div class="balance-card">
+      <div class="bc-top"><span class="bc-label"><svg class="i" aria-hidden="true"><use href="#i-wallet"></use></svg> Saldo total em carteiras</span><span class="bc-chip" aria-hidden="true"></span></div>
+      <div class="bc-value" id="walletsTotalBalance">—</div>
+      <div class="bc-sub" id="walletsSub"></div>
     </div>
     <div class="toolbar">
       <div class="toolbar-left">
-        <button class="btn btn-primary btn-sm" id="btnNewWallet">+ Nova carteira</button>
-        <button class="btn btn-ghost btn-sm" id="btnNewTransaction">+ Novo lançamento</button>
+        <button class="btn btn-primary btn-sm" id="btnNewWallet"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg> Nova carteira</button>
+        <button class="btn btn-ghost btn-sm" id="btnNewTransaction"><svg class="i" aria-hidden="true"><use href="#i-plus"></use></svg> Novo lançamento</button>
       </div>
     </div>
     <div class="list" id="walletList"></div>
@@ -619,16 +807,16 @@
   <div id="pageRelatorios" style="display:none;">
     <div class="toolbar">
       <div class="toolbar-left">
-        <button class="btn btn-ghost btn-sm" id="relPrevMonth">‹</button>
+        <button class="btn btn-ghost btn-sm btn-icon" id="relPrevMonth" aria-label="Mês anterior"><svg class="i" aria-hidden="true"><use href="#i-chevron-left"></use></svg></button>
         <div style="font-weight:700;font-family:'Baloo 2',sans-serif;font-size:16px;min-width:150px;text-align:center;" id="relPeriodLabel">—</div>
-        <button class="btn btn-ghost btn-sm" id="relNextMonth">›</button>
+        <button class="btn btn-ghost btn-sm btn-icon" id="relNextMonth" aria-label="Próximo mês"><svg class="i" aria-hidden="true"><use href="#i-chevron-right"></use></svg></button>
       </div>
     </div>
 
-    <div class="stats" style="margin-bottom:16px;">
-      <div class="stat green"><div class="label">📈 Entradas</div><div class="value" id="relTotalIn">—</div></div>
-      <div class="stat"><div class="label">📉 Gastos</div><div class="value" id="relTotalOut" style="color:var(--red);">—</div></div>
-      <div class="stat gold"><div class="label">= Saldo do período</div><div class="value" id="relNet">—</div></div>
+    <div class="stats three" style="margin-bottom:16px;">
+      <div class="stat green"><div class="label"><svg class="i" aria-hidden="true"><use href="#i-trending-up"></use></svg> Entradas</div><div class="value" id="relTotalIn">—</div></div>
+      <div class="stat red"><div class="label"><svg class="i" aria-hidden="true"><use href="#i-trending-down"></use></svg> Gastos</div><div class="value" id="relTotalOut" style="color:var(--red);">—</div></div>
+      <div class="stat gold"><div class="label"><svg class="i" aria-hidden="true"><use href="#i-scale"></use></svg> Saldo do período</div><div class="value" id="relNet">—</div></div>
     </div>
 
     <div class="chart-card">
@@ -648,29 +836,34 @@
     </div>
 
     <div class="chart-head" style="margin:22px 0 10px;">
-      <div class="title">📋 Empréstimos no período</div>
+      <div class="title section-title"><svg class="i" aria-hidden="true"><use href="#i-handshake"></use></svg> Empréstimos no período</div>
       <div class="sub"></div>
     </div>
     <div class="stats">
-      <div class="stat green"><div class="label">Recebido de amigos</div><div class="value" id="relLoanReceived">—</div></div>
-      <div class="stat"><div class="label">Pago em dívidas próprias</div><div class="value" id="relLoanPaid" style="color:var(--red);">—</div></div>
+      <div class="stat green"><div class="label"><svg class="i" aria-hidden="true"><use href="#i-arrow-down-left"></use></svg> Recebido de amigos</div><div class="value" id="relLoanReceived">—</div></div>
+      <div class="stat red"><div class="label"><svg class="i" aria-hidden="true"><use href="#i-arrow-up-right"></use></svg> Pago em dívidas próprias</div><div class="value" id="relLoanPaid" style="color:var(--red);">—</div></div>
     </div>
   </div>
 </div>
 
 <footer>
+  <section class="data-panel">
+  <div class="dp-head"><span class="dp-icon"><svg class="i" aria-hidden="true"><use href="#i-database"></use></svg></span><div><div class="dp-h">Seus dados</div><div class="dp-s">Ficam salvos só neste navegador. Faça um backup de vez em quando.</div></div></div>
+  <div class="dp-actions">
   <div class="export-wrap">
-    <button class="btn btn-ghost btn-sm" id="btnExportMenuToggle">Exportar backup ▾</button>
+    <button class="btn btn-ghost btn-sm" id="btnExportMenuToggle"><svg class="i" aria-hidden="true"><use href="#i-download"></use></svg> Exportar<span class="hide-sm"> backup</span> <svg class="i i-sm" aria-hidden="true"><use href="#i-chevron-down"></use></svg></button>
     <div class="export-menu" id="exportMenu">
       <button id="btnExportJson">Exportar como JSON<span class="em-desc">backup completo, pode ser reimportado</span></button>
       <button id="btnExportCsv">Exportar como CSV<span class="em-desc">para abrir no Excel ou Google Sheets</span></button>
     </div>
   </div>
-  <button class="btn btn-ghost btn-sm" id="btnImportJson">Importar backup (.json)</button>
-  <button class="btn btn-ghost btn-sm" id="btnRanking">🏆 Ranking em PDF</button>
-  <button class="btn btn-ghost btn-sm" id="btnExportHtml" title="Dica: se abrir esse arquivo no mesmo navegador e ele mostrar dados antigos, adicione ?snapshot=1 no fim da URL para forçar os dados deste arquivo.">Baixar cópia atualizada (.html)</button>
+  <button class="btn btn-ghost btn-sm" id="btnImportJson"><svg class="i" aria-hidden="true"><use href="#i-upload"></use></svg> Importar<span class="hide-sm"> backup</span></button>
+  <button class="btn btn-ghost btn-sm" id="btnRanking"><svg class="i" aria-hidden="true"><use href="#i-trophy"></use></svg> Ranking<span class="hide-sm"> em PDF</span></button>
+  <button class="btn btn-ghost btn-sm" id="btnExportHtml" title="Dica: se abrir esse arquivo no mesmo navegador e ele mostrar dados antigos, adicione ?snapshot=1 no fim da URL para forçar os dados deste arquivo."><svg class="i" aria-hidden="true"><use href="#i-file-down"></use></svg> <span class="hide-sm">Baixar </span>cópia (.html)</button>
+  </div>
+  </section>
   <input type="file" id="fileImport" accept="application/json" style="display:none;">
-  <div class="foot-note">Os dados ficam salvos neste navegador automaticamente. Use os botões acima para ter uma cópia de segurança. Dica: no Chrome do celular, use "Adicionar à tela inicial" para abrir o BarnaBank como um app.</div>
+  <div class="foot-note">Dica: no celular, use "Adicionar à tela inicial" para abrir o BarnaBank como um app.</div>
 </footer>
 
 <div id="undoStack"></div>
@@ -679,13 +872,13 @@
   <div class="modal">
     <h2 id="modalTitle">Nova dívida</h2>
     <div class="filters mode-toggle" id="formModeToggle" style="margin-bottom:12px;">
-      <button data-m="single" class="active" type="button">Individual</button>
-      <button data-m="group" type="button">👥 Em grupo</button>
+      <button data-m="single" class="active" type="button"><svg class="i" aria-hidden="true"><use href="#i-user"></use></svg> Individual</button>
+      <button data-m="group" type="button"><svg class="i" aria-hidden="true"><use href="#i-users"></use></svg> Em grupo</button>
     </div>
     <div class="form-group-note" id="formGroupNote" style="display:none;"></div>
     <div class="filters" id="formKindToggle" style="margin-bottom:18px;">
-      <button data-k="receivable" class="active" type="button">💰 Me devem</button>
-      <button data-k="payable" type="button">💸 Devo eu</button>
+      <button data-k="receivable" class="active" type="button"><svg class="i" aria-hidden="true"><use href="#i-hand-coins"></use></svg> Me devem</button>
+      <button data-k="payable" type="button"><svg class="i" aria-hidden="true"><use href="#i-banknote-arrow-up"></use></svg> Eu devo</button>
     </div>
     <div class="field">
       <label id="lblName">Nome do amigo</label>
@@ -777,8 +970,8 @@
   <div class="modal" style="max-width:500px;">
     <h2 id="groupModalTitle">Nova dívida em grupo</h2>
     <div class="filters" id="gKindToggle" style="margin-bottom:16px;display:inline-flex;">
-      <button data-k="receivable" class="active" type="button">💰 Eles me devem</button>
-      <button data-k="payable" type="button">💸 Eu devo a vários</button>
+      <button data-k="receivable" class="active" type="button"><svg class="i" aria-hidden="true"><use href="#i-hand-coins"></use></svg> Eles me devem</button>
+      <button data-k="payable" type="button"><svg class="i" aria-hidden="true"><use href="#i-banknote-arrow-up"></use></svg> Eu devo a vários</button>
     </div>
     <div class="field">
       <label for="gTitle">Nome do grupo</label>
@@ -798,7 +991,7 @@
       <label for="gPartInput" id="lblGParts">Quem participa</label>
       <div class="chip-input">
         <input type="text" id="gPartInput" list="friendsList" placeholder="Nome (ou vários separados por vírgula)" autocomplete="off">
-        <button class="btn btn-ghost btn-sm" type="button" id="gPartAdd">Adicionar</button>
+        <button class="btn btn-ghost btn-sm" type="button" id="gPartAdd"><svg class="i" aria-hidden="true"><use href="#i-user-plus"></use></svg> Adicionar</button>
       </div>
     </div>
     <label class="check-row" id="gIncludeMeRow"><input type="checkbox" id="gIncludeMe" checked> Incluir eu na divisão</label>
@@ -853,8 +1046,8 @@
       <div class="charge-status" id="chargeCopyStatus" role="status"></div>
     </div>
     <div class="card-actions" style="margin-bottom:14px;">
-      <button class="btn btn-primary btn-sm" id="chargeCopy" type="button">Copiar mensagem</button>
-      <a class="btn btn-whats btn-sm" id="chargeGroupLink" target="_blank" rel="noopener" href="#">Abrir no WhatsApp</a>
+      <button class="btn btn-primary btn-sm" id="chargeCopy" type="button"><svg class="i" aria-hidden="true"><use href="#i-copy"></use></svg> Copiar mensagem</button>
+      <a class="btn btn-whats btn-sm" id="chargeGroupLink" target="_blank" rel="noopener" href="#"><svg class="i" aria-hidden="true"><use href="#i-message-circle"></use></svg> Abrir no WhatsApp</a>
     </div>
     <div class="field"><label>Cobrar um por um</label></div>
     <div id="chargeList"></div>
@@ -866,7 +1059,7 @@
 
 <div class="overlay" id="settleOverlay">
   <div class="modal" style="max-width:420px;">
-    <h2>🤝 Quitar com desconto</h2>
+    <h2><svg class="i h-ic" aria-hidden="true"><use href="#i-badge-percent"></use></svg> Quitar com desconto</h2>
     <p class="warn">Falta <span id="settleVerb">receber</span> <b id="settleRemaining" style="color:var(--text);"></b> de <b id="settleName" style="color:var(--text);"></b>. Informe o valor combinado agora pra fechar a dívida — a diferença vira desconto, sem alterar o histórico original.</p>
     <div class="field-row">
       <div class="field">
@@ -908,26 +1101,27 @@
   <div class="modal replay-modal">
     <div class="replay-topbar">
       <select id="replayYearSel" class="select replay-year-sel"></select>
-      <button class="replay-close" id="btnReplayClose">✕</button>
+      <button class="replay-close" id="btnReplayClose" aria-label="Fechar"><svg class="i" aria-hidden="true"><use href="#i-x"></use></svg></button>
     </div>
     <div id="replayContent"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnReplayClose2">Fechar</button>
-      <button class="btn btn-primary" id="btnReplayDownload">🎊 Baixar Replay</button>
+      <button class="btn btn-primary" id="btnReplayDownload"><svg class="i" aria-hidden="true"><use href="#i-download"></use></svg> Baixar Replay</button>
     </div>
   </div>
 </div>
 
 <div class="overlay" id="walletModalOverlay">
   <div class="modal" style="max-width:380px;">
-    <h2 id="walletModalTitle">👛 Nova carteira</h2>
+    <h2 id="walletModalTitle">Nova carteira</h2>
     <div class="field">
       <label>Nome</label>
       <input type="text" id="wName" placeholder="Ex: Nubank, Carteira, Dinheiro">
     </div>
     <div class="field">
-      <label>Ícone (opcional)</label>
-      <input type="text" id="wIcon" placeholder="Ex: 💳 🏦 💵" maxlength="4">
+      <label>Ícone</label>
+      <div class="icon-picker" id="wIconPicker" role="radiogroup" aria-label="Ícone da carteira"></div>
+      <input type="hidden" id="wIcon">
     </div>
     <div class="err" id="walletErr"></div>
     <div class="modal-actions">
@@ -941,8 +1135,8 @@
   <div class="modal" style="max-width:420px;">
     <h2>Novo lançamento</h2>
     <div class="tx-type-toggle" id="txTypeToggle">
-      <button data-t="gasto" type="button">📤 Gasto</button>
-      <button data-t="entrada" type="button" class="active">📥 Entrada</button>
+      <button data-t="gasto" type="button"><svg class="i" aria-hidden="true"><use href="#i-arrow-up-right"></use></svg> Gasto</button>
+      <button data-t="entrada" type="button" class="active"><svg class="i" aria-hidden="true"><use href="#i-arrow-down-left"></use></svg> Entrada</button>
     </div>
     <div class="field">
       <label>Carteira</label>
@@ -976,7 +1170,7 @@
 </div>
 
 <div class="overlay" id="settingsOverlay">
-  <div class="modal" style="max-width:440px;">    <h2>⚙️ Configurações</h2>
+  <div class="modal" style="max-width:440px;">    <h2><svg class="i h-ic" aria-hidden="true"><use href="#i-settings"></use></svg> Configurações</h2>
     <div class="field-row">
       <div class="field">
         <label>Moeda</label>
@@ -1020,7 +1214,7 @@
 
 <div class="overlay" id="simOverlay">
   <div class="modal" style="max-width:440px;">
-    <h2>🧮 Simulador de empréstimo</h2>
+    <h2><svg class="i h-ic" aria-hidden="true"><use href="#i-calculator"></use></svg> Simulador de empréstimo</h2>
     <p class="warn" style="margin-bottom:16px;">Calcule antes de emprestar — sem salvar nada.</p>
     <div class="field-row">
       <div class="field">
@@ -1060,7 +1254,7 @@
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script id="seed-data" type="application/json">
 {"contacts": {}, "debts": [], "wallets": [], "transactions": []}
@@ -1121,6 +1315,31 @@
   var todayISO = function(){ return toISO(new Date()); };
   function pad2(n){ return (n<10?'0':'')+n; }
   function toISO(dateObj){ return dateObj.getFullYear()+'-'+pad2(dateObj.getMonth()+1)+'-'+pad2(dateObj.getDate()); }
+
+  // ---------- ícones (Lucide, embutidos no sprite #iconSprite) ----------
+  function ic(name, cls){ return '<svg class="i' + (cls ? ' ' + cls : '') + '" aria-hidden="true"><use href="#i-' + name + '"></use></svg>'; }
+  // SVG completo, para documentos gerados à parte (extrato, ranking), onde o sprite não existe
+  function icInline(name, attrs){
+    var sym = document.getElementById('i-' + name);
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"' + (attrs ? ' ' + attrs : '') + '>' + (sym ? sym.innerHTML : '') + '</svg>';
+  }
+  var WALLET_ICONS = ['wallet','credit-card','landmark','banknote','piggy-bank','coins','vault','smartphone','building','briefcase','gem','gift','shopping-bag','house','car','plane'];
+  var EMOJI_TO_ICON = {'💳':'credit-card','🏦':'landmark','🏛':'landmark','💵':'banknote','💴':'banknote','💶':'banknote','💷':'banknote','💸':'banknote',
+    '👛':'wallet','👜':'shopping-bag','💰':'coins','🪙':'coins','🐷':'piggy-bank','🐖':'piggy-bank','📱':'smartphone','🏠':'house','🏡':'house',
+    '🏢':'building','💼':'briefcase','💎':'gem','🎁':'gift','🛍':'shopping-bag','🚗':'car','✈':'plane'};
+  function walletIconKey(icon){
+    if(!icon) return 'wallet';
+    if(WALLET_ICONS.indexOf(icon) !== -1) return icon;
+    var bare = String(icon).replace(/\uFE0F/g, '').trim();
+    return EMOJI_TO_ICON[bare] || icon;
+  }
+  function isIconKey(icon){ return WALLET_ICONS.indexOf(icon) !== -1; }
+  function walletIconHtml(w){
+    var k = w && w.icon;
+    if(!k || isIconKey(k)) return ic(k || 'wallet');
+    return '<span class="wi-txt">' + escapeHtml(k) + '</span>';
+  }
+  function walletLabel(w){ return (w.icon && !isIconKey(w.icon) ? w.icon + ' ' : '') + w.name; }
   function nameKey(name){ return (name||'').trim().toLowerCase(); }
 
   // ---------- wallets (carteiras) ----------
@@ -1208,6 +1427,7 @@
       }
     });
     var wallets = Array.isArray(parsed.wallets) ? parsed.wallets : [];
+    wallets.forEach(function(w){ if(w) w.icon = walletIconKey(w.icon); });
     var transactions = Array.isArray(parsed.transactions) ? parsed.transactions : [];
     var debts = migrateDebts(parsed.debts || []);
     var groups = migrateGroups(parsed.groups);
@@ -1247,9 +1467,9 @@
   function warnSaveFailed(err){
     if(saveFailedWarned) return;
     saveFailedWarned = true;
-    var msg = '⚠️ Não consegui salvar neste navegador' + (err && err.name === 'QuotaExceededError' ? ' (armazenamento cheio)' : '') +
+    var msg = 'Não consegui salvar neste navegador' + (err && err.name === 'QuotaExceededError' ? ' (armazenamento cheio)' : '') +
       '. Exporte um backup JSON agora para não perder nada.';
-    if(typeof showToast === 'function') showToast(msg);
+    if(typeof showToast === 'function') showToast(msg, 'triangle-alert');
     try{ console.error('BarnaBank: falha ao salvar', err); }catch(e){}
   }
   function saveData(){
@@ -1567,9 +1787,9 @@
     var pool = state.debts.filter(function(d){ return d.kind === state.viewKind; });
     var pending = pool.filter(function(d){ return !isPaid(d); });
 
-    document.getElementById('scLateLabel').textContent = '⚠️ Em atraso';
-    document.getElementById('scMonthLabel').textContent = isPayable ? '💰 Pagar este mês' : '💰 Receber este mês';
-    document.getElementById('scBestLabel').textContent = isPayable ? '🏆 Credor mais cobrado' : '🏆 Melhor pagador';
+    document.getElementById('scLateLabel').innerHTML = ic('triangle-alert') + ' Em atraso';
+    document.getElementById('scMonthLabel').innerHTML = ic('coins') + (isPayable ? ' Pagar este mês' : ' Receber este mês');
+    document.getElementById('scBestLabel').innerHTML = ic('trophy') + (isPayable ? ' Credor mais cobrado' : ' Melhor pagador');
 
     // próximo vencimento
     var withDue = pending.map(function(d){ return {d:d, due: nextDueDate(d)}; }).filter(function(x){ return x.due; });
@@ -1582,7 +1802,7 @@
       scNextDue.textContent = item.d.name + ' · ' + whenStr;
       scNextDue.title = money.format(amountDueNow(item.d));
     } else {
-      scNextDue.textContent = 'Nada pendente 🎉';
+      scNextDue.innerHTML = 'Nada pendente ' + ic('party-popper', 'i-ok');
     }
 
     // em atraso
@@ -1612,7 +1832,7 @@
     } else {
       people.sort(function(a,b){ if(a.late !== b.late) return a.late - b.late; return b.received - a.received; });
       var best = people[0];
-      scBest.textContent = best.name + (best.late === 0 ? ' ✓' : ' (' + best.late + ' atraso' + (best.late>1?'s':'') + ')');
+      scBest.innerHTML = escapeHtml(best.name) + (best.late === 0 ? ' ' + ic('badge-check', 'i-ok') : ' (' + best.late + ' atraso' + (best.late>1?'s':'') + ')');
     }
   }
 
@@ -1640,7 +1860,7 @@
     }
     function fillCol(id, arr){
       var el = document.getElementById(id);
-      el.innerHTML = arr.length ? arr.map(itemHtml).join('') : '<div class="due-empty">Nada por aqui 🎉</div>';
+      el.innerHTML = arr.length ? arr.map(itemHtml).join('') : '<div class="due-empty">Nada por aqui</div>';
       el.querySelectorAll('.due-item').forEach(function(it){
         it.addEventListener('click', function(){
           state.openId = it.getAttribute('data-id');
@@ -1668,13 +1888,13 @@
         totalPaidP += paidAmount(d);
         totalDiscountP += (d.discount||0);
       });
-      document.getElementById('statLabel1').textContent = 'Total das dívidas';
+      document.getElementById('statLabel1').innerHTML = ic('banknote-arrow-up') + ' Total das dívidas';
       document.getElementById('statPrincipal').textContent = money.format(totalDebt);
-      document.getElementById('statLabel2').textContent = 'Falta pagar';
+      document.getElementById('statLabel2').innerHTML = ic('hourglass') + ' Falta pagar';
       document.getElementById('statRemaining').textContent = money.format(totalPending);
-      document.getElementById('statLabel3').textContent = 'Já pago';
+      document.getElementById('statLabel3').innerHTML = ic('circle-check') + ' Já pago';
       document.getElementById('statReceived').textContent = money.format(totalPaidP);
-      document.getElementById('statLabel4').textContent = 'Descontos conseguidos';
+      document.getElementById('statLabel4').innerHTML = ic('badge-percent') + ' Descontos conseguidos';
       document.getElementById('statProfit').textContent = money.format(totalDiscountP);
     } else {
       var totalPrincipal=0, totalRemaining=0, totalReceived=0, totalProfit=0;
@@ -1684,13 +1904,13 @@
         totalReceived += paidAmount(d);
         totalProfit += profit(d);
       });
-      document.getElementById('statLabel1').textContent = 'Total emprestado';
+      document.getElementById('statLabel1').innerHTML = ic('hand-coins') + ' Total emprestado';
       document.getElementById('statPrincipal').textContent = money.format(totalPrincipal);
-      document.getElementById('statLabel2').textContent = 'A receber ainda';
+      document.getElementById('statLabel2').innerHTML = ic('hourglass') + ' A receber ainda';
       document.getElementById('statRemaining').textContent = money.format(totalRemaining);
-      document.getElementById('statLabel3').textContent = 'Já recebido';
+      document.getElementById('statLabel3').innerHTML = ic('circle-check') + ' Já recebido';
       document.getElementById('statReceived').textContent = money.format(totalReceived);
-      document.getElementById('statLabel4').textContent = 'Lucro estimado';
+      document.getElementById('statLabel4').innerHTML = ic('trending-up') + ' Lucro estimado';
       document.getElementById('statProfit').textContent = money.format(totalProfit);
     }
   }
@@ -1832,7 +2052,7 @@
         '<div class="avatar">' + initials(name) + '</div>' +
         '<div class="name">' + escapeHtml(name) + ' <span style="color:var(--muted);font-weight:400;font-size:12px;">(' + debts.length + (debts.length===1?' dívida':' dívidas') + ')</span></div>' +
         '<div class="gstat">' + (isPayable ? 'falta pagar' : 'falta receber') + '<b>' + money.format(totalRemaining) + '</b></div>' +
-        '<div class="chev">▾</div>';
+        '<div class="chev">' + ic('chevron-down') + '</div>';
       gh.addEventListener('click', function(){
         state.openGroups[key] = !state.openGroups[key];
         render();
@@ -1867,7 +2087,7 @@
       '<div class="avatar">' + initials(d.name) + '</div>' +
       '<div class="who">' +
         '<div class="name">' + escapeHtml(d.name) + ' <span class="kind-pill ' + (isPayable?'payable':'receivable') + '">' + (isPayable?'A pagar':'A receber') + '</span>' +
-          (grp ? '<button type="button" class="grp-pill" title="Ver o grupo">👥 ' + escapeHtml(grp.title) + '</button>' : '') + '</div>' +
+          (grp ? '<button type="button" class="grp-pill" title="Ver o grupo">' + ic('users') + '<span>' + escapeHtml(grp.title) + '</span></button>' : '') + '</div>' +
         '<div class="sub">' + (isPayable ? 'dívida desde ' : 'emprestado em ') + fmtDate(d.date) + '</div>' +
       '</div>' +
       '<div class="badge ' + status + '">' + statusLabel(d) + '</div>' +
@@ -1878,7 +2098,7 @@
         else { val = sch.firstOpen ? sch.firstOpen.open : installmentValue(d); lbl = (sch.firstOpen && sch.firstOpen.touched) ? 'falta na parcela' : 'próxima parcela'; }
         return '<div class="head-amount">' + money.format(val) + '<br><span style="font-size:10px;color:var(--muted);font-weight:400;">' + lbl + '</span></div>';
       })() +
-      '<div class="chev">▾</div>';
+      '<div class="chev">' + ic('chevron-down') + '</div>';
     head.addEventListener('click', function(){
       state.openId = open ? null : d.id;
       render();
@@ -1934,7 +2154,7 @@
     if(sched.pending > 0.005){
       var pendNames = sched.pendingList.map(function(it){ return (it.i+1) + 'ª (' + money.format(it.open) + ')'; }).join(', ');
       pendingHtml = '<div class="pf-pending">' +
-        '<div>⚠️ ' + (tgt ? 'Pendente de parcelas anteriores' : 'Em aberto') + ': <b>' + money.format(sched.pending) + '</b> <span class="pf-muted">— parcela' + (sched.pendingList.length>1?'s ':' ') + pendNames + '</span></div>' +
+        '<div>' + ic('triangle-alert') + ' ' + (tgt ? 'Pendente de parcelas anteriores' : 'Em aberto') + ': <b>' + money.format(sched.pending) + '</b> <span class="pf-muted">— parcela' + (sched.pendingList.length>1?'s ':' ') + pendNames + '</span></div>' +
         (tgt
           ? '<div class="pf-pend-row"><button class="btn btn-ghost btn-sm" data-act="incluir-pendente" type="button">+ Incluir pendente neste pagamento</button>' +
             '<div class="pf-field pf-pend-field" style="display:none;"><label>Quanto do pendente</label><input type="number" class="pf-pend-amount" step="0.01" min="0" max="' + sched.pending.toFixed(2) + '" value="' + sched.pending.toFixed(2) + '"></div></div>'
@@ -1948,8 +2168,8 @@
       var tag = '';
       if(p.mode === 'target' && typeof p.target === 'number') tag = ' · parcela ' + (p.target+1) + (p.pendingPart > 0.005 ? ' + ' + money.format(p.pendingPart) + ' de pendente' : '');
       return '<div class="history-row"><span>' + fmtDate(p.date) + (p.note ? ' · ' + escapeHtml(p.note) : '') + '<span class="hr-tag">' + tag + '</span></span><b>' + money.format(p.amount) + '</b>' +
-        '<button class="hr-edit" data-idx="' + realIdx + '" title="Editar este pagamento">✎</button>' +
-        '<button class="hr-del" data-idx="' + realIdx + '" title="Remover este pagamento">✕</button></div>';
+        '<button class="hr-edit" data-idx="' + realIdx + '" title="Editar este pagamento" aria-label="Editar este pagamento">' + ic('pencil') + '</button>' +
+        '<button class="hr-del" data-idx="' + realIdx + '" title="Remover este pagamento" aria-label="Remover este pagamento">' + ic('x') + '</button></div>';
     }).join('');
     var historyHtml = historyRows
       ? '<div class="history-list">' + historyRows + '</div>'
@@ -1994,23 +2214,23 @@
           '<div class="pf-field"><label>Data</label><input type="date" class="pf-date" value="' + todayISO() + '"></div>' +
           '<div class="pf-field"><label>Carteira</label><select class="pf-wallet select">' +
             '<option value="">— não afetar carteira —</option>' +
-            state.wallets.map(function(w){ return '<option value="'+escapeHtml(w.id)+'"' + (grpWallet === w.id ? ' selected' : '') + '>' + (w.icon?escapeHtml(w.icon)+' ':'') + escapeHtml(w.name) + '</option>'; }).join('') +
+            state.wallets.map(function(w){ return '<option value="'+escapeHtml(w.id)+'"' + (grpWallet === w.id ? ' selected' : '') + '>' + escapeHtml(walletLabel(w)) + '</option>'; }).join('') +
           '</select></div>' +
           '<div class="pf-field"><label>Obs. (opcional)</label><input type="text" class="pf-note" maxlength="80" placeholder="' + (grp ? 'Ex: pago pelo Pedro' : 'Ex: pagou em dinheiro') + '"></div>' +
-          '<button class="btn btn-primary btn-sm" data-act="registrar">Registrar pagamento</button>' +
+          '<button class="btn btn-primary btn-sm" data-act="registrar">' + ic('check') + ' Registrar pagamento</button>' +
         '</div>'
       ) +
       '<div class="history"><div class="hl">Histórico de pagamentos</div>' + historyHtml +
-        '<button class="pf-undo" data-act="undo" ' + (sortedPayments.length?'':'disabled') + '>Desfazer último pagamento</button>' +
+        '<button class="pf-undo" data-act="undo" ' + (sortedPayments.length?'':'disabled') + '>' + ic('undo-2') + ' Desfazer último pagamento</button>' +
       '</div>' +
       '<div class="card-actions">' +
-        (wLink ? '<a class="btn btn-whats btn-sm" href="' + wLink + '" target="_blank" rel="noopener" data-act="whats">WhatsApp</a>' : (isPayable ? '' : '<button class="btn btn-ghost btn-sm" data-act="nowhats" title="Cadastre o telefone em Editar">WhatsApp</button>')) +
-        '<button class="btn btn-ghost btn-sm" data-act="profile">Perfil</button>' +
-        (isPaid(d) ? '' : '<button class="btn btn-ghost btn-sm" data-act="settle">🤝 Quitar c/ desconto</button>') +
+        (wLink ? '<a class="btn btn-whats btn-sm" href="' + wLink + '" target="_blank" rel="noopener" data-act="whats">' + ic('message-circle') + ' WhatsApp</a>' : (isPayable ? '' : '<button class="btn btn-ghost btn-sm" data-act="nowhats" title="Cadastre o telefone em Editar">' + ic('message-circle') + ' WhatsApp</button>')) +
+        '<button class="btn btn-ghost btn-sm" data-act="profile">' + ic('user') + ' Perfil</button>' +
+        (isPaid(d) ? '' : '<button class="btn btn-ghost btn-sm" data-act="settle">' + ic('badge-percent') + ' Quitar c/ desconto</button>') +
         '<div class="spacer"></div>' +
-        '<button class="btn btn-ghost btn-sm" data-act="statement">Extrato (PDF)</button>' +
-        '<button class="btn btn-ghost btn-sm" data-act="edit">Editar</button>' +
-        '<button class="btn btn-danger btn-sm" data-act="del">Excluir</button>' +
+        '<button class="btn btn-ghost btn-sm" data-act="statement">' + ic('file-text') + ' Extrato</button>' +
+        '<button class="btn btn-ghost btn-sm" data-act="edit">' + ic('pencil') + ' Editar</button>' +
+        '<button class="btn btn-danger btn-sm" data-act="del">' + ic('trash') + ' Excluir</button>' +
       '</div>';
 
     var amountInput = inner.querySelector('.pf-amount');
@@ -2065,13 +2285,13 @@
         var after = debtSchedule(d);
         // resumo do que aconteceu
         var adiantadas = after.insts.filter(function(it){ return before.target && it.i > before.target.i && it.open === 0 && before.insts[it.i].open > 0; }).length;
-        var msg = isFuture ? '⚠️ Pagamento registrado com data futura (' + fmtDate(dt) + ')' : 'Pagamento de ' + money.format(payment.amount) + ' registrado';
+        var msg = isFuture ? 'Pagamento registrado com data futura (' + fmtDate(dt) + ')' : 'Pagamento de ' + money.format(payment.amount) + ' registrado';
         if(adiantadas > 0) msg += ' · ' + adiantadas + ' parcela' + (adiantadas>1?'s':'') + ' adiantada' + (adiantadas>1?'s':'');
         if(after.credit - before.credit > 0.005) msg += ' · ' + money.format(after.credit - before.credit) + ' a mais (crédito)';
         if(before.target && after.insts[before.target.i].open > 0.005) msg += ' · faltam ' + money.format(after.insts[before.target.i].open) + ' desta parcela';
         if(walletId) msg += ' (carteira atualizada)';
         render();
-        showToast(msg);
+        showToast(msg, isFuture ? 'triangle-alert' : 'circle-check');
       });
       amountInput.addEventListener('click', function(e){ e.stopPropagation(); });
       if(noteInput) noteInput.addEventListener('click', function(e){ e.stopPropagation(); });
@@ -2161,9 +2381,9 @@
     return card;
   }
 
-  function showToast(msg){
+  function showToast(msg, icon){
     var t = document.getElementById('toast');
-    t.textContent = msg;
+    t.innerHTML = (icon ? ic(icon) : '') + '<span>' + escapeHtml(msg) + '</span>';
     t.classList.add('show');
     clearTimeout(showToast._tm);
     showToast._tm = setTimeout(function(){ t.classList.remove('show'); }, 2200);
@@ -2603,7 +2823,7 @@
     document.getElementById('settleNote').value = '';
     var settleWalletSel = document.getElementById('settleWallet');
     settleWalletSel.innerHTML = '<option value="">— não afetar carteira —</option>' +
-      state.wallets.map(function(w){ return '<option value="'+escapeHtml(w.id)+'">' + (w.icon?escapeHtml(w.icon)+' ':'') + escapeHtml(w.name) + '</option>'; }).join('');
+      state.wallets.map(function(w){ return '<option value="'+escapeHtml(w.id)+'">' + escapeHtml(walletLabel(w)) + '</option>'; }).join('');
     var sg = groupOf(d);
     if(sg && sg.walletId && state.wallets.some(function(w){ return w.id === sg.walletId; })) settleWalletSel.value = sg.walletId;
     document.getElementById('settleErr').textContent = '';
@@ -2748,7 +2968,7 @@
     var avatars = st.members.map(function(d){
       var s = memberState(d);
       var label = s === 'pago' ? (isPayable ? 'pago' : 'pagou') : (s === 'atrasado' ? 'atrasado, falta ' + money.format(remaining(d)) : 'falta ' + money.format(remaining(d)));
-      var mark = s === 'pago' ? '✓' : (s === 'atrasado' ? '!' : '');
+      var mark = s === 'pago' ? ic('check') : (s === 'atrasado' ? ic('circle-alert') : '');
       return '<button type="button" class="g-av st-' + s + '" data-debt="' + escapeHtml(d.id) + '" title="' + escapeHtml(d.name + ': ' + label) + '" aria-label="' + escapeHtml(d.name + ': ' + label + '. Abrir dívida') + '">' +
         '<span class="avatar">' + escapeHtml(initials(d.name)) + '</span>' +
         '<span class="g-av-name">' + escapeHtml(firstName(d.name)) + '</span>' +
@@ -2759,10 +2979,10 @@
     var head = document.createElement('div');
     head.className = 'gcard-head';
     head.innerHTML =
-      '<div class="g-icon" aria-hidden="true">👥</div>' +
+      '<div class="g-icon" aria-hidden="true">' + ic('users') + '</div>' +
       '<div class="who"><div class="name">' + escapeHtml(g.title) + '</div><div class="sub">' + sub + '</div></div>' +
       '<div class="badge ' + badgeCls + '">' + badgeTxt + '</div>' +
-      '<div class="chev">▾</div>';
+      '<div class="chev">' + ic('chevron-down') + '</div>';
     head.addEventListener('click', function(){
       state.openGroupId = open ? null : g.id;
       render();
@@ -2781,14 +3001,14 @@
     if(open){
       var rows = st.members.map(function(d){
         var s = memberState(d), rem = remaining(d), paid = paidAmount(d), txt, cls = '';
-        if(s === 'pago'){ txt = (isPayable ? 'pago' : 'pagou') + ' ✓'; cls = 'ok'; }
+        if(s === 'pago'){ txt = ic('check') + (isPayable ? ' pago' : ' pagou'); cls = 'ok'; }
         else {
           txt = (paid > EPS ? (isPayable ? 'já paguei ' : 'pagou ') + money.format(paid) + ' · ' : '') + 'falta ' + money.format(rem);
           if(s === 'atrasado'){ txt += ' · atrasado'; cls = 'late'; }
         }
         return '<div class="g-row"><span class="gr-name">' + escapeHtml(d.name) + '</span>' +
           '<span class="gr-val">' + money.format(effectiveTotal(d)) + '</span>' +
-          '<button type="button" class="btn btn-ghost btn-sm" data-open="' + escapeHtml(d.id) + '">Abrir</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-open="' + escapeHtml(d.id) + '">Abrir ' + ic('chevron-right', 'i-sm') + '</button>' +
           '<span class="gr-st ' + cls + '">' + txt + '</span></div>';
       }).join('');
       if(g.includeMe && g.myShare > EPS){
@@ -2799,13 +3019,13 @@
       var wallet = g.walletId ? state.wallets.find(function(w){ return w.id === g.walletId; }) : null;
       body.innerHTML =
         rows +
-        (wallet ? '<div class="g-meta">Pagamentos caem em: <b>' + escapeHtml((wallet.icon ? wallet.icon + ' ' : '') + wallet.name) + '</b></div>' : '') +
+        (wallet ? '<div class="g-meta">Pagamentos caem em: <b>' + escapeHtml(walletLabel(wallet)) + '</b></div>' : '') +
         (g.notes ? '<div class="notes-block" style="margin-top:10px;"><b>Anotações</b> ' + escapeHtml(g.notes) + '</div>' : '') +
         '<div class="card-actions g-actions">' +
-          (!isPayable && st.remaining > EPS ? '<button type="button" class="btn btn-whats btn-sm" data-gact="charge">Cobrar pendentes</button>' : '') +
-          '<button type="button" class="btn btn-ghost btn-sm" data-gact="edit">Editar grupo</button>' +
+          (!isPayable && st.remaining > EPS ? '<button type="button" class="btn btn-whats btn-sm" data-gact="charge">' + ic('message-circle') + ' Cobrar pendentes</button>' : '') +
+          '<button type="button" class="btn btn-ghost btn-sm" data-gact="edit">' + ic('pencil') + ' Editar grupo</button>' +
           '<div class="spacer"></div>' +
-          '<button type="button" class="btn btn-danger btn-sm" data-gact="delete">Excluir grupo</button>' +
+          '<button type="button" class="btn btn-danger btn-sm" data-gact="delete">' + ic('trash') + ' Excluir grupo</button>' +
         '</div>';
     }
     card.appendChild(body);
@@ -2865,7 +3085,7 @@
     gIncludeMe.checked = editing ? !!group.includeMe : true;
     gPartInput.value = '';
     gWallet.innerHTML = '<option value="">— nenhuma —</option>' + state.wallets.map(function(w){
-      return '<option value="' + escapeHtml(w.id) + '">' + (w.icon ? escapeHtml(w.icon) + ' ' : '') + escapeHtml(w.name) + '</option>';
+      return '<option value="' + escapeHtml(w.id) + '">' + escapeHtml(walletLabel(w)) + '</option>';
     }).join('');
     gWallet.value = editing && group.walletId && state.wallets.some(function(w){ return w.id === group.walletId; }) ? group.walletId : '';
     gErrEl.textContent = '';
@@ -2929,7 +3149,7 @@
     var lockNote = p.locked ? '<small>' + (gForm.kind === 'payable' ? 'já paguei ' : 'já pagou ') + money.format(p.paid) + '</small>' : '';
     return '<div class="gp-row"><span class="avatar">' + escapeHtml(initials(p.name)) + '</span>' +
       '<span class="gp-name">' + escapeHtml(p.name) + lockNote + '</span>' + amt +
-      '<button type="button" class="gp-del" data-del="' + i + '" aria-label="Remover ' + escapeHtml(p.name) + '">×</button></div>';
+      '<button type="button" class="gp-del" data-del="' + i + '" aria-label="Remover ' + escapeHtml(p.name) + '">' + ic('x') + '</button></div>';
   }
   function meRowHtml(){
     var custom = gForm.split === 'custom';
@@ -2968,12 +3188,12 @@
       }
     } else {
       var diff = round2(total - sum);
-      if(Math.abs(diff) <= EPS){ cls = 'ok'; txt = '✓ Fecha certinho com o total de ' + money.format(total) + '.'; }
+      if(Math.abs(diff) <= EPS){ cls = 'ok'; txt = 'Fecha certinho com o total de ' + money.format(total) + '.'; }
       else if(diff > 0){ cls = 'warn'; txt = 'Faltam ' + money.format(diff) + ' pra fechar o total de ' + money.format(total) + '.'; }
       else { cls = 'bad'; txt = 'Passou ' + money.format(-diff) + ' do total de ' + money.format(total) + '.'; }
     }
     gSumEl.className = 'g-sum' + (cls ? ' ' + cls : '');
-    gSumEl.textContent = txt;
+    gSumEl.innerHTML = ic(cls === 'ok' ? 'circle-check' : cls === 'bad' ? 'circle-alert' : cls === 'warn' ? 'triangle-alert' : 'info') + '<span>' + escapeHtml(txt) + '</span>';
   }
   function updateGroupWarn(){
     if(!gForm || !gForm.editingId){ gWarnEl.innerHTML = ''; return; }
@@ -3306,6 +3526,7 @@
         var hasWallets = data && !Array.isArray(data) && Array.isArray(data.wallets);
         var hasTx = data && !Array.isArray(data) && Array.isArray(data.transactions);
         var wallets = hasWallets ? data.wallets.filter(function(w){ return w && w.id && typeof w.name === 'string'; }) : null;
+        if(wallets) wallets.forEach(function(w){ w.icon = walletIconKey(w.icon); });
         var txs = hasTx ? data.transactions.filter(function(t){
           return t && typeof t.amount === 'number' && !isNaN(t.amount) && typeof t.date === 'string' && (t.type === 'gasto' || t.type === 'entrada');
         }) : null;
@@ -3395,9 +3616,9 @@
     var days = daysSince(lastExport);
     if(days === null || days >= 14){
       var msg = days === null
-        ? '💾 Você ainda não fez nenhum backup dos seus dados.'
-        : '💾 Já faz ' + days + ' dias sem backup dos seus dados.';
-      document.getElementById('backupBannerMsg').textContent = msg;
+        ? 'Você ainda não fez nenhum backup dos seus dados.'
+        : 'Já faz ' + days + ' dias sem backup dos seus dados.';
+      document.getElementById('backupBannerMsg').innerHTML = ic('save') + '<span>' + escapeHtml(msg) + '</span>';
       backupBanner.style.display = 'flex';
     } else {
       backupBanner.style.display = 'none';
@@ -3540,7 +3761,11 @@
     if(!people.length){ showToast('Cadastre pelo menos uma dívida "a receber" para gerar o ranking.'); return; }
     people.sort(function(a,b){ return b.received - a.received; });
 
-    var medals = ['🥇','🥈','🥉'];
+    var medals = [
+      icInline('medal', 'width="34" height="34" style="color:#d4a72c"'),
+      icInline('medal', 'width="34" height="34" style="color:#9aa3b2"'),
+      icInline('medal', 'width="34" height="34" style="color:#b8763a"')
+    ];
     var titles = ['Lenda Suprema','Herói de Ouro','Guardião Brilhante'];
 
     var podium = people.slice(0,3).map(function(p, i){
@@ -3558,7 +3783,7 @@
       return '<div class="rank-row">' +
         '<div class="rr-pos">#' + (i+4) + '</div>' +
         '<div class="rr-avatar">' + initials(p.name) + '</div>' +
-        '<div class="rr-name">' + escapeHtml(p.name) + '<span class="rr-sub">' + p.loans + (p.loans===1?' empréstimo':' empréstimos') + (p.late ? ' · ' + p.late + ' atrasado' + (p.late>1?'s':'') : ' · em dia ✨') + '</span></div>' +
+        '<div class="rr-name">' + escapeHtml(p.name) + '<span class="rr-sub">' + p.loans + (p.loans===1?' empréstimo':' empréstimos') + (p.late ? ' · ' + p.late + ' atrasado' + (p.late>1?'s':'') : ' · em dia') + '</span></div>' +
         '<div class="rr-val">' + money.format(p.received) + '</div>' +
       '</div>';
     }).join('');
@@ -3618,14 +3843,14 @@
         '<div class="no-print"><button onclick="window.print()">Imprimir / Salvar como PDF</button></div>' +
         '<div class="sheet">' +
           '<div class="r-top">' +
-            '<div class="r-eyebrow">✦ BarnaBank Presents ✦</div>' +
+            '<div class="r-eyebrow">' + icInline('sparkles', 'width="14" height="14" style="vertical-align:-2px"') + ' BarnaBank apresenta</div>' +
             '<div class="r-title">Ranking dos Pagadores</div>' +
             '<div class="r-sub">Gerado em ' + issuedStr + ' · quem mais honrou seus compromissos até agora</div>' +
           '</div>' +
           '<div class="podium">' + podium + '</div>' +
           (restRows ? '<div class="rank-list">' + restRows + '</div>' : '') +
           '<div class="r-footer-stat"><div class="fs-label">Total já recebido por todos</div><div class="fs-val">' + money.format(totalReceived) + '</div></div>' +
-          '<div class="r-footer">Documento gerado por BarnaBank · uso pessoal e divertido entre amigos 🎲</div>' +
+          '<div class="r-footer">Documento gerado por BarnaBank · uso pessoal e divertido entre amigos</div>' +
         '</div>' +
       '</body></html>';
 
@@ -3732,7 +3957,7 @@
     var subEl = document.getElementById('relOutSub');
     if(prevOut > 0){
       var diffPct = (totalOut - prevOut) / prevOut * 100;
-      subEl.textContent = (diffPct >= 0 ? '▲ ' : '▼ ') + Math.abs(diffPct).toFixed(0) + '% vs mês anterior';
+      subEl.innerHTML = ic(diffPct >= 0 ? 'trending-up' : 'trending-down', 'i-sm') + ' ' + Math.abs(diffPct).toFixed(0) + '% vs mês anterior';
       subEl.style.color = diffPct > 0 ? 'var(--red)' : 'var(--green)';
     } else {
       subEl.textContent = '';
@@ -3764,8 +3989,19 @@
   });
 
   // ---------- dashboard ----------
+  function renderBalanceSub(id){
+    var el = document.getElementById(id);
+    if(!el) return;
+    var n = state.wallets.length;
+    el.innerHTML = n
+      ? '<span>' + n + (n === 1 ? ' carteira' : ' carteiras') + '</span>' + state.wallets.slice(0, 5).map(function(w){
+          return '<span class="bc-w" title="' + escapeHtml(w.name) + '">' + walletIconHtml(w) + escapeHtml(w.name) + '</span>';
+        }).join('')
+      : '<span>Crie uma carteira para acompanhar seu saldo.</span>';
+  }
   function renderDashboard(){
     document.getElementById('dashTotalBalance').textContent = money.format(totalWalletsBalance());
+    renderBalanceSub('dashWalletsSub');
 
     var now = new Date(); var y = now.getFullYear(), m = now.getMonth();
     var monthIn = 0, monthOut = 0;
@@ -3814,7 +4050,7 @@
       var kindTag = item.d.kind === 'payable' ? ' (eu devo)' : '';
       dashNextDue.textContent = item.d.name + kindTag + ' · ' + whenStr;
     } else {
-      dashNextDue.textContent = 'Nada pendente 🎉';
+      dashNextDue.innerHTML = 'Nada pendente ' + ic('party-popper', 'i-ok');
     }
     var lateDebtsD = pending.filter(function(d){ return statusOf(d) === 'atrasado'; });
     var lateCount = lateDebtsD.length;
@@ -3842,13 +4078,14 @@
     } else {
       people.sort(function(a,b){ if(a.late !== b.late) return a.late - b.late; return b.received - a.received; });
       var best = people[0];
-      dashBest.textContent = best.name + (best.late === 0 ? ' ✓' : ' (' + best.late + ' atraso' + (best.late>1?'s':'') + ')');
+      dashBest.innerHTML = escapeHtml(best.name) + (best.late === 0 ? ' ' + ic('badge-check', 'i-ok') : ' (' + best.late + ' atraso' + (best.late>1?'s':'') + ')');
     }
   }
 
   // ---------- carteiras (wallets) ----------
   function renderWalletsPage(){
     document.getElementById('walletsTotalBalance').textContent = money.format(totalWalletsBalance());
+    renderBalanceSub('walletsSub');
     var listEl = document.getElementById('walletList');
     listEl.innerHTML = '';
     if(!state.wallets.length){
@@ -3870,10 +4107,10 @@
     var head = document.createElement('div');
     head.className = 'card-head';
     head.innerHTML =
-      '<div class="avatar">' + escapeHtml(w.icon || '👛') + '</div>' +
+      '<div class="avatar wallet-avatar">' + walletIconHtml(w) + '</div>' +
       '<div class="who"><div class="name">' + escapeHtml(w.name) + '</div></div>' +
-      '<div class="head-amount" style="' + (bal < 0 ? 'color:var(--red);' : 'color:var(--green);') + '">' + money.format(bal) + '</div>' +
-      '<div class="chev">▾</div>';
+      '<div class="head-amount wallet-amount" style="' + (bal < 0 ? 'color:var(--red);' : 'color:var(--green);') + '">' + money.format(bal) + '</div>' +
+      '<div class="chev">' + ic('chevron-down') + '</div>';
     head.addEventListener('click', function(){
       state.openWalletId = open ? null : w.id;
       renderWalletsPage();
@@ -3889,17 +4126,17 @@
     var rowsHtml = events.length ? events.map(function(e){
       return '<div class="wallet-tx-row"><div class="wtx-info"><span class="wtx-cat">' + escapeHtml(e.label) + (e.note ? ' · ' + escapeHtml(e.note) : '') + '</span><span class="wtx-date">' + fmtDate(e.date) + (e.isLoan ? ' · empréstimo' : '') + '</span></div>' +
         '<span class="wtx-amount ' + e.kind + '">' + (e.kind === 'gasto' ? '−' : '+') + money.format(e.amount) + '</span>' +
-        (e.isLoan ? '' : '<button class="wtx-del" data-txid="' + e.id + '" title="Excluir lançamento">✕</button>') +
+        (e.isLoan ? '' : '<button class="wtx-del" data-txid="' + e.id + '" title="Excluir lançamento" aria-label="Excluir lançamento">' + ic('x') + '</button>') +
       '</div>';
     }).join('') : '<div class="history-empty">Nenhum lançamento nessa carteira ainda.</div>';
 
     inner.innerHTML =
       '<div class="history-list">' + rowsHtml + '</div>' +
       '<div class="card-actions" style="margin-top:12px;">' +
-        '<button class="btn btn-ghost btn-sm" data-act="add-tx">+ Lançamento nessa carteira</button>' +
+        '<button class="btn btn-ghost btn-sm" data-act="add-tx">' + ic('plus') + ' Lançamento nessa carteira</button>' +
         '<div class="spacer"></div>' +
-        '<button class="btn btn-ghost btn-sm" data-act="edit-wallet">Editar</button>' +
-        '<button class="btn btn-danger btn-sm" data-act="del-wallet">Excluir</button>' +
+        '<button class="btn btn-ghost btn-sm" data-act="edit-wallet">' + ic('pencil') + ' Editar</button>' +
+        '<button class="btn btn-danger btn-sm" data-act="del-wallet">' + ic('trash') + ' Excluir</button>' +
       '</div>';
 
     inner.querySelectorAll('.wtx-del').forEach(function(btn){
@@ -3944,13 +4181,30 @@
   var editingWalletId = null;
   function openWalletModal(wallet){
     editingWalletId = wallet ? wallet.id : null;
-    document.getElementById('walletModalTitle').textContent = wallet ? 'Editar carteira' : '👛 Nova carteira';
+    document.getElementById('walletModalTitle').textContent = wallet ? 'Editar carteira' : 'Nova carteira';
     document.getElementById('wName').value = wallet ? wallet.name : '';
-    document.getElementById('wIcon').value = wallet ? (wallet.icon || '') : '';
+    renderIconPicker(wallet ? walletIconKey(wallet.icon) : 'wallet');
     document.getElementById('walletErr').textContent = '';
     walletModalOverlay.classList.add('show');
   }
   function closeWalletModal(){ walletModalOverlay.classList.remove('show'); }
+  var wIconPicker = document.getElementById('wIconPicker');
+  function renderIconPicker(current){
+    var opts = WALLET_ICONS.slice();
+    if(current && !isIconKey(current)) opts.unshift(current); // emoji antigo continua disponível
+    document.getElementById('wIcon').value = current || 'wallet';
+    wIconPicker.innerHTML = opts.map(function(k){
+      var on = k === current;
+      return '<button type="button" class="ip-opt' + (on ? ' active' : '') + '" role="radio" aria-checked="' + on + '" data-icon="' + escapeHtml(k) + '" title="' + escapeHtml(k) + '">' +
+        (isIconKey(k) ? ic(k) : '<span class="wi-txt">' + escapeHtml(k) + '</span>') + '</button>';
+    }).join('');
+  }
+  wIconPicker.addEventListener('click', function(e){
+    var b = e.target.closest('.ip-opt');
+    if(!b) return;
+    document.getElementById('wIcon').value = b.getAttribute('data-icon');
+    wIconPicker.querySelectorAll('.ip-opt').forEach(function(o){ var on = o === b; o.classList.toggle('active', on); o.setAttribute('aria-checked', on); });
+  });
   document.getElementById('btnNewWallet').addEventListener('click', function(){ openWalletModal(null); });
   document.getElementById('btnWalletCancel').addEventListener('click', closeWalletModal);
   walletModalOverlay.addEventListener('click', function(e){ if(e.target === walletModalOverlay) closeWalletModal(); });
@@ -3976,7 +4230,7 @@
   var currentTxType = 'entrada';
   function populateWalletSelect(preselectId){
     var sel = document.getElementById('txWallet');
-    sel.innerHTML = state.wallets.map(function(w){ return '<option value="' + escapeHtml(w.id) + '">' + (w.icon ? escapeHtml(w.icon) + ' ' : '') + escapeHtml(w.name) + '</option>'; }).join('');
+    sel.innerHTML = state.wallets.map(function(w){ return '<option value="' + escapeHtml(w.id) + '">' + escapeHtml(walletLabel(w)) + '</option>'; }).join('');
     if(preselectId) sel.value = preselectId;
   }
   function populateCategoryList(){
