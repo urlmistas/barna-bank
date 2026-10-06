@@ -383,6 +383,83 @@
   .export-menu button:hover{background:var(--card-2);}
   .export-menu .em-desc{display:block;font-size:11px;color:var(--muted);font-weight:400;margin-top:1px;}
 
+  /* ---------- dívida em grupo ---------- */
+  .mode-toggle{display:inline-flex;}
+  .form-group-note{font-size:12.5px;color:var(--gold-soft);background:rgba(201,162,74,0.1);border:1px solid rgba(201,162,74,0.3);border-radius:10px;padding:8px 12px;margin-bottom:14px;line-height:1.45;}
+  .grp-pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;font-family:'Nunito',sans-serif;background:var(--blue-soft);color:var(--blue);border:none;cursor:pointer;margin-left:4px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;display:inline-block;}
+  .grp-pill:hover{filter:brightness(1.15);}
+  .glist{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+  .glist:empty{display:none;}
+  .glist-title{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;font-weight:600;}
+  .gcard{background:var(--card);border:1px solid var(--stroke);border-left:3px solid var(--blue);border-radius:var(--radius);overflow:hidden;}
+  .gcard-head{display:flex;align-items:center;gap:14px;padding:15px 16px 10px;cursor:pointer;user-select:none;}
+  .g-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--blue-soft);font-size:18px;flex-shrink:0;}
+  .gcard.open .chev{transform:rotate(180deg);}
+  .gcard-prog{padding:0 16px 10px;}
+  .g-prog-label{font-size:11.5px;color:var(--muted);margin-top:6px;font-family:'Nunito',sans-serif;line-height:1.4;}
+  .g-avatars{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 14px;}
+  .g-av{display:inline-flex;align-items:center;gap:6px;background:var(--ink-2);border:1px solid var(--stroke);border-radius:20px;padding:3px 10px 3px 3px;cursor:pointer;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;}
+  .g-av:hover{border-color:var(--muted-2);}
+  .g-av .avatar{width:26px;height:26px;font-size:10.5px;}
+  .g-av.st-pago{border-color:rgba(87,185,138,0.45);}
+  .g-av.st-pago .avatar{background:var(--green);color:#062b16;}
+  .g-av.st-atrasado{border-color:rgba(226,102,92,0.55);}
+  .g-av.st-atrasado .avatar{background:linear-gradient(155deg,#e88079,var(--red));color:#2a0906;}
+  .g-av.st-pendente .avatar{background:var(--card-2);color:var(--muted);border:1px dashed var(--muted-2);}
+  .g-av .g-av-st{font-size:11px;font-weight:800;}
+  .g-av.st-pago .g-av-st{color:var(--green);}
+  .g-av.st-atrasado .g-av-st{color:var(--red);}
+  .gcard-body{border-top:1px solid var(--stroke);padding:14px 16px 16px;display:none;}
+  .gcard.open .gcard-body{display:block;}
+  .g-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:2px 12px;align-items:center;padding:8px 10px;background:var(--ink-2);border-radius:9px;margin-bottom:6px;font-size:13px;}
+  .g-row .gr-name{font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .g-row .gr-val{font-family:'Nunito',sans-serif;font-weight:700;}
+  .g-row .btn{grid-row:1 / span 2;grid-column:3;}
+  .g-row .gr-st{grid-column:1 / 3;font-size:11.5px;color:var(--muted);font-family:'Nunito',sans-serif;}
+  .g-row .gr-st.late{color:var(--red);}
+  .g-row .gr-st.ok{color:var(--green);}
+  .g-row.me{background:transparent;border:1px dashed var(--stroke);}
+  .g-meta{font-size:12px;color:var(--muted);margin-top:8px;}
+  .g-meta b{color:var(--text);}
+  .g-actions{margin-top:12px;}
+  .g-empty{font-size:12.5px;color:var(--muted-2);font-style:italic;padding:6px 2px;}
+  .chip-input{display:flex;gap:8px;}
+  .chip-input input{flex:1;min-width:0;}
+  .check-row{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text);margin:0 0 14px;cursor:pointer;}
+  .check-row input{width:16px;height:16px;}
+  #gSplitToggle{display:inline-flex;}
+  .g-parts{display:flex;flex-direction:column;gap:6px;margin:12px 0 8px;}
+  .gp-row{display:grid;grid-template-columns:30px minmax(0,1fr) auto 28px;gap:10px;align-items:center;background:var(--card);border:1px solid var(--stroke);border-radius:10px;padding:6px 8px;}
+  .gp-row .avatar{width:30px;height:30px;font-size:11px;}
+  .gp-row.me{border-style:dashed;}
+  .gp-row.me .avatar{background:var(--blue-soft);color:var(--blue);}
+  .gp-name{font-size:13.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .gp-name small{display:block;font-weight:500;font-size:11px;color:var(--muted);}
+  .gp-amt{font-family:'Nunito',sans-serif;font-weight:700;font-size:13.5px;text-align:right;}
+  .gp-input{width:104px;background:var(--ink-2);border:1px solid var(--stroke);border-radius:8px;color:var(--text);padding:7px 8px;font-family:'Inter',sans-serif;font-size:13px;text-align:right;}
+  .gp-input:focus{outline:none;border-color:var(--gold);}
+  .gp-del{background:none;border:none;color:var(--muted-2);font-size:18px;line-height:1;cursor:pointer;padding:2px;}
+  .gp-del:hover{color:var(--red);}
+  .g-sum{font-size:12.5px;font-family:'Nunito',sans-serif;padding:8px 10px;border-radius:9px;background:var(--ink-2);border:1px solid var(--stroke);margin-bottom:14px;color:var(--muted);line-height:1.45;}
+  .g-sum.ok{color:var(--green);border-color:rgba(87,185,138,0.35);}
+  .g-sum.warn{color:var(--gold-soft);border-color:rgba(201,162,74,0.45);}
+  .g-sum.bad{color:var(--red);border-color:rgba(226,102,92,0.45);}
+  .g-warn{font-size:12.5px;color:var(--gold-soft);line-height:1.5;background:rgba(201,162,74,0.08);border:1px solid rgba(201,162,74,0.3);border-radius:9px;padding:8px 12px;}
+  .g-warn:empty{display:none;}
+  .g-warn ul{margin:4px 0 0;padding-left:18px;}
+  #chargeMsg{min-height:190px;font-family:'Nunito',sans-serif;font-size:13px;line-height:1.5;}
+  .charge-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 10px;background:var(--card);border:1px solid var(--stroke);border-radius:9px;margin-bottom:6px;font-size:13px;}
+  .charge-row b{font-weight:600;}
+  .charge-nophone{font-size:11.5px;color:var(--muted-2);}
+  .charge-status{font-size:12px;color:var(--green);min-height:16px;margin-top:6px;}
+  .pay-form input.pf-note{width:170px;}
+  .g-av:focus-visible,.grp-pill:focus-visible,.gp-del:focus-visible,.gcard-head:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  @media (max-width:640px){
+    .gcard-head{gap:10px;}
+    .gp-input{width:88px;}
+    .g-row .btn{padding:6px 10px;}
+  }
+
   @media (max-width:640px){
     .stats{grid-template-columns:repeat(2,1fr);}
     .detail-grid{grid-template-columns:repeat(2,1fr);}
@@ -522,6 +599,7 @@
     <input class="search" id="search" placeholder="Buscar por nome…">
   </div>
 
+  <div class="glist" id="groupList"></div>
   <div class="list" id="list"></div>
   </div>
 
@@ -600,6 +678,11 @@
 <div class="overlay" id="overlay">
   <div class="modal">
     <h2 id="modalTitle">Nova dívida</h2>
+    <div class="filters mode-toggle" id="formModeToggle" style="margin-bottom:12px;">
+      <button data-m="single" class="active" type="button">Individual</button>
+      <button data-m="group" type="button">👥 Em grupo</button>
+    </div>
+    <div class="form-group-note" id="formGroupNote" style="display:none;"></div>
     <div class="filters" id="formKindToggle" style="margin-bottom:18px;">
       <button data-k="receivable" class="active" type="button">💰 Me devem</button>
       <button data-k="payable" type="button">💸 Devo eu</button>
@@ -687,6 +770,97 @@
       <button class="btn btn-danger-solid" id="btnDelConfirm">Sim, excluir</button>
     </div>
     <div class="kbd-hint"><kbd>Enter</kbd> confirma · <kbd>Esc</kbd> cancela</div>
+  </div>
+</div>
+
+<div class="overlay" id="groupOverlay">
+  <div class="modal" style="max-width:500px;">
+    <h2 id="groupModalTitle">Nova dívida em grupo</h2>
+    <div class="filters" id="gKindToggle" style="margin-bottom:16px;display:inline-flex;">
+      <button data-k="receivable" class="active" type="button">💰 Eles me devem</button>
+      <button data-k="payable" type="button">💸 Eu devo a vários</button>
+    </div>
+    <div class="field">
+      <label for="gTitle">Nome do grupo</label>
+      <input type="text" id="gTitle" maxlength="60" placeholder="Ex: Churrasco de sábado, presente da Ana" autocomplete="off">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="gTotal">Valor total (R$)</label>
+        <input type="number" id="gTotal" step="0.01" min="0" inputmode="decimal" placeholder="0,00">
+      </div>
+      <div class="field">
+        <label for="gDate">Data</label>
+        <input type="date" id="gDate">
+      </div>
+    </div>
+    <div class="field">
+      <label for="gPartInput" id="lblGParts">Quem participa</label>
+      <div class="chip-input">
+        <input type="text" id="gPartInput" list="friendsList" placeholder="Nome (ou vários separados por vírgula)" autocomplete="off">
+        <button class="btn btn-ghost btn-sm" type="button" id="gPartAdd">Adicionar</button>
+      </div>
+    </div>
+    <label class="check-row" id="gIncludeMeRow"><input type="checkbox" id="gIncludeMe" checked> Incluir eu na divisão</label>
+    <div class="filters" id="gSplitToggle">
+      <button data-s="equal" class="active" type="button">Dividir igual</button>
+      <button data-s="custom" type="button">Valores diferentes</button>
+    </div>
+    <div class="g-parts" id="gParts"></div>
+    <div class="g-sum" id="gSum"></div>
+    <div class="field-row">
+      <div class="field">
+        <label for="gDue">Pagar até</label>
+        <input type="date" id="gDue">
+      </div>
+      <div class="field">
+        <label for="gWallet">Carteira (opcional)</label>
+        <select id="gWallet" class="select" style="width:100%;"></select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="gNotes">Anotações (opcional)</label>
+      <textarea id="gNotes" placeholder="Ex: vaquinha do presente, meta de R$ 300"></textarea>
+    </div>
+    <div class="g-warn" id="gWarn"></div>
+    <div class="err" id="gErr" role="alert"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="gCancel" type="button">Cancelar</button>
+      <button class="btn btn-primary" id="gSave" type="button">Criar grupo</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="groupDelOverlay">
+  <div class="modal" style="max-width:420px;">
+    <h2>Excluir grupo?</h2>
+    <p class="warn" id="gDelText"></p>
+    <div class="modal-actions" style="flex-wrap:wrap;">
+      <button class="btn btn-ghost" id="gDelCancel" type="button">Cancelar</button>
+      <button class="btn btn-ghost" id="gDelKeep" type="button">Manter como individuais</button>
+      <button class="btn btn-danger-solid" id="gDelAll" type="button">Apagar grupo e dívidas</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="chargeOverlay">
+  <div class="modal" style="max-width:460px;">
+    <h2 id="chargeTitle">Cobrar pendentes</h2>
+    <p class="warn" style="margin-bottom:10px;">O WhatsApp não manda para várias pessoas de uma vez por link. Envie esta mensagem no grupo de vocês, ou cobre cada um pelos botões abaixo.</p>
+    <div class="field">
+      <label for="chargeMsg">Mensagem para o grupo</label>
+      <textarea id="chargeMsg"></textarea>
+      <div class="charge-status" id="chargeCopyStatus" role="status"></div>
+    </div>
+    <div class="card-actions" style="margin-bottom:14px;">
+      <button class="btn btn-primary btn-sm" id="chargeCopy" type="button">Copiar mensagem</button>
+      <a class="btn btn-whats btn-sm" id="chargeGroupLink" target="_blank" rel="noopener" href="#">Abrir no WhatsApp</a>
+    </div>
+    <div class="field"><label>Cobrar um por um</label></div>
+    <div id="chargeList"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="chargeClose" type="button">Fechar</button>
+    </div>
   </div>
 </div>
 
@@ -825,6 +999,10 @@
       <label>Juros padrão ao criar dívida (% ao mês)</label>
       <input type="number" id="setDefaultRate" step="0.01" min="0" placeholder="0">
     </div>
+    <div class="field">
+      <label for="setPixKey">Chave PIX (vai junto nas cobranças pelo WhatsApp)</label>
+      <input type="text" id="setPixKey" maxlength="120" placeholder="E-mail, celular, CPF ou chave aleatória" autocomplete="off">
+    </div>
     <div class="field" style="display:flex;align-items:center;gap:10px;margin-top:4px;">
       <input type="checkbox" id="setConfirmDelete" style="width:16px;height:16px;">
       <label style="margin-bottom:0;" for="setConfirmDelete">Pedir confirmação antes de excluir uma dívida</label>
@@ -902,7 +1080,8 @@
     dateFormat: 'dmy',
     confirmDelete: true,
     backupReminder: true,
-    defaultRate: 0
+    defaultRate: 0,
+    pixKey: ''
   };
   function loadSettings(){
     try{
@@ -995,6 +1174,8 @@
         var base = d.date ? parseInt(d.date.split('-')[2],10) : 1;
         d.dueDay = base || 1;
       }
+      if(d.firstDue && !/^\d{4}-\d{2}-\d{2}$/.test(d.firstDue)) delete d.firstDue;
+      if(d.groupId && typeof d.groupId !== 'string') delete d.groupId;
       delete d.paid;
       return d;
     });
@@ -1018,8 +1199,8 @@
       var seedEl = document.getElementById('seed-data');
       try{ parsed = JSON.parse(seedEl.textContent); }catch(e){ parsed = null; }
     }
-    if(!parsed) return {debts:[], contacts:{}, wallets:[], transactions:[]};
-    if(Array.isArray(parsed)) return {debts: migrateDebts(parsed), contacts:{}, wallets:[], transactions:[]};
+    if(!parsed) return {debts:[], contacts:{}, wallets:[], transactions:[], groups:[]};
+    if(Array.isArray(parsed)) return {debts: migrateDebts(parsed), contacts:{}, wallets:[], transactions:[], groups:[]};
     var contacts = parsed.contacts || {};
     Object.keys(contacts).forEach(function(k){
       if(contacts[k] && typeof contacts[k].phone === 'string'){
@@ -1028,7 +1209,39 @@
     });
     var wallets = Array.isArray(parsed.wallets) ? parsed.wallets : [];
     var transactions = Array.isArray(parsed.transactions) ? parsed.transactions : [];
-    return {debts: migrateDebts(parsed.debts || []), contacts: contacts, wallets: wallets, transactions: transactions};
+    var debts = migrateDebts(parsed.debts || []);
+    var groups = migrateGroups(parsed.groups);
+    linkGroups(debts, groups);
+    return {debts: debts, contacts: contacts, wallets: wallets, transactions: transactions, groups: groups};
+  }
+  // ---------- grupos (vaquinha / conta dividida) ----------
+  function migrateGroups(arr){
+    return (Array.isArray(arr) ? arr : []).filter(function(g){ return g && g.id && typeof g.title === 'string'; }).map(function(g){
+      if(g.kind !== 'payable') g.kind = 'receivable';
+      if(typeof g.total !== 'number' || isNaN(g.total) || g.total < 0) g.total = 0;
+      if(g.splitMode !== 'custom') g.splitMode = 'equal';
+      g.includeMe = g.kind === 'receivable' && !!g.includeMe;
+      if(typeof g.myShare !== 'number' || isNaN(g.myShare) || g.myShare < 0) g.myShare = 0;
+      if(!g.includeMe) g.myShare = 0;
+      if(typeof g.notes !== 'string') g.notes = '';
+      if(typeof g.walletId !== 'string') g.walletId = '';
+      return g;
+    });
+  }
+  // dívidas apontando para grupo que não existe mais viram individuais
+  function linkGroups(debts, groups){
+    var ids = {};
+    groups.forEach(function(g){ ids[g.id] = true; });
+    debts.forEach(function(d){ if(d.groupId && !ids[d.groupId]) delete d.groupId; });
+  }
+  // divide sem perder centavo: R$ 100 / 3 = 33,34 + 33,33 + 33,33
+  function splitEqual(total, count){
+    var cents = Math.round(total * 100);
+    var base = Math.floor(cents / count);
+    var extra = cents - base * count;
+    var shares = [];
+    for(var i = 0; i < count; i++) shares.push((base + (i < extra ? 1 : 0)) / 100);
+    return shares;
   }
   var saveFailedWarned = false;
   function warnSaveFailed(err){
@@ -1043,7 +1256,7 @@
     invalidateSchedules();
     try{
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        debts: state.debts, contacts: state.contacts, wallets: state.wallets, transactions: state.transactions
+        debts: state.debts, contacts: state.contacts, wallets: state.wallets, transactions: state.transactions, groups: state.groups
       }));
       saveFailedWarned = false;
     }catch(e){ warnSaveFailed(e); }
@@ -1054,6 +1267,7 @@
       app: 'BarnaBank', version: 2, exportedAt: new Date().toISOString(),
       debts: state.debts, contacts: state.contacts,
       wallets: state.wallets, transactions: state.transactions,
+      groups: state.groups,
       settings: settings
     };
   }
@@ -1066,7 +1280,9 @@
     contacts: loaded.contacts,
     wallets: loaded.wallets,
     transactions: loaded.transactions,
+    groups: loaded.groups,
     openId: null,
+    openGroupId: null,
     openGroups: {},
     filter: 'todos',
     sort: 'recent',
@@ -1105,6 +1321,13 @@
   function daysInMonth(y,m){ return new Date(y, m+1, 0).getDate(); }
   function dueDateForInstallment(d, idx){
     // idx: 0-based installment index
+    if(d.firstDue){
+      // vencimento da 1ª parcela definido direto (ex.: grupo com data de pagamento)
+      var f = new Date(d.firstDue + 'T00:00:00');
+      var tm = f.getMonth() + idx;
+      var fy = f.getFullYear() + Math.floor(tm/12), fm = tm % 12;
+      return new Date(fy, fm, Math.min(f.getDate(), daysInMonth(fy, fm)));
+    }
     var base = new Date(d.date + 'T00:00:00');
     var totalMonths = base.getMonth() + idx + 1;
     var y = base.getFullYear() + Math.floor(totalMonths/12);
@@ -1127,7 +1350,7 @@
   function debtSchedule(d){
     var today = todayISO();
     if(!scheduleCache || scheduleCache.day !== today) scheduleCache = {day: today, map: {}};
-    var key = d.id + '|' + JSON.stringify([d.principal, d.rate, d.interestType, d.installments, d.date, d.dueDay, d.discount, d.lateFeePct, d.lateInterestPct, d.settledDate, d.payments]);
+    var key = d.id + '|' + JSON.stringify([d.principal, d.rate, d.interestType, d.installments, d.date, d.dueDay, d.discount, d.lateFeePct, d.lateInterestPct, d.settledDate, d.firstDue, d.payments]);
     var hit = scheduleCache.map[d.id];
     if(hit && hit.key === key) return hit.sched;
     var sched = computeSchedule(d, today);
@@ -1308,7 +1531,12 @@
     var msg;
     var st = statusOf(d);
     var sch = debtSchedule(d);
-    if(st === 'atrasado'){
+    var wg = groupOf(d);
+    if(wg && installments(d) === 1){
+      msg = st === 'atrasado'
+        ? 'Oi ' + d.name + ', tudo bem? Sobre o *' + wg.title + '*: sua parte de ' + money.format(remaining(d)) + ' ficou em aberto (era até ' + fmtDate(toISO(due)) + '). Consegue acertar comigo? 🙂'
+        : 'Oi ' + d.name + ', tudo bem? Sobre o *' + wg.title + '*: sua parte ficou ' + money.format(remaining(d)) + (due ? ', pra pagar até ' + fmtDate(toISO(due)) : '') + '. Qualquer coisa me avisa 🙂';
+    } else if(st === 'atrasado'){
       msg = 'Oi ' + d.name + ', tudo bem? Passando pra lembrar que ' +
         (sch.overdueCount > 1 ? 'tem ' + sch.overdueCount + ' parcelas em aberto, somando ' : 'ficou em aberto ') +
         money.format(sch.overdue) + ' (vencimento em ' + fmtDate(toISO(due)) + '). Consegue acertar comigo? Pode ser uma parte também 🙂';
@@ -1317,6 +1545,7 @@
     } else {
       msg = 'Oi ' + d.name + ', tudo bem? Sua próxima parcela é de ' + money.format(amountDueNow(d)) + (due ? (', vencimento em ' + fmtDate(toISO(due))) : '') + '. Qualquer coisa me avisa 🙂';
     }
+    if(settings.pixKey) msg += '\nPIX: ' + settings.pixKey;
     return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(msg);
   }
 
@@ -1327,6 +1556,7 @@
     renderSmartCards();
     renderChart();
     renderDuePanel();
+    renderGroups();
     renderList();
     saveData();
   }
@@ -1625,6 +1855,8 @@
     var open = state.openId === d.id;
     var status = statusOf(d);
     var isPayable = d.kind === 'payable';
+    var grp = groupOf(d);
+    var grpWallet = grp && grp.walletId ? grp.walletId : '';
 
     var card = document.createElement('div');
     card.className = 'card' + (open ? ' open' : '');
@@ -1634,7 +1866,8 @@
     head.innerHTML =
       '<div class="avatar">' + initials(d.name) + '</div>' +
       '<div class="who">' +
-        '<div class="name">' + escapeHtml(d.name) + ' <span class="kind-pill ' + (isPayable?'payable':'receivable') + '">' + (isPayable?'A pagar':'A receber') + '</span></div>' +
+        '<div class="name">' + escapeHtml(d.name) + ' <span class="kind-pill ' + (isPayable?'payable':'receivable') + '">' + (isPayable?'A pagar':'A receber') + '</span>' +
+          (grp ? '<button type="button" class="grp-pill" title="Ver o grupo">👥 ' + escapeHtml(grp.title) + '</button>' : '') + '</div>' +
         '<div class="sub">' + (isPayable ? 'dívida desde ' : 'emprestado em ') + fmtDate(d.date) + '</div>' +
       '</div>' +
       '<div class="badge ' + status + '">' + statusLabel(d) + '</div>' +
@@ -1650,6 +1883,8 @@
       state.openId = open ? null : d.id;
       render();
     });
+    var grpPill = head.querySelector('.grp-pill');
+    if(grpPill) grpPill.addEventListener('click', function(e){ e.stopPropagation(); focusGroup(grp.id); });
     card.appendChild(head);
 
     var body = document.createElement('div');
@@ -1759,8 +1994,9 @@
           '<div class="pf-field"><label>Data</label><input type="date" class="pf-date" value="' + todayISO() + '"></div>' +
           '<div class="pf-field"><label>Carteira</label><select class="pf-wallet select">' +
             '<option value="">— não afetar carteira —</option>' +
-            state.wallets.map(function(w){ return '<option value="'+escapeHtml(w.id)+'">' + (w.icon?escapeHtml(w.icon)+' ':'') + escapeHtml(w.name) + '</option>'; }).join('') +
+            state.wallets.map(function(w){ return '<option value="'+escapeHtml(w.id)+'"' + (grpWallet === w.id ? ' selected' : '') + '>' + (w.icon?escapeHtml(w.icon)+' ':'') + escapeHtml(w.name) + '</option>'; }).join('') +
           '</select></div>' +
+          '<div class="pf-field"><label>Obs. (opcional)</label><input type="text" class="pf-note" maxlength="80" placeholder="' + (grp ? 'Ex: pago pelo Pedro' : 'Ex: pagou em dinheiro') + '"></div>' +
           '<button class="btn btn-primary btn-sm" data-act="registrar">Registrar pagamento</button>' +
         '</div>'
       ) +
@@ -1780,6 +2016,7 @@
     var amountInput = inner.querySelector('.pf-amount');
     var dateInput = inner.querySelector('.pf-date');
     var walletInput = inner.querySelector('.pf-wallet');
+    var noteInput = inner.querySelector('.pf-note');
 
     var pendBtn = inner.querySelector('[data-act="incluir-pendente"]');
     var pendField = inner.querySelector('.pf-pend-field');
@@ -1821,6 +2058,8 @@
           payment.mode = 'fifo';
         }
         if(walletId) payment.walletId = walletId;
+        var noteVal = noteInput ? noteInput.value.trim() : '';
+        if(noteVal) payment.note = noteVal;
         d.payments.push(payment);
         invalidateSchedules();
         var after = debtSchedule(d);
@@ -1835,6 +2074,7 @@
         showToast(msg);
       });
       amountInput.addEventListener('click', function(e){ e.stopPropagation(); });
+      if(noteInput) noteInput.addEventListener('click', function(e){ e.stopPropagation(); });
       dateInput.addEventListener('click', function(e){ e.stopPropagation(); });
       if(walletInput) walletInput.addEventListener('click', function(e){ e.stopPropagation(); });
     }
@@ -2073,6 +2313,11 @@
   function openModal(debt){
     state.editingId = debt ? debt.id : null;
     modalTitle.textContent = debt ? 'Editar dívida' : 'Nova dívida';
+    document.getElementById('formModeToggle').style.display = debt ? 'none' : '';
+    document.querySelectorAll('#formModeToggle button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-m') === 'single'); });
+    var fgNote = document.getElementById('formGroupNote'), fg = debt ? groupOf(debt) : null;
+    fgNote.style.display = fg ? '' : 'none';
+    fgNote.textContent = fg ? 'Esta dívida faz parte do grupo “' + fg.title + '”. O que mudar aqui vale só para ' + debt.name + '. Para mudar o grupo todo, use Editar grupo.' : '';
     populateFriendsList();
     setFormKind(debt ? debt.kind : state.viewKind);
     fName.value = debt ? debt.name : '';
@@ -2134,7 +2379,12 @@
 
     if(state.editingId){
       var d = state.debts.find(function(x){ return x.id === state.editingId; });
+      var prevDueDay = d.dueDay;
       d.name = name; d.principal = principal; d.rate = rate; d.interestType = interestType; d.date = date; d.days = days; d.installments = installmentsRaw; d.dueDay = dueDay; d.notes = notes; d.kind = currentFormKind; d.lateFeePct = lateFeePct; d.lateInterestPct = lateInterestPct;
+      if(d.firstDue && dueDay !== prevDueDay){
+        var fd = new Date(d.firstDue + 'T00:00:00');
+        d.firstDue = toISO(new Date(fd.getFullYear(), fd.getMonth(), Math.min(dueDay, daysInMonth(fd.getFullYear(), fd.getMonth()))));
+      }
       showToast('Dívida atualizada');
     } else {
       state.debts.push({
@@ -2155,6 +2405,7 @@
     document.getElementById('setCurrency').value = settings.currency;
     document.getElementById('setDateFormat').value = settings.dateFormat;
     document.getElementById('setDefaultRate').value = settings.defaultRate;
+    document.getElementById('setPixKey').value = settings.pixKey || '';
     document.getElementById('setConfirmDelete').checked = !!settings.confirmDelete;
     document.getElementById('setBackupReminder').checked = !!settings.backupReminder;
     settingsOverlay.classList.add('show');
@@ -2168,6 +2419,7 @@
     settings.dateFormat = document.getElementById('setDateFormat').value;
     var dr = parseFloat(document.getElementById('setDefaultRate').value);
     settings.defaultRate = isNaN(dr) || dr < 0 ? 0 : dr;
+    settings.pixKey = document.getElementById('setPixKey').value.trim();
     settings.confirmDelete = document.getElementById('setConfirmDelete').checked;
     settings.backupReminder = document.getElementById('setBackupReminder').checked;
     saveSettings();
@@ -2352,6 +2604,8 @@
     var settleWalletSel = document.getElementById('settleWallet');
     settleWalletSel.innerHTML = '<option value="">— não afetar carteira —</option>' +
       state.wallets.map(function(w){ return '<option value="'+escapeHtml(w.id)+'">' + (w.icon?escapeHtml(w.icon)+' ':'') + escapeHtml(w.name) + '</option>'; }).join('');
+    var sg = groupOf(d);
+    if(sg && sg.walletId && state.wallets.some(function(w){ return w.id === sg.walletId; })) settleWalletSel.value = sg.walletId;
     document.getElementById('settleErr').textContent = '';
     settleOverlay.classList.add('show');
   }
@@ -2381,8 +2635,569 @@
   }
   document.getElementById('btnSettleConfirm').addEventListener('click', confirmSettle);
 
+  // ---------- dívida em grupo (vaquinha / conta dividida) ----------
+  // Um grupo gera uma dívida normal por participante (debt.groupId). Parcelas, pagamentos,
+  // atraso, WhatsApp e carteiras continuam funcionando por pessoa; o grupo só junta a visão.
+  function uid(prefix){ return (prefix || '') + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+  function groupById(id){ for(var i=0;i<state.groups.length;i++){ if(state.groups[i].id === id) return state.groups[i]; } return null; }
+  function groupOf(d){ return d && d.groupId ? groupById(d.groupId) : null; }
+  function groupMembers(g){ return state.debts.filter(function(d){ return d.groupId === g.id; }); }
+  function memberState(d){ var s = statusOf(d); return s === 'pago' ? 'pago' : (s === 'atrasado' ? 'atrasado' : 'pendente'); }
+  function groupStats(g){
+    var members = groupMembers(g), owed = 0, paid = 0, rem = 0, late = 0, done = 0;
+    members.forEach(function(d){
+      var et = effectiveTotal(d);
+      owed += et; paid += Math.min(paidAmount(d), et); rem += remaining(d);
+      var s = memberState(d);
+      if(s === 'atrasado') late++;
+      if(s === 'pago') done++;
+    });
+    return {members: members, owed: owed, paid: paid, remaining: rem, late: late, done: done};
+  }
+  function parseMoney(v){ var n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(n) ? NaN : n; }
+  function addDaysISO(iso, days){ var dt = new Date(iso + 'T00:00:00'); dt.setDate(dt.getDate() + days); return toISO(dt); }
+  function firstName(name){ return String(name).trim().split(/\s+/)[0] || name; }
+  function setViewKind(kind){
+    state.viewKind = kind === 'payable' ? 'payable' : 'receivable';
+    document.querySelectorAll('#kindToggle button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-k') === state.viewKind); });
+    updateGroupButtonLabel();
+  }
+  function resetListFilters(){
+    state.filter = 'todos';
+    document.querySelectorAll('#filters button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-f') === 'todos'); });
+    state.query = '';
+    document.getElementById('search').value = '';
+  }
+  function goToPessoas(){
+    if(state.page !== 'pessoas'){
+      var tab = document.querySelector('#pageTabs button[data-page="pessoas"]');
+      if(tab) tab.click();
+    }
+  }
+  // abre a dívida de um participante, como se tivesse clicado nela na lista
+  function openDebtFromGroup(debtId){
+    var d = state.debts.find(function(x){ return x.id === debtId; });
+    if(!d) return;
+    goToPessoas();
+    setViewKind(d.kind);
+    resetListFilters();
+    state.openId = d.id;
+    if(state.grouped) state.openGroups[d.name.trim().toLowerCase()] = true;
+    render();
+    var card = listEl.querySelector('.card.open');
+    if(card) card.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  function focusGroup(gid){
+    var g = groupById(gid);
+    if(!g) return;
+    goToPessoas();
+    setViewKind(g.kind);
+    resetListFilters();
+    state.openGroupId = gid;
+    render();
+    var el = null;
+    groupListEl.querySelectorAll('.gcard').forEach(function(c){ if(c.getAttribute('data-gid') === gid) el = c; });
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  // ---------- lista de grupos (página Pessoas) ----------
+  var groupListEl = document.getElementById('groupList');
+  function groupMatchesFilter(g, st){
+    var q = state.query.trim().toLowerCase();
+    if(q && g.title.toLowerCase().indexOf(q) === -1 &&
+       !st.members.some(function(d){ return d.name.toLowerCase().indexOf(q) !== -1; })) return false;
+    if(state.filter === 'pendentes' && !(st.remaining > EPS)) return false;
+    if(state.filter === 'pagos' && !(st.members.length && st.remaining <= EPS)) return false;
+    if(state.filter === 'atrasados' && !st.late) return false;
+    return true;
+  }
+  function renderGroups(){
+    var items = state.groups
+      .filter(function(g){ return g.kind === state.viewKind; })
+      .map(function(g){ return {g: g, st: groupStats(g)}; })
+      .filter(function(x){ return groupMatchesFilter(x.g, x.st); });
+    items.sort(function(a, b){ return a.g.date < b.g.date ? 1 : (a.g.date > b.g.date ? -1 : 0); });
+    groupListEl.innerHTML = '';
+    if(!items.length) return;
+    var title = document.createElement('div');
+    title.className = 'glist-title';
+    title.textContent = items.length === 1 ? '1 grupo' : items.length + ' grupos';
+    groupListEl.appendChild(title);
+    items.forEach(function(x){ groupListEl.appendChild(buildGroupCard(x.g, x.st)); });
+  }
+  function buildGroupCard(g, st){
+    var isPayable = g.kind === 'payable';
+    var open = state.openGroupId === g.id;
+    var n = st.members.length;
+    var card = document.createElement('div');
+    card.className = 'gcard' + (open ? ' open' : '');
+    card.setAttribute('data-gid', g.id);
+
+    var badgeCls, badgeTxt;
+    if(!n){ badgeCls = 'pendente'; badgeTxt = 'Sem participantes'; }
+    else if(st.remaining <= EPS){ badgeCls = 'pago'; badgeTxt = 'Quitado'; }
+    else if(st.late){ badgeCls = 'atrasado'; badgeTxt = st.late + (st.late === 1 ? ' atrasado' : ' atrasados'); }
+    else { badgeCls = 'emdia'; badgeTxt = st.done + '/' + n + (isPayable ? ' pagos' : ' pagaram'); }
+
+    var sub = fmtDate(g.date) + ' · ' + n + (n === 1 ? ' pessoa' : ' pessoas') + (g.dueDate ? ' · pagar até ' + fmtDate(g.dueDate) : '');
+    var pct = st.owed > 0 ? Math.max(0, Math.min(100, st.paid / st.owed * 100)) : 0;
+    var progLabel = money.format(st.paid) + ' de ' + money.format(st.owed) + (isPayable ? ' pagos' : ' recebidos');
+    if(g.includeMe && g.myShare > EPS) progLabel += ' · conta de ' + money.format(g.total) + ', sua parte ' + money.format(g.myShare);
+    else if(Math.abs(g.total - st.owed) > 0.009 && n) progLabel += ' · total combinado ' + money.format(g.total);
+
+    var avatars = st.members.map(function(d){
+      var s = memberState(d);
+      var label = s === 'pago' ? (isPayable ? 'pago' : 'pagou') : (s === 'atrasado' ? 'atrasado, falta ' + money.format(remaining(d)) : 'falta ' + money.format(remaining(d)));
+      var mark = s === 'pago' ? '✓' : (s === 'atrasado' ? '!' : '');
+      return '<button type="button" class="g-av st-' + s + '" data-debt="' + escapeHtml(d.id) + '" title="' + escapeHtml(d.name + ': ' + label) + '" aria-label="' + escapeHtml(d.name + ': ' + label + '. Abrir dívida') + '">' +
+        '<span class="avatar">' + escapeHtml(initials(d.name)) + '</span>' +
+        '<span class="g-av-name">' + escapeHtml(firstName(d.name)) + '</span>' +
+        (mark ? '<span class="g-av-st" aria-hidden="true">' + mark + '</span>' : '') +
+      '</button>';
+    }).join('');
+
+    var head = document.createElement('div');
+    head.className = 'gcard-head';
+    head.innerHTML =
+      '<div class="g-icon" aria-hidden="true">👥</div>' +
+      '<div class="who"><div class="name">' + escapeHtml(g.title) + '</div><div class="sub">' + sub + '</div></div>' +
+      '<div class="badge ' + badgeCls + '">' + badgeTxt + '</div>' +
+      '<div class="chev">▾</div>';
+    head.addEventListener('click', function(){
+      state.openGroupId = open ? null : g.id;
+      render();
+    });
+    card.appendChild(head);
+
+    var top = document.createElement('div');
+    top.innerHTML =
+      '<div class="gcard-prog"><div class="progress-track"><div class="progress-fill" style="width:' + pct.toFixed(1) + '%;"></div></div>' +
+      '<div class="g-prog-label">' + progLabel + '</div></div>' +
+      (n ? '<div class="g-avatars">' + avatars + '</div>' : '');
+    while(top.firstChild) card.appendChild(top.firstChild);
+
+    var body = document.createElement('div');
+    body.className = 'gcard-body';
+    if(open){
+      var rows = st.members.map(function(d){
+        var s = memberState(d), rem = remaining(d), paid = paidAmount(d), txt, cls = '';
+        if(s === 'pago'){ txt = (isPayable ? 'pago' : 'pagou') + ' ✓'; cls = 'ok'; }
+        else {
+          txt = (paid > EPS ? (isPayable ? 'já paguei ' : 'pagou ') + money.format(paid) + ' · ' : '') + 'falta ' + money.format(rem);
+          if(s === 'atrasado'){ txt += ' · atrasado'; cls = 'late'; }
+        }
+        return '<div class="g-row"><span class="gr-name">' + escapeHtml(d.name) + '</span>' +
+          '<span class="gr-val">' + money.format(effectiveTotal(d)) + '</span>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-open="' + escapeHtml(d.id) + '">Abrir</button>' +
+          '<span class="gr-st ' + cls + '">' + txt + '</span></div>';
+      }).join('');
+      if(g.includeMe && g.myShare > EPS){
+        rows += '<div class="g-row me"><span class="gr-name">Você</span><span class="gr-val">' + money.format(g.myShare) + '</span><span></span>' +
+          '<span class="gr-st">sua parte, fica fora da cobrança</span></div>';
+      }
+      if(!n) rows = '<div class="g-empty">Ninguém neste grupo. Use Editar grupo para adicionar pessoas.</div>';
+      var wallet = g.walletId ? state.wallets.find(function(w){ return w.id === g.walletId; }) : null;
+      body.innerHTML =
+        rows +
+        (wallet ? '<div class="g-meta">Pagamentos caem em: <b>' + escapeHtml((wallet.icon ? wallet.icon + ' ' : '') + wallet.name) + '</b></div>' : '') +
+        (g.notes ? '<div class="notes-block" style="margin-top:10px;"><b>Anotações</b> ' + escapeHtml(g.notes) + '</div>' : '') +
+        '<div class="card-actions g-actions">' +
+          (!isPayable && st.remaining > EPS ? '<button type="button" class="btn btn-whats btn-sm" data-gact="charge">Cobrar pendentes</button>' : '') +
+          '<button type="button" class="btn btn-ghost btn-sm" data-gact="edit">Editar grupo</button>' +
+          '<div class="spacer"></div>' +
+          '<button type="button" class="btn btn-danger btn-sm" data-gact="delete">Excluir grupo</button>' +
+        '</div>';
+    }
+    card.appendChild(body);
+
+    card.addEventListener('click', function(e){
+      var av = e.target.closest('[data-debt]');
+      if(av){ e.stopPropagation(); openDebtFromGroup(av.getAttribute('data-debt')); return; }
+      var op = e.target.closest('[data-open]');
+      if(op){ e.stopPropagation(); openDebtFromGroup(op.getAttribute('data-open')); return; }
+      var act = e.target.closest('[data-gact]');
+      if(!act) return;
+      e.stopPropagation();
+      var a = act.getAttribute('data-gact');
+      if(a === 'charge') openCharge(g);
+      else if(a === 'edit') openGroupModal(g);
+      else if(a === 'delete') openGroupDelete(g);
+    });
+    return card;
+  }
+
+  // ---------- formulário do grupo ----------
+  var groupOverlay = document.getElementById('groupOverlay');
+  var gTitle = document.getElementById('gTitle'), gTotal = document.getElementById('gTotal'), gDate = document.getElementById('gDate');
+  var gDue = document.getElementById('gDue'), gWallet = document.getElementById('gWallet'), gNotes = document.getElementById('gNotes');
+  var gIncludeMe = document.getElementById('gIncludeMe'), gIncludeMeRow = document.getElementById('gIncludeMeRow');
+  var gPartInput = document.getElementById('gPartInput'), gPartsEl = document.getElementById('gParts');
+  var gSumEl = document.getElementById('gSum'), gWarnEl = document.getElementById('gWarn'), gErrEl = document.getElementById('gErr');
+  var gForm = null;
+
+  function gIncluding(){ return gForm && gForm.kind === 'receivable' && gIncludeMe.checked; }
+  function openGroupModal(group, kind){
+    populateFriendsList();
+    var editing = !!group;
+    gForm = {
+      editingId: editing ? group.id : null,
+      kind: editing ? group.kind : (kind === 'payable' ? 'payable' : 'receivable'),
+      split: editing ? group.splitMode : 'equal',
+      parts: [], removed: [],
+      me: editing ? (group.myShare || 0) : 0,
+      origTotal: editing ? group.total : null,
+      eq: {rest: 0, n: 0, fixed: 0}
+    };
+    if(editing){
+      groupMembers(group).forEach(function(d){
+        gForm.parts.push({name: d.name, amount: d.principal, debtId: d.id,
+          locked: paidAmount(d) > EPS || (d.discount || 0) > EPS, paid: paidAmount(d)});
+      });
+    }
+    document.getElementById('groupModalTitle').textContent = editing ? 'Editar grupo' : 'Nova dívida em grupo';
+    document.getElementById('gSave').textContent = editing ? 'Salvar grupo' : 'Criar grupo';
+    document.getElementById('gKindToggle').style.display = editing ? 'none' : '';
+    gTitle.value = editing ? group.title : '';
+    gTotal.value = editing ? group.total : '';
+    gDate.value = editing ? group.date : todayISO();
+    gDue.value = editing ? (group.dueDate || '') : addDaysISO(todayISO(), 7);
+    gNotes.value = editing ? group.notes : '';
+    gIncludeMe.checked = editing ? !!group.includeMe : true;
+    gPartInput.value = '';
+    gWallet.innerHTML = '<option value="">— nenhuma —</option>' + state.wallets.map(function(w){
+      return '<option value="' + escapeHtml(w.id) + '">' + (w.icon ? escapeHtml(w.icon) + ' ' : '') + escapeHtml(w.name) + '</option>';
+    }).join('');
+    gWallet.value = editing && group.walletId && state.wallets.some(function(w){ return w.id === group.walletId; }) ? group.walletId : '';
+    gErrEl.textContent = '';
+    setGroupKind(gForm.kind);
+    setGroupSplit(gForm.split);
+    groupOverlay.classList.add('show');
+    gTitle.focus();
+  }
+  function closeGroupModal(){ groupOverlay.classList.remove('show'); gForm = null; }
+
+  function setGroupKind(k){
+    gForm.kind = k === 'payable' ? 'payable' : 'receivable';
+    document.querySelectorAll('#gKindToggle button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-k') === gForm.kind); });
+    gIncludeMeRow.style.display = gForm.kind === 'receivable' ? '' : 'none';
+    document.getElementById('lblGParts').textContent = gForm.kind === 'payable' ? 'Para quem eu devo' : 'Quem participa';
+    renderGroupParts();
+  }
+  function setGroupSplit(s){
+    gForm.split = s === 'custom' ? 'custom' : 'equal';
+    document.querySelectorAll('#gSplitToggle button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-s') === gForm.split); });
+    renderGroupParts();
+  }
+  document.getElementById('gKindToggle').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-k]'); if(b && gForm) setGroupKind(b.getAttribute('data-k'));
+  });
+  document.getElementById('gSplitToggle').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-s]'); if(b && gForm) setGroupSplit(b.getAttribute('data-s'));
+  });
+  gIncludeMe.addEventListener('change', function(){ if(gForm) renderGroupParts(); });
+  gTotal.addEventListener('input', function(){
+    if(!gForm) return;
+    if(gForm.split === 'equal') renderGroupParts(); else updateGroupSum();
+    updateGroupWarn();
+  });
+
+  function recalcEqual(){
+    if(gForm.split !== 'equal') return;
+    var total = parseMoney(gTotal.value);
+    if(isNaN(total)) total = 0;
+    var inc = gIncluding();
+    var locked = gForm.parts.filter(function(p){ return p.locked; });
+    var free = gForm.parts.filter(function(p){ return !p.locked; });
+    var fixed = round2(locked.reduce(function(s, p){ return s + p.amount; }, 0));
+    var n = free.length + (inc ? 1 : 0);
+    var rest = round2(total - fixed);
+    gForm.eq = {rest: rest, n: n, fixed: fixed, locked: locked.length};
+    if(n > 0 && rest >= 0){
+      var sh = splitEqual(rest, n);
+      free.forEach(function(p, i){ p.amount = sh[i]; });
+      gForm.me = inc ? sh[n - 1] : 0;
+    } else {
+      free.forEach(function(p){ p.amount = 0; });
+      gForm.me = 0;
+    }
+  }
+  function partRowHtml(p, i){
+    var custom = gForm.split === 'custom';
+    var amt = custom && !p.locked
+      ? '<input class="gp-input" type="number" step="0.01" min="0" inputmode="decimal" data-i="' + i + '" value="' + (p.amount > 0 ? p.amount.toFixed(2) : '') + '" placeholder="0,00" aria-label="Valor de ' + escapeHtml(p.name) + '">'
+      : '<span class="gp-amt">' + money.format(p.amount || 0) + '</span>';
+    var lockNote = p.locked ? '<small>' + (gForm.kind === 'payable' ? 'já paguei ' : 'já pagou ') + money.format(p.paid) + '</small>' : '';
+    return '<div class="gp-row"><span class="avatar">' + escapeHtml(initials(p.name)) + '</span>' +
+      '<span class="gp-name">' + escapeHtml(p.name) + lockNote + '</span>' + amt +
+      '<button type="button" class="gp-del" data-del="' + i + '" aria-label="Remover ' + escapeHtml(p.name) + '">×</button></div>';
+  }
+  function meRowHtml(){
+    var custom = gForm.split === 'custom';
+    var amt = custom
+      ? '<input class="gp-input" type="number" step="0.01" min="0" inputmode="decimal" data-me="1" value="' + (gForm.me > 0 ? gForm.me.toFixed(2) : '') + '" placeholder="0,00" aria-label="Sua parte">'
+      : '<span class="gp-amt">' + money.format(gForm.me || 0) + '</span>';
+    return '<div class="gp-row me"><span class="avatar">EU</span><span class="gp-name">Você<small>sua parte, não vira dívida</small></span>' + amt + '<span></span></div>';
+  }
+  function renderGroupParts(){
+    if(!gForm) return;
+    recalcEqual();
+    var html = gForm.parts.map(partRowHtml).join('');
+    if(!gForm.parts.length) html = '<div class="g-empty">Ninguém ainda. Digite um nome acima e toque em Adicionar.</div>';
+    if(gIncluding()) html += meRowHtml();
+    gPartsEl.innerHTML = html;
+    updateGroupSum();
+    updateGroupWarn();
+  }
+  function updateGroupSum(){
+    var total = parseMoney(gTotal.value);
+    var inc = gIncluding();
+    var sum = round2(gForm.parts.reduce(function(s, p){ return s + (p.amount || 0); }, 0) + (inc ? (gForm.me || 0) : 0));
+    var cls = '', txt;
+    if(!gForm.parts.length){ txt = 'Adicione pelo menos uma pessoa.'; }
+    else if(!(total > 0)){ txt = 'Informe o valor total para dividir.'; }
+    else if(gForm.split === 'equal'){
+      var eq = gForm.eq;
+      if(eq.rest < -EPS){ cls = 'bad'; txt = 'Quem já pagou soma ' + money.format(eq.fixed) + ', mais que o total.'; }
+      else if(eq.n === 0){ cls = 'warn'; txt = 'Todo mundo já pagou: não sobrou ninguém para redividir.'; }
+      else {
+        var sh = splitEqual(eq.rest, eq.n), hi = sh[0], lo = sh[eq.n - 1];
+        cls = 'ok';
+        txt = money.format(eq.rest) + ' ÷ ' + eq.n + ' = ' + (hi === lo ? money.format(hi) : money.format(lo) + ' a ' + money.format(hi)) + ' cada';
+        if(hi !== lo) txt += ' (os centavos que sobram vão para os primeiros)';
+        if(eq.locked) txt += ' · quem já pagou mantém o valor';
+      }
+    } else {
+      var diff = round2(total - sum);
+      if(Math.abs(diff) <= EPS){ cls = 'ok'; txt = '✓ Fecha certinho com o total de ' + money.format(total) + '.'; }
+      else if(diff > 0){ cls = 'warn'; txt = 'Faltam ' + money.format(diff) + ' pra fechar o total de ' + money.format(total) + '.'; }
+      else { cls = 'bad'; txt = 'Passou ' + money.format(-diff) + ' do total de ' + money.format(total) + '.'; }
+    }
+    gSumEl.className = 'g-sum' + (cls ? ' ' + cls : '');
+    gSumEl.textContent = txt;
+  }
+  function updateGroupWarn(){
+    if(!gForm || !gForm.editingId){ gWarnEl.innerHTML = ''; return; }
+    var payable = gForm.kind === 'payable', lines = [];
+    gForm.removed.forEach(function(p){
+      if(p.locked){
+        lines.push(payable
+          ? 'Você já pagou ' + money.format(p.paid) + ' a ' + escapeHtml(p.name) + ': essa dívida sai do grupo e continua como individual.'
+          : escapeHtml(p.name) + ' já pagou ' + money.format(p.paid) + ': a dívida dele sai do grupo e continua como individual.');
+      } else {
+        lines.push('A dívida de ' + escapeHtml(p.name) + ' será apagada.');
+      }
+    });
+    var total = parseMoney(gTotal.value);
+    if(gForm.split === 'equal' && gForm.parts.some(function(p){ return p.locked; }) && !isNaN(total) && Math.abs(total - gForm.origTotal) > EPS){
+      lines.push('O valor novo é redividido só entre quem ainda não pagou.');
+    }
+    gWarnEl.innerHTML = lines.length ? '<b>Ao salvar:</b><ul><li>' + lines.join('</li><li>') + '</li></ul>' : '';
+  }
+
+  function addGroupParticipants(raw){
+    var names = String(raw || '').split(/[,;\n]+/).map(function(s){ return s.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+    var dupes = [];
+    names.forEach(function(name){
+      var key = nameKey(name);
+      if(gForm.parts.some(function(p){ return nameKey(p.name) === key; })){ dupes.push(name); return; }
+      var back = -1;
+      gForm.removed.forEach(function(p, i){ if(nameKey(p.name) === key) back = i; });
+      if(back >= 0){ gForm.parts.push(gForm.removed.splice(back, 1)[0]); return; }
+      if(gForm.parts.length >= 60) return;
+      gForm.parts.push({name: name, amount: 0, debtId: null, locked: false, paid: 0});
+    });
+    gErrEl.textContent = dupes.length ? dupes.join(', ') + (dupes.length > 1 ? ' já estão' : ' já está') + ' no grupo.' : '';
+    gPartInput.value = '';
+    renderGroupParts();
+  }
+  document.getElementById('gPartAdd').addEventListener('click', function(){ addGroupParticipants(gPartInput.value); gPartInput.focus(); });
+  gPartInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); if(gPartInput.value.trim()) addGroupParticipants(gPartInput.value); }
+  });
+  gPartInput.addEventListener('input', function(){ if(/[,;]/.test(gPartInput.value)) addGroupParticipants(gPartInput.value); });
+  gPartsEl.addEventListener('input', function(e){
+    var t = e.target;
+    if(!gForm || !t.classList.contains('gp-input')) return;
+    var v = parseMoney(t.value);
+    v = isNaN(v) || v < 0 ? 0 : round2(v);
+    if(t.hasAttribute('data-me')) gForm.me = v;
+    else { var p = gForm.parts[parseInt(t.getAttribute('data-i'), 10)]; if(p) p.amount = v; }
+    updateGroupSum();
+  });
+  gPartsEl.addEventListener('click', function(e){
+    var b = e.target.closest('.gp-del');
+    if(!b || !gForm) return;
+    var p = gForm.parts.splice(parseInt(b.getAttribute('data-del'), 10), 1)[0];
+    if(p && p.debtId) gForm.removed.push(p);
+    renderGroupParts();
+  });
+
+  function newGroupDebt(g, name, amount){
+    return {
+      id: uid(), name: name, principal: amount, date: g.date, days: 30, installments: 1,
+      rate: 0, interestType: 'composto', dueDay: parseInt(g.dueDate.split('-')[2], 10), firstDue: g.dueDate,
+      payments: [], notes: '', kind: g.kind, discount: 0, lateFeePct: 0, lateInterestPct: 0, groupId: g.id
+    };
+  }
+  function saveGroup(){
+    if(!gForm) return;
+    var title = gTitle.value.trim();
+    var total = parseMoney(gTotal.value);
+    var date = gDate.value, due = gDue.value;
+    var inc = gIncluding();
+    function fail(msg){ gErrEl.textContent = msg; }
+    if(gPartInput.value.trim()) addGroupParticipants(gPartInput.value);
+    if(!title) return fail('Dê um nome ao grupo (ex: Churrasco de sábado).');
+    if(!(total > 0)) return fail('Informe o valor total.');
+    if(!date) return fail('Informe a data do grupo.');
+    if(!due) return fail('Informe até quando pagar.');
+    if(due < date) return fail('A data para pagar não pode ser antes da data do grupo.');
+    if(!gForm.parts.length) return fail('Adicione pelo menos uma pessoa.');
+    total = round2(total);
+    if(gForm.split === 'equal'){
+      recalcEqual();
+      if(gForm.eq.rest < -EPS) return fail('Quem já pagou soma mais que o total. Aumente o total.');
+      if(gForm.parts.some(function(p){ return !p.locked && !(p.amount > 0); })) return fail('O total não dá para dividir entre todo mundo.');
+    } else {
+      if(gForm.parts.some(function(p){ return !p.locked && !(p.amount > 0); })) return fail('Informe o valor de cada pessoa.');
+      var sum = round2(gForm.parts.reduce(function(s, p){ return s + p.amount; }, 0) + (inc ? gForm.me : 0));
+      var diff = round2(total - sum);
+      if(Math.abs(diff) > EPS) return fail(diff > 0 ? 'Faltam ' + money.format(diff) + ' para fechar o total.' : 'A soma passou ' + money.format(-diff) + ' do total.');
+    }
+    var dueDay = parseInt(due.split('-')[2], 10);
+    var g, created = 0;
+    if(gForm.editingId){
+      g = groupById(gForm.editingId);
+      if(!g){ closeGroupModal(); return; }
+      var keep = {};
+      gForm.parts.forEach(function(p){ if(p.debtId) keep[p.debtId] = p; });
+      var detached = 0, removed = 0;
+      state.debts = state.debts.filter(function(d){
+        if(d.groupId !== g.id) return true;
+        var p = keep[d.id];
+        if(!p){
+          if(paidAmount(d) > EPS || (d.discount || 0) > EPS){ delete d.groupId; detached++; return true; }
+          removed++; return false;
+        }
+        if(!p.locked) d.principal = p.amount;
+        if(!isPaid(d)){ d.firstDue = due; d.dueDay = dueDay; }
+        return true;
+      });
+      g.title = title; g.total = total; g.date = date; g.dueDate = due;
+      g.splitMode = gForm.split; g.includeMe = inc; g.myShare = inc ? round2(gForm.me) : 0;
+      g.walletId = gWallet.value; g.notes = gNotes.value.trim();
+      gForm.parts.forEach(function(p){ if(!p.debtId){ state.debts.push(newGroupDebt(g, p.name, p.amount)); created++; } });
+      showToast('Grupo atualizado' + (detached ? ' · ' + detached + ' virou individual' : '') + (removed ? ' · ' + removed + ' removido' + (removed > 1 ? 's' : '') : ''));
+    } else {
+      g = {
+        id: uid('g-'), title: title, kind: gForm.kind, date: date, total: total,
+        splitMode: gForm.split, includeMe: inc, myShare: inc ? round2(gForm.me) : 0,
+        dueDate: due, walletId: gWallet.value, notes: gNotes.value.trim()
+      };
+      state.groups.push(g);
+      gForm.parts.forEach(function(p){ state.debts.push(newGroupDebt(g, p.name, p.amount)); created++; });
+      showToast('Grupo criado: ' + created + (created === 1 ? ' dívida gerada' : ' dívidas geradas'));
+    }
+    var gid = g.id;
+    closeGroupModal();
+    focusGroup(gid);
+  }
+  document.getElementById('gSave').addEventListener('click', saveGroup);
+  document.getElementById('gCancel').addEventListener('click', closeGroupModal);
+  groupOverlay.addEventListener('click', function(e){ if(e.target === groupOverlay) closeGroupModal(); });
+
+  // "+ Nova dívida": Individual ou Em grupo
+  document.getElementById('formModeToggle').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-m]');
+    if(!b || b.getAttribute('data-m') !== 'group') return;
+    var k = currentFormKind;
+    closeModal();
+    openGroupModal(null, k);
+  });
+
+  // ---------- cobrar pendentes ----------
+  var chargeOverlay = document.getElementById('chargeOverlay');
+  var chargeMsg = document.getElementById('chargeMsg');
+  function groupChargeText(g){
+    var st = groupStats(g);
+    var pend = st.members.filter(function(d){ return remaining(d) > EPS; });
+    var paid = st.members.filter(function(d){ return memberState(d) === 'pago'; });
+    var lines = ['Oi, pessoal! Passando pra lembrar do *' + g.title + '* (' + fmtDate(g.date) + ').', '', 'Faltam:'];
+    pend.forEach(function(d){ lines.push('• ' + d.name + ': ' + money.format(remaining(d)) + (memberState(d) === 'atrasado' ? ' (atrasado)' : '')); });
+    if(paid.length) lines.push('', 'Já pagaram: ' + paid.map(function(d){ return firstName(d.name); }).join(', ') + ' ✓');
+    if(g.dueDate) lines.push('', 'Prazo: ' + fmtDate(g.dueDate));
+    if(settings.pixKey) lines.push('PIX: ' + settings.pixKey);
+    lines.push('', 'Valeu! 🙂');
+    return {text: lines.join('\n'), pend: pend};
+  }
+  function updateChargeLink(){ document.getElementById('chargeGroupLink').href = 'https://wa.me/?text=' + encodeURIComponent(chargeMsg.value); }
+  function openCharge(g){
+    var r = groupChargeText(g);
+    chargeMsg.value = r.text;
+    updateChargeLink();
+    document.getElementById('chargeTitle').textContent = 'Cobrar pendentes · ' + g.title;
+    document.getElementById('chargeCopyStatus').textContent = '';
+    document.getElementById('chargeList').innerHTML = r.pend.map(function(d){
+      var link = whatsappLink(d);
+      return '<div class="charge-row"><span><b>' + escapeHtml(d.name) + '</b> ' + money.format(remaining(d)) + '</span>' +
+        (link ? '<a class="btn btn-whats btn-sm" target="_blank" rel="noopener" href="' + escapeHtml(link) + '">WhatsApp</a>'
+              : '<span class="charge-nophone">sem telefone</span>') + '</div>';
+    }).join('') || '<div class="g-empty">Ninguém pendente.</div>';
+    chargeOverlay.classList.add('show');
+  }
+  function closeCharge(){ chargeOverlay.classList.remove('show'); }
+  chargeMsg.addEventListener('input', updateChargeLink);
+  document.getElementById('chargeClose').addEventListener('click', closeCharge);
+  chargeOverlay.addEventListener('click', function(e){ if(e.target === chargeOverlay) closeCharge(); });
+  document.getElementById('chargeCopy').addEventListener('click', function(){
+    var status = document.getElementById('chargeCopyStatus');
+    function fallback(){
+      chargeMsg.focus(); chargeMsg.select();
+      try{ document.execCommand('copy'); status.textContent = 'Mensagem copiada.'; }
+      catch(e){ status.textContent = 'Selecionei a mensagem: use Copiar do teclado.'; }
+    }
+    try{ navigator.clipboard.writeText(chargeMsg.value).then(function(){ status.textContent = 'Mensagem copiada.'; }, fallback); }
+    catch(e){ fallback(); }
+  });
+
+  // ---------- excluir grupo ----------
+  var groupDelOverlay = document.getElementById('groupDelOverlay');
+  var pendingGroupDel = null;
+  function openGroupDelete(g){
+    pendingGroupDel = g.id;
+    var ms = groupMembers(g);
+    var paidSum = ms.reduce(function(s, d){ return s + paidAmount(d); }, 0);
+    document.getElementById('gDelText').innerHTML = ms.length
+      ? 'O grupo <b>' + escapeHtml(g.title) + '</b> tem ' + ms.length + (ms.length === 1 ? ' dívida' : ' dívidas') + '. O que fazer com ' + (ms.length === 1 ? 'ela' : 'elas') + '?' +
+        (paidSum > EPS ? '<br><br>Se apagar tudo, os pagamentos já registrados (' + money.format(paidSum) + ') também somem.' : '')
+      : 'O grupo <b>' + escapeHtml(g.title) + '</b> não tem ninguém. Ele será apagado.';
+    document.getElementById('gDelKeep').style.display = ms.length ? '' : 'none';
+    document.getElementById('gDelAll').textContent = ms.length ? 'Apagar grupo e dívidas' : 'Apagar grupo';
+    groupDelOverlay.classList.add('show');
+  }
+  function closeGroupDelete(){ groupDelOverlay.classList.remove('show'); pendingGroupDel = null; }
+  function finishGroupDelete(keepDebts){
+    var g = groupById(pendingGroupDel);
+    closeGroupDelete();
+    if(!g) return;
+    var n = groupMembers(g).length;
+    if(keepDebts) state.debts.forEach(function(d){ if(d.groupId === g.id) delete d.groupId; });
+    else state.debts = state.debts.filter(function(d){ return d.groupId !== g.id; });
+    state.groups = state.groups.filter(function(x){ return x.id !== g.id; });
+    if(state.openGroupId === g.id) state.openGroupId = null;
+    render();
+    showToast(keepDebts ? 'Grupo excluído. As dívidas continuam como individuais.' : 'Grupo excluído' + (n ? ' com ' + n + (n === 1 ? ' dívida' : ' dívidas') : ''));
+  }
+  document.getElementById('gDelKeep').addEventListener('click', function(){ finishGroupDelete(true); });
+  document.getElementById('gDelAll').addEventListener('click', function(){ finishGroupDelete(false); });
+  document.getElementById('gDelCancel').addEventListener('click', closeGroupDelete);
+  groupDelOverlay.addEventListener('click', function(e){ if(e.target === groupDelOverlay) closeGroupDelete(); });
+
   // ---------- keyboard shortcuts ----------
   document.addEventListener('keydown', function(e){
+    if(groupOverlay.classList.contains('show')){ if(e.key === 'Escape') closeGroupModal(); return; }
+    if(groupDelOverlay.classList.contains('show')){ if(e.key === 'Escape') closeGroupDelete(); return; }
+    if(chargeOverlay.classList.contains('show')){ if(e.key === 'Escape') closeCharge(); return; }
     if(settleOverlay.classList.contains('show')){
       if(e.key === 'Escape'){ closeSettleModal(); }
       if(e.key === 'Enter'){ confirmSettle(); }
@@ -2425,7 +3240,7 @@
     return s;
   }
   document.getElementById('btnExportCsv').addEventListener('click', function(){
-    var headers = ['Tipo','Nome','Valor Original','Data','Parcelas','Dia de Vencimento','Taxa de Juros (%)','Tipo de Juros',
+    var headers = ['Tipo','Nome','Grupo','Valor Original','Data','Parcelas','Dia de Vencimento','Taxa de Juros (%)','Tipo de Juros',
       'Valor Final','Valor da Parcela','Status','Proximo Vencimento',
       'Ja Pago','Falta Pagar','Lucro Estimado','Desconto Concedido','Anotacoes'];
     var rows = state.debts.map(function(d){
@@ -2433,12 +3248,13 @@
       return [
         (d.kind === 'payable' ? 'A Pagar' : 'A Receber'),
         d.name,
+        (groupOf(d) ? groupOf(d).title : ''),
         d.principal.toFixed(2).replace('.',','),
         fmtDate(d.date),
         installments(d),
         d.dueDay,
         d.rate.toString().replace('.',','),
-        (d.interestType==='simples'?'Simples':'Composto'),
+        interestTypeLabel(d.interestType),
         finalValue(d).toFixed(2).replace('.',','),
         installmentValue(d).toFixed(2).replace('.',','),
         statusLabel(d),
@@ -2494,16 +3310,24 @@
           return t && typeof t.amount === 'number' && !isNaN(t.amount) && typeof t.date === 'string' && (t.type === 'gasto' || t.type === 'entrada');
         }) : null;
         var skipped = migrated.length - valid.length;
+        var hasGroups = data && !Array.isArray(data) && Array.isArray(data.groups);
+        var groups = hasGroups ? migrateGroups(JSON.parse(JSON.stringify(data.groups))) : state.groups.filter(function(g){
+          return valid.some(function(d){ return d.groupId === g.id; });
+        });
+        linkGroups(valid, groups);
 
         var msg = 'Importar este backup vai SUBSTITUIR os dados atuais:\n\n' +
           '• Dívidas: ' + state.debts.length + ' atuais → ' + valid.length + ' do arquivo\n' +
           (hasWallets ? '• Carteiras: ' + state.wallets.length + ' → ' + wallets.length + '\n' : '• Carteiras: o arquivo não tem (as atuais serão mantidas)\n') +
           (hasTx ? '• Lançamentos: ' + state.transactions.length + ' → ' + txs.length + '\n' : '• Lançamentos: o arquivo não tem (os atuais serão mantidos)\n') +
+          (hasGroups ? '• Grupos: ' + state.groups.length + ' → ' + groups.length + '\n' : '') +
           (skipped > 0 ? '\n' + skipped + ' registro(s) inválido(s) serão ignorados.\n' : '') +
           '\nDica: exporte um backup do estado atual antes, por segurança. Continuar?';
         if(!confirm(msg)) return;
 
         state.debts = valid;
+        state.groups = groups;
+        state.openGroupId = null;
         if(data && !Array.isArray(data) && data.contacts && typeof data.contacts === 'object') state.contacts = data.contacts;
         if(hasWallets) state.wallets = wallets;
         if(hasTx) state.transactions = txs;
