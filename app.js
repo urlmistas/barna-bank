@@ -12,6 +12,8 @@
     confirmDelete: true,
     backupReminder: true,
     defaultRate: 0,
+    defaultLateFee: 0,
+    defaultLateInterest: 0,
     pixKey: '',
     ownerName: '',
     pixType: 'auto',
@@ -1605,8 +1607,8 @@
     var contact = state.contacts[nameKey(debt ? debt.name : '')];
     fPhone.value = contact ? formatPhoneDisplay(contact.phone) : '';
     fNotes.value = debt ? debt.notes : '';
-    fLateFee.value = debt && debt.lateFeePct ? debt.lateFeePct : '';
-    fLateInterest.value = debt && debt.lateInterestPct ? debt.lateInterestPct : '';
+    fLateFee.value = debt ? (debt.lateFeePct || '') : (settings.defaultLateFee || '');
+    fLateInterest.value = debt ? (debt.lateInterestPct || '') : (settings.defaultLateInterest || '');
     formErr.textContent = '';
     updateFormFormula();
     overlay.classList.add('show');
@@ -1681,6 +1683,8 @@
     document.getElementById('setCurrency').value = settings.currency;
     document.getElementById('setDateFormat').value = settings.dateFormat;
     document.getElementById('setDefaultRate').value = settings.defaultRate;
+    document.getElementById('setDefaultLateFee').value = settings.defaultLateFee || '';
+    document.getElementById('setDefaultLateInterest').value = settings.defaultLateInterest || '';
     document.getElementById('setPixKey').value = settings.pixKey || '';
     document.getElementById('setPixType').value = settings.pixType || 'auto';
     document.getElementById('setOwnerCity').value = settings.ownerCity || '';
@@ -1699,6 +1703,9 @@
     settings.dateFormat = document.getElementById('setDateFormat').value;
     var dr = parseFloat(document.getElementById('setDefaultRate').value);
     settings.defaultRate = isNaN(dr) || dr < 0 ? 0 : dr;
+    var lf = parseFloat(document.getElementById('setDefaultLateFee').value), li = parseFloat(document.getElementById('setDefaultLateInterest').value);
+    settings.defaultLateFee = isNaN(lf) || lf < 0 ? 0 : Math.min(lf, 100);
+    settings.defaultLateInterest = isNaN(li) || li < 0 ? 0 : Math.min(li, 100);
     settings.pixKey = document.getElementById('setPixKey').value.trim();
     settings.pixType = document.getElementById('setPixType').value;
     settings.ownerCity = document.getElementById('setOwnerCity').value.trim();
@@ -5574,6 +5581,7 @@
       forecast: state.wallets.length ? monthForecast().end : null,
       charges: chargeList(),
       week: weekSummary(),
+      lastMonth: lastMonthSummary(),
       pix: settings.pixKey || '',
       owner: settings.ownerName || ''
     };
@@ -5612,7 +5620,8 @@
         var dueDay = parseInt(op.dueDay, 10);
         var d = {id: uid(), name: String(op.name || '').trim().slice(0, 60), principal: amount, date: date, days: n * 30, installments: n, rate: 0, interestType: 'composto',
           dueDay: dueDay >= 1 && dueDay <= 31 ? dueDay : parseInt(date.slice(8), 10), payments: [], notes: (op.note ? op.note + ' · ' : '') + 'via Telegram',
-          kind: op.kind === 'payable' ? 'payable' : 'receivable', discount: 0, lateFeePct: 0, lateInterestPct: 0};
+          kind: op.kind === 'payable' ? 'payable' : 'receivable', discount: 0,
+          lateFeePct: op.kind === 'payable' ? 0 : (+settings.defaultLateFee || 0), lateInterestPct: op.kind === 'payable' ? 0 : (+settings.defaultLateInterest || 0)};
         if(!d.name){ res.push({id: op.id, ok: false, msg: 'sem nome'}); return; }
         var existing = state.debts.find(function(x){ return nameKey(x.name) === nameKey(d.name); });
         if(!existing){
@@ -6205,6 +6214,26 @@
   // =====================================================================
 
   // ---------- resumo da semana para o bot ----------
+  function lastMonthSummary(){
+    var ym = ymAdd(ymOf(todayISO()), -1), inc = 0, out = 0, rec = {};
+    state.wallets.forEach(function(w){
+      walletEvents(w.id).forEach(function(e){
+        if(e.isTransfer || ymOf(e.date) !== ym) return;
+        if(e.kind === 'entrada') inc += e.amount; else out += e.amount;
+      });
+    });
+    state.debts.forEach(function(d){
+      if(d.kind !== 'receivable') return;
+      (d.payments || []).forEach(function(p){ if(ymOf(p.date) === ym){ var k = nameKey(d.name); rec[k] = rec[k] || {name: firstName(d.name), amount: 0}; rec[k].amount = round2(rec[k].amount + p.amount); } });
+    });
+    var sp = monthSpending(ym), cats = Object.keys(sp.byCat).map(function(k){ return sp.byCat[k]; }).sort(function(a, b){ return b.amount - a.amount; });
+    var prev = monthSpending(ymAdd(ym, -1)).total;
+    return {ym: ym, month: MONTH_NAMES[+ym.slice(5, 7) - 1], in: round2(inc), out: round2(out), spent: round2(sp.total), prevSpent: round2(prev),
+      topCats: cats.slice(0, 4).map(function(c){ return {name: c.name, amount: round2(c.amount)}; }),
+      received: Object.keys(rec).map(function(k){ return rec[k]; }).sort(function(a, b){ return b.amount - a.amount; }).slice(0, 5),
+      late: lateReceivables().map(function(p){ return {name: firstName(p.name), amount: round2(p.overdue)}; }).slice(0, 5),
+      goals: state.goals.map(function(g){ var gi = goalInfo(g); return {name: g.name, pct: Math.round(gi.pct)}; })};
+  }
   function weekSummary(){
     var to = todayISO(), from = addDaysISO(to, -6), inc = 0, out = 0, cats = {}, rec = {};
     state.wallets.forEach(function(w){

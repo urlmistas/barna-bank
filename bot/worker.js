@@ -128,6 +128,7 @@ async function registerWebhook(env, origin) {
     {command: 'semanal', description: 'Resumo da semana'},
     {command: 'lembretes', description: 'Ligar ou desligar os lembretes'},
     {command: 'ultimos', description: 'Últimos lançamentos (para apagar ou corrigir)'},
+    {command: 'repetir', description: 'Lança de novo o último gasto'},
     {command: 'pendentes', description: 'Mensagens esperando o app abrir'},
     {command: 'ajuda', description: 'Como escrever as mensagens'}
   ]});
@@ -363,7 +364,7 @@ const HELP =
   '/cobrar Fulano: mensagem de cobrança pronta para encaminhar\n' +
   '🎙️ Pode mandar <b>áudio</b> também.\n' +
   '❓ Perguntas: <code>quanto gastei com ifood esse mês?</code>, <code>quem me deve mais?</code>, <code>quanto o Vini já me pagou?</code>\n\n' +
-  '/resumo · /atrasados · /semana · /semanal · /saldo · /pendentes · /lembretes';
+  '/resumo · /atrasados · /semana · /semanal · /saldo · /repetir · /ultimos · /pendentes · /lembretes';
 
 async function telegram(req, env, url) {
   const secret = await hookSecret(env);
@@ -499,16 +500,22 @@ async function handleText(env, chat, text, photo) {
   if (cmd === 'lembretes') {
     const prefs = await getJSON(env, 'prefs', {daily: true, weekly: true});
     const arg = norm(text.replace(/^\/lembretes(@\w+)?\s*/i, ''));
-    if (/^(desliga|off|parar|nao)/.test(arg)) { prefs.daily = false; prefs.weekly = false; }
-    else if (/^(liga|on|sim)/.test(arg)) { prefs.daily = true; prefs.weekly = true; }
+    if (/^(desliga|off|parar|nao)/.test(arg)) { prefs.daily = false; prefs.weekly = false; prefs.monthly = false; }
+    else if (/^(liga|on|sim)/.test(arg)) { prefs.daily = true; prefs.weekly = true; prefs.monthly = true; }
     else if (/^diario/.test(arg)) prefs.daily = !prefs.daily;
     else if (/^semanal/.test(arg)) prefs.weekly = !prefs.weekly;
+    else if (/^mensal/.test(arg)) prefs.monthly = prefs.monthly === false;
     await putJSON(env, 'prefs', prefs);
-    return say(env, chat, '<b>Lembretes</b>\n☀️ Diário às 9h (hoje, amanhã e atrasados): <b>' + (prefs.daily !== false ? 'ligado' : 'desligado') + '</b>\n📆 Resumo de domingo: <b>' + (prefs.weekly !== false ? 'ligado' : 'desligado') + '</b>\n\n<code>/lembretes diario</code> ou <code>/lembretes semanal</code> liga/desliga cada um. <code>/lembretes desligar</code> desliga tudo.');
+    return say(env, chat, '<b>Lembretes</b>\n☀️ Diário às 9h (hoje, amanhã e atrasados): <b>' + (prefs.daily !== false ? 'ligado' : 'desligado') + '</b>\n📆 Resumo de domingo: <b>' + (prefs.weekly !== false ? 'ligado' : 'desligado') + '</b>\n🗓️ Resumo do mês (dia 1): <b>' + (prefs.monthly !== false ? 'ligado' : 'desligado') + '</b>\n\n<code>/lembretes diario</code>, <code>/lembretes semanal</code> ou <code>/lembretes mensal</code> liga/desliga cada um. <code>/lembretes desligar</code> desliga tudo.');
   }
   if (cmd === 'saldo') return say(env, chat, saldoText(summary));
   if (cmd === 'cobrar' || /^cobrar\b/i.test(text)) return cobrar(env, chat, summary, text.replace(/^\/?cobrar(@\w+)?\s*/i, ''));
   if (cmd === 'ultimos' || cmd === 'últimos') return ultimos(env, chat);
+  if (cmd === 'repetir' || /^(repetir|repete|de novo|denovo|mais um igual)$/i.test(text.trim())) {
+    const last = (await getJSON(env, 'recent', [])).filter(r => r.op).pop();
+    if (!last) return say(env, chat, 'Não achei um gasto ou entrada pra repetir. Manda um, tipo <code>gastei 8 café</code>, e depois é só /repetir.');
+    return launchOp(env, chat, {...last.op, repeat: true, text: 'repetir: ' + last.label}, text);
+  }
   const special = parseSpecial(text, summary);
   if (special) {
     if (special.error) return say(env, chat, special.error);
@@ -762,8 +769,24 @@ async function dailyReminder(env) {
     out += '\n\nResponda <code>recebi 20 do Fulano</code> quando alguém pagar' + (late.some(i => i.dir === 'in') ? ', ou /cobrar para mandar a cobrança' : '') + '.';
     await say(env, owner, out + stale(s));
   }
+  // dia 1: resumo do mês que passou (uma vez)
+  if (prefs.monthly !== false && today.slice(8, 10) === '01' && s.lastMonth && !sentA[month + ':monthly']) {
+    await say(env, owner, monthText(s.lastMonth));
+    sentA[month + ':monthly'] = 1;
+    await putJSON(env, 'alertsSent', sentA);
+  }
   // domingo: resumo da semana
   if (prefs.weekly !== false && new Date(Date.parse(today + 'T12:00:00Z')).getUTCDay() === 0) await say(env, owner, weekText(s));
+}
+function monthText(m) {
+  const net = m.in - m.out;
+  let out = '<b>🗓️ Seu ' + esc(m.month.toLowerCase()) + '</b>\n\n⬇️ Entrou: <b>' + brl(m.in) + '</b>\n⬆️ Saiu: <b>' + brl(m.out) + '</b>\n' + (net >= 0 ? '🟢 Sobrou ' : '🔴 Faltou ') + '<b>' + brl(Math.abs(net)) + '</b>';
+  if (m.prevSpent > 0 && m.spent > 0) { const d = Math.round((m.spent - m.prevSpent) / m.prevSpent * 100); if (Math.abs(d) >= 5) out += '\nGastos ' + (d > 0 ? '📈 ' + d + '% a mais' : '📉 ' + Math.abs(d) + '% a menos') + ' que no mês anterior.'; }
+  if ((m.topCats || []).length) out += '\n\n<b>Onde mais gastou</b>\n' + m.topCats.map(c => '• ' + esc(c.name) + ': ' + brl(c.amount)).join('\n');
+  if ((m.received || []).length) out += '\n\n<b>Quem te pagou</b>\n' + m.received.map(r => '• ' + esc(r.name) + ': ' + brl(r.amount)).join('\n');
+  if ((m.late || []).length) out += '\n\n<b>Ainda atrasados</b>\n' + m.late.map(r => '• ' + esc(r.name) + ': ' + brl(r.amount)).join('\n') + '\n/cobrar pra mandar a cobrança';
+  if ((m.goals || []).length) out += '\n\n🎯 ' + m.goals.map(g => esc(g.name) + ' ' + g.pct + '%').join(' · ');
+  return out;
 }
 function weekText(s) {
   const w = s.week;
@@ -943,14 +966,15 @@ async function launchOp(env, chat, op, text) {
     return say(env, chat, '🎯 <b>' + esc(gl.name) + '</b>: ' + brl(gl.saved) + ' de ' + brl(gl.target) + ' (' + gl.pct + '%)' + (gl.pct >= 100 ? ' 🎉 Meta batida!' : '') + extra, {reply_markup: {inline_keyboard: [undoBtn]}});
   }
   // notificação do banco
-  const head = '🏦 ' + (op.bank ? esc(op.bank) + ' · ' : '') + (op.type === 'pay' ? 'pagamento' : op.card ? 'compra no cartão' : op.kind === 'entrada' ? 'entrada' : 'gasto');
+  const head = op.repeat ? '🔁 Repetido' : '🏦 ' + (op.bank ? esc(op.bank) + ' · ' : '') + (op.type === 'pay' ? 'pagamento' : op.card ? 'compra no cartão' : op.kind === 'entrada' ? 'entrada' : 'gasto');
   await pushRecent(env, op, r ? esc(r.msg) : describe(op));
   return say(env, chat, head + '\n✅ ' + (r ? esc(r.msg) : describe(op)) + later, {reply_markup: {inline_keyboard: [undoBtn]}});
 }
 // últimos lançamentos feitos pelo bot (para apagar ou corrigir)
 async function pushRecent(env, op, label, kind) {
   const rec = await getJSON(env, 'recent', []);
-  rec.push({id: op.id, label: String(label || op.text || '').replace(/<[^>]+>/g, '').slice(0, 90), at: op.at || new Date().toISOString(), kind: kind || op.type});
+  const keep = op.type === 'tx' ? {type: 'tx', kind: op.kind, amount: op.amount, category: op.category || '', wallet: op.wallet || '', store: op.store || '', note: op.note || '', card: !!op.card, cardHint: op.cardHint || ''} : null;
+  rec.push({id: op.id, label: String(label || op.text || '').replace(/<[^>]+>/g, '').slice(0, 90), at: op.at || new Date().toISOString(), kind: kind || op.type, op: keep});
   await putJSON(env, 'recent', rec.slice(-15));
 }
 async function dropRecent(env, id) {

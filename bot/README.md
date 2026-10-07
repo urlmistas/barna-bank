@@ -27,7 +27,10 @@ Comandos:
 - `/resumo`, `/atrasados`, `/semana` (próximos 7 dias), `/semanal` (resumo da semana), `/saldo`, `/pendentes`, `/ajuda`
 - `/lembretes`: liga ou desliga os avisos
 - `/ultimos`: os 5 últimos lançamentos feitos pelo bot, com botão de apagar
+- `/repetir` (ou `de novo`): lança de novo o último gasto ou entrada
 - No `/cobrar`, se a pessoa já entrou nos lembretes, aparece **Mandar lembrete no Telegram**
+
+Todo dia 1º o bot manda o resumo do mês que passou (entrou, saiu, onde mais gastou, quem pagou). `/lembretes mensal` liga/desliga.
 
 Lembretes: todo dia às 9h o bot avisa o que vence hoje, o que vence amanhã e o que está atrasado. No domingo manda também o resumo da semana (quanto entrou e saiu, onde mais gastou, quem pagou).
 
