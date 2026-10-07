@@ -63,3 +63,14 @@ Pronto. Em outro aparelho, faça só o passo 5.2: o app oferece puxar os dados d
 - As fotos de comprovante **não** vão para a nuvem; ficam só no aparelho (e no backup .json).
 - Se dois aparelhos mexerem ao mesmo tempo, vale o último que salvar. As mensagens do bot nunca se perdem: ficam na fila até um app aplicar.
 - Para trocar o dono do bot, apague a chave `owner` no KV `barnabank-data` (Cloudflare → Storage → KV).
+
+## O bot não responde?
+No BarnaBank: **Configurações** → **Nuvem e bot do Telegram** → **Testar bot**. Ele mostra, item por item:
+- se o app está falando com a nuvem (e se a `SYNC_KEY` bate);
+- se o `TELEGRAM_TOKEN` é válido (e o nome do seu bot);
+- se o Telegram está entregando as mensagens (e, se não, o motivo);
+- se você já mandou `/start`.
+
+Se a ligação com o Telegram estiver falhando, toque em **Religar bot**. O bot também tenta se religar sozinho toda vez que o app sincroniza e todo dia às 9h.
+
+O caso mais comum: o endereço `*.workers.dev` era novo e levou alguns minutos para entrar no ar, e o Telegram recusou ligar nesse meio-tempo.

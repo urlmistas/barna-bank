@@ -17,12 +17,13 @@ const CORS = {
 const json = (obj, status = 200) => new Response(JSON.stringify(obj), {status, headers: {'Content-Type': 'application/json; charset=utf-8', ...CORS}});
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (req.method === 'OPTIONS') return new Response(null, {headers: CORS});
     try {
-      if (url.pathname === '/api/state') return await api(req, env);
-      if (url.pathname === '/setup') return await setup(url, env);
+      if (url.pathname === '/api/state') return await api(req, env, ctx, url);
+      if (url.pathname === '/setup') return await setup(req, url, env);
+      if (url.pathname === '/status') return await status(req, url, env);
       if (url.pathname.startsWith('/tg/')) return await telegram(req, env, url);
       if (url.pathname === '/') return json({app: 'BarnaBank', ok: true});
       return json({error: 'not found'}, 404);
@@ -31,7 +32,11 @@ export default {
     }
   },
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(dailyReminder(env));
+    ctx.waitUntil((async () => {
+      const origin = await env.BB.get('origin');
+      if (origin) await ensureWebhook(env, origin, true);
+      await dailyReminder(env);
+    })());
   }
 };
 
@@ -40,7 +45,14 @@ async function sha(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
-const hookSecret = async env => (await sha('barnabank:' + env.TELEGRAM_TOKEN)).slice(0, 40);
+// segredos colados no GitHub às vezes vêm com espaço ou quebra de linha no fim
+const TOKEN = env => String(env.TELEGRAM_TOKEN || '').trim();
+const KEY = env => String(env.SYNC_KEY || '').trim();
+const hookSecret = async env => (await sha('barnabank:' + TOKEN(env))).slice(0, 40);
+function authed(req, url, env) {
+  const k = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim() || String(url.searchParams.get('key') || '').trim();
+  return !!KEY(env) && safeEq(k, KEY(env));
+}
 function safeEq(a, b) {
   a = String(a || ''); b = String(b || '');
   if (a.length !== b.length) return false;
@@ -64,17 +76,73 @@ function todayBR() {
 const fmtDate = iso => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '';
 
 async function tg(env, method, body) {
-  const r = await fetch('https://api.telegram.org/bot' + env.TELEGRAM_TOKEN + '/' + method, {
-    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
-  });
-  return r.json().catch(() => ({ok: false}));
+  try {
+    const r = await fetch('https://api.telegram.org/bot' + TOKEN(env) + '/' + method, {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {})
+    });
+    return await r.json().catch(() => ({ok: false, description: 'HTTP ' + r.status}));
+  } catch (e) {
+    return {ok: false, description: String(e && e.message || e)};
+  }
 }
-const say = (env, chat, text, extra) => tg(env, 'sendMessage', {chat_id: chat, text, parse_mode: 'HTML', disable_web_page_preview: true, ...(extra || {})});
+
+// ---------------------------------------------------------------- ligação com o Telegram
+async function registerWebhook(env, origin) {
+  const secret = await hookSecret(env);
+  const a = await tg(env, 'setWebhook', {url: origin + '/tg/' + secret, secret_token: secret, allowed_updates: ['message', 'callback_query']});
+  const b = await tg(env, 'setMyCommands', {commands: [
+    {command: 'resumo', description: 'Quanto tenho a receber, devo e saldo'},
+    {command: 'atrasados', description: 'Quem está atrasado'},
+    {command: 'semana', description: 'O que vence nos próximos 7 dias'},
+    {command: 'saldo', description: 'Saldo das carteiras'},
+    {command: 'pendentes', description: 'Mensagens esperando o app abrir'},
+    {command: 'ajuda', description: 'Como escrever as mensagens'}
+  ]});
+  await env.BB.put('origin', origin);
+  await putJSON(env, 'hook', {at: new Date().toISOString(), ok: !!a.ok, description: a.description || ''});
+  return {webhook: a, commands: b};
+}
+// confere se o Telegram está mandando as mensagens para cá; se não estiver, liga de novo
+async function ensureWebhook(env, origin, force) {
+  const last = await getJSON(env, 'hookCheck', null);
+  // deu certo da última vez: confere de 15 em 15 min; deu errado: tenta de novo depois de 1 min
+  if (!force && last && Date.now() - last.t < (last.ok ? 15 * 60 * 1000 : 60 * 1000)) return last;
+  const secret = await hookSecret(env);
+  const want = origin + '/tg/' + secret;
+  const info = await tg(env, 'getWebhookInfo');
+  let fixed = false;
+  if (info.ok && info.result && info.result.url !== want) {
+    const r = await registerWebhook(env, origin);
+    fixed = !!r.webhook.ok;
+  }
+  const out = {t: Date.now(), ok: !!(info.ok && (fixed || (info.result && info.result.url === want))), fixed};
+  await putJSON(env, 'hookCheck', out);
+  return out;
+}
+async function webhookInfo(env, origin) {
+  const secret = await hookSecret(env);
+  const info = await tg(env, 'getWebhookInfo');
+  const me = await tg(env, 'getMe');
+  const r = info.result || {};
+  return {
+    tokenOk: !!me.ok, bot: me.ok ? '@' + me.result.username : null, tokenError: me.ok ? '' : (me.description || ''),
+    webhookOk: !!info.ok && r.url === origin + '/tg/' + secret,
+    webhookUrlSet: !!r.url, webhookPointsElsewhere: !!r.url && r.url !== origin + '/tg/' + secret,
+    pending: r.pending_update_count || 0,
+    lastError: r.last_error_message || '', lastErrorAt: r.last_error_date ? new Date(r.last_error_date * 1000).toISOString() : ''
+  };
+}
+async function say(env, chat, text, extra) {
+  const r = await tg(env, 'sendMessage', {chat_id: chat, text, parse_mode: 'HTML', disable_web_page_preview: true, ...(extra || {})});
+  if (!r.ok) await putJSON(env, 'lastError', {at: new Date().toISOString(), error: 'sendMessage: ' + (r.description || 'falhou')});
+  return r;
+}
 
 // ---------------------------------------------------------------- API do app
-async function api(req, env) {
-  const auth = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
-  if (!env.SYNC_KEY || !safeEq(auth, env.SYNC_KEY)) return json({error: 'unauthorized'}, 401);
+async function api(req, env, ctx, url) {
+  if (!authed(req, url, env)) return json({error: 'unauthorized'}, 401);
+  // aproveita a visita do app para garantir que o bot está ligado
+  if (ctx && ctx.waitUntil) ctx.waitUntil(ensureWebhook(env, url.origin, false).catch(() => {}));
   if (req.method === 'GET') {
     const [snapshot, inbox, meta] = await Promise.all([getJSON(env, 'snapshot', null), getJSON(env, 'inbox', []), getJSON(env, 'meta', {})]);
     return json({snapshot, inbox, updatedAt: meta.updatedAt || null});
@@ -97,23 +165,25 @@ async function api(req, env) {
   return json({error: 'method'}, 405);
 }
 
-async function setup(url, env) {
-  if (!safeEq(url.searchParams.get('key'), env.SYNC_KEY)) return json({error: 'unauthorized'}, 401);
-  const secret = await hookSecret(env);
-  const hook = url.origin + '/tg/' + secret;
-  const a = await tg(env, 'setWebhook', {url: hook, secret_token: secret, allowed_updates: ['message', 'callback_query'], drop_pending_updates: true});
-  const b = await tg(env, 'setMyCommands', {commands: [
-    {command: 'resumo', description: 'Quanto tenho a receber, devo e saldo'},
-    {command: 'atrasados', description: 'Quem está atrasado'},
-    {command: 'semana', description: 'O que vence nos próximos 7 dias'},
-    {command: 'saldo', description: 'Saldo das carteiras'},
-    {command: 'pendentes', description: 'Mensagens esperando o app abrir'},
-    {command: 'ajuda', description: 'Como escrever as mensagens'}
-  ]});
+async function setup(req, url, env) {
+  if (!authed(req, url, env)) return json({error: 'unauthorized'}, 401);
+  const r = await registerWebhook(env, url.origin);
+  await putJSON(env, 'hookCheck', {t: Date.now(), ok: !!r.webhook.ok, fixed: false});
+  const info = await webhookInfo(env, url.origin);
   const owner = await env.BB.get('owner');
-  return json({webhook: a.ok, commands: b.ok, owner: owner ? 'definido' : 'mande /start para o bot para virar o dono', worker: url.origin});
+  return json({ok: !!r.webhook.ok, webhook: !!r.webhook.ok, description: r.webhook.description || '', commands: !!r.commands.ok,
+    ...info, owner: !!owner, worker: url.origin});
 }
 
+async function status(req, url, env) {
+  if (!authed(req, url, env)) return json({error: 'unauthorized'}, 401);
+  const [info, owner, summary, inbox, hook] = await Promise.all([
+    webhookInfo(env, url.origin), env.BB.get('owner'), getJSON(env, 'summary', null), getJSON(env, 'inbox', []), getJSON(env, 'hook', null)
+  ]);
+  const lastError = await getJSON(env, 'lastError', null);
+  return json({ok: true, worker: url.origin, ...info, owner: !!owner, lastSetup: hook, botError: lastError,
+    summaryAt: summary ? summary.at : null, inbox: inbox.length});
+}
 // ---------------------------------------------------------------- Telegram
 const HELP =
   '<b>Como usar</b>\n' +
@@ -132,10 +202,20 @@ async function telegram(req, env, url) {
   const secret = await hookSecret(env);
   if (url.pathname !== '/tg/' + secret || req.headers.get('X-Telegram-Bot-Api-Secret-Token') !== secret) return json({error: 'forbidden'}, 403);
   const up = await req.json().catch(() => null);
-  if (!up) return json({ok: true});
-  if (up.callback_query) { await onCallback(env, up.callback_query); return json({ok: true}); }
+  try {
+    await onUpdate(env, up);
+  } catch (e) {
+    // responde 200 mesmo assim (senão o Telegram fica reenviando) e guarda o erro para o diagnóstico
+    await putJSON(env, 'lastError', {at: new Date().toISOString(), error: String(e && (e.stack || e.message) || e).slice(0, 600)});
+  }
+  return json({ok: true});
+}
+
+async function onUpdate(env, up) {
+  if (!up) return;
+  if (up.callback_query) { await onCallback(env, up.callback_query); return; }
   const msg = up.message;
-  if (!msg || !msg.chat || typeof msg.text !== 'string') return json({ok: true});
+  if (!msg || !msg.chat || typeof msg.text !== 'string') return;
   const chat = String(msg.chat.id);
   let owner = await env.BB.get('owner');
   const text = msg.text.trim();
@@ -144,11 +224,11 @@ async function telegram(req, env, url) {
       await env.BB.put('owner', chat);
       await say(env, chat, '👋 Pronto! Este bot agora é só seu.\n\n' + HELP);
     } else await say(env, chat, 'Mande /start para ativar o bot.');
-    return json({ok: true});
+    return;
   }
-  if (chat !== owner) { await say(env, chat, 'Este bot é privado.'); return json({ok: true}); }
+  if (chat !== owner) { await say(env, chat, 'Este bot é privado.'); return; }
   await handleText(env, chat, text);
-  return json({ok: true});
+  return;
 }
 
 async function onCallback(env, cq) {
