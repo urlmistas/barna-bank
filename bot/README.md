@@ -24,7 +24,7 @@ Comandos:
 Lembretes: todo dia às 9h o bot avisa o que vence hoje, o que vence amanhã e o que está atrasado. No domingo manda também o resumo da semana (quanto entrou e saiu, onde mais gastou, quem pagou).
 
 ### Links de cobrança
-Na página de uma pessoa (**Link de cobrança**) ou num grupo (**Link do grupo**), o app cria uma página só de leitura no seu bot: a pessoa vê só o que deve a você (ou o grupo vê quem já pagou), com o seu PIX. Atualiza sozinha e dá pra desativar quando quiser.
+Na página de uma pessoa (**Link de cobrança**) ou num grupo (**Link do grupo**), o app cria uma página só de leitura no seu bot: a pessoa vê só o que deve a você (ou o grupo vê quem já pagou), com o seu PIX. Também dá pra gerar o link de **uma dívida só** (botão **Link** dentro da dívida). Os links não expiram: ficam no ar até você desativar, e atualizam sozinhos.
 
 As mensagens ficam numa fila e entram no BarnaBank quando você abre o app.
 O app também guarda uma cópia dos dados na nuvem, então dá para usar em outro aparelho.
@@ -71,7 +71,7 @@ Pronto. Em outro aparelho, faça só o passo 5.2: o app oferece puxar os dados d
 ## Como funciona e privacidade
 - Os dados ficam no **seu** Cloudflare (KV `barnabank-data`), não em servidor de terceiros.
 - O app só lê e grava com a `SYNC_KEY`; o webhook do Telegram só aceita chamadas com uma assinatura secreta.
-- As fotos de comprovante **não** vão para a nuvem; ficam só no aparelho (e no backup .json).
+- As fotos de comprovante ficam no aparelho (e no backup .json). As que você manda pelo Telegram passam pela nuvem só até o app pegar, e aí são apagadas de lá.
 - Se dois aparelhos mexerem ao mesmo tempo, vale o último que salvar. As mensagens do bot nunca se perdem: ficam na fila até um app aplicar.
 - Para trocar o dono do bot, apague a chave `owner` no KV `barnabank-data` (Cloudflare → Storage → KV).
 
