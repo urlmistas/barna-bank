@@ -1,0 +1,13 @@
+name = "barnabank-bot"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+workers_dev = true
+
+# o ID é preenchido sozinho pelo GitHub Actions (.github/workflows/bot.yml)
+[[kv_namespaces]]
+binding = "BB"
+id = "__KV_ID__"
+
+# lembrete diário no Telegram às 9h (horário de Brasília = 12h UTC)
+[triggers]
+crons = ["0 12 * * *"]
