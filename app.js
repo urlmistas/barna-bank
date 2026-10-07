@@ -837,7 +837,7 @@
     var areaStr = lineStr + ' L ' + x(points[points.length-1].date).toFixed(1) + ',' + baselineY.toFixed(1) + ' L ' + x(points[0].date).toFixed(1) + ',' + baselineY.toFixed(1) + ' Z';
 
     var dots = points.map(function(p){
-      return '<circle cx="'+x(p.date).toFixed(1)+'" cy="'+y(p.total).toFixed(1)+'" r="3" fill="#e8cd8a" stroke="#10152a" stroke-width="1"/>';
+      return '<circle cx="'+x(p.date).toFixed(1)+'" cy="'+y(p.total).toFixed(1)+'" r="3" fill="#e8cd8a" stroke="#0a0c11" stroke-width="1"/>';
     }).join('');
 
     return '<svg class="evochart" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">' +
@@ -848,8 +848,8 @@
         '<path d="'+areaStr+'" fill="url(#'+gradId+')" stroke="none"/>' +
         '<path d="'+lineStr+'" fill="none" stroke="#e8cd8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
         dots +
-        '<text x="'+padL+'" y="'+(H-6)+'" font-size="10" fill="#8d94b8" font-family="Nunito, sans-serif">'+fmtDate(minD)+'</text>' +
-        '<text x="'+(W-padR)+'" y="'+(H-6)+'" font-size="10" fill="#8d94b8" font-family="Nunito, sans-serif" text-anchor="end">'+fmtDate(maxD)+'</text>' +
+        '<text x="'+padL+'" y="'+(H-6)+'" font-size="10" fill="#8c92a3" font-family="Nunito, sans-serif">'+fmtDate(minD)+'</text>' +
+        '<text x="'+(W-padR)+'" y="'+(H-6)+'" font-size="10" fill="#8c92a3" font-family="Nunito, sans-serif" text-anchor="end">'+fmtDate(maxD)+'</text>' +
       '</svg>';
   }
 
@@ -3525,8 +3525,8 @@
       description: "Controle pessoal de empréstimos entre amigos",
       start_url: ".",
       display: "standalone",
-      background_color: "#10152a",
-      theme_color: "#10152a",
+      background_color: "#0a0c11",
+      theme_color: "#0a0c11",
       icons: [{
         src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2310152a'/%3E%3Ctext x='50' y='68' font-family='Georgia,serif' font-weight='700' font-size='58' fill='%23c9a24a' text-anchor='middle'%3EB%3C/text%3E%3C/svg%3E",
         sizes: "100x100",
@@ -4352,7 +4352,7 @@
     if(!(max > 0)){ el.innerHTML = '<div class="chart-empty">Sem gastos nos últimos 6 meses.</div>'; return; }
     var W = Math.max(300, Math.round(el.clientWidth || 600)), H = 210, top = 22, base = 180, slot = W / 6, bw = Math.min(54, slot * 0.56);
     var svg = '<svg class="mix-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Gastos dos últimos 6 meses por tipo">';
-    svg += '<line x1="0" x2="' + W + '" y1="' + base + '" y2="' + base + '" stroke="#2c3560" stroke-width="1"/>';
+    svg += '<line x1="0" x2="' + W + '" y1="' + base + '" y2="' + base + '" stroke="#252a36" stroke-width="1"/>';
     months.forEach(function(mo, idx){
       var cx = slot * idx + slot / 2, x = cx - bw / 2, yy = base, sel = mo.key === key;
       var op = sel ? 1 : 0.5;
@@ -4363,8 +4363,8 @@
         yy -= h;
         svg += '<rect x="' + x.toFixed(1) + '" y="' + yy.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + (h - 1).toFixed(1) + '" rx="4" fill="' + MIX_COLORS[t] + '" opacity="' + op + '"><title>' + escapeHtml(ymShort(mo.key) + ': ' + ({bills: 'contas fixas', card: 'cartão', other: 'outros'})[t] + ' ' + money.format(v)) + '</title></rect>';
       });
-      if(mo.sp.total > 0) svg += '<text x="' + cx + '" y="' + (yy - 6).toFixed(1) + '" text-anchor="middle" font-size="11.5" font-family="Nunito, sans-serif" font-weight="700" fill="' + (sel ? '#eee9da' : '#8d94b8') + '">' + escapeHtml(compactMoney(mo.sp.total)) + '</text>';
-      svg += '<text x="' + cx + '" y="' + (base + 20) + '" text-anchor="middle" font-size="12" font-family="Inter, sans-serif" font-weight="' + (sel ? 700 : 500) + '" fill="' + (sel ? '#e8cd8a' : '#8d94b8') + '">' + ymShort(mo.key) + '</text>';
+      if(mo.sp.total > 0) svg += '<text x="' + cx + '" y="' + (yy - 6).toFixed(1) + '" text-anchor="middle" font-size="11.5" font-family="Nunito, sans-serif" font-weight="700" fill="' + (sel ? '#eee9da' : '#8c92a3') + '">' + escapeHtml(compactMoney(mo.sp.total)) + '</text>';
+      svg += '<text x="' + cx + '" y="' + (base + 20) + '" text-anchor="middle" font-size="12" font-family="Inter, sans-serif" font-weight="' + (sel ? 700 : 500) + '" fill="' + (sel ? '#e8cd8a' : '#8c92a3') + '">' + ymShort(mo.key) + '</text>';
     });
     svg += '</svg>';
     var cur = months[5].sp;
@@ -4715,7 +4715,7 @@
     cv.width = W; cv.height = H;
     var c = cv.getContext('2d');
     var bg = c.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0, '#1b2242'); bg.addColorStop(1, '#10152a');
+    bg.addColorStop(0, '#14171f'); bg.addColorStop(1, '#0a0c11');
     c.fillStyle = bg; c.fillRect(0, 0, W, H);
     var glow = c.createRadialGradient(0, 0, 0, 0, 0, 700);
     glow.addColorStop(0, 'rgba(201,162,74,0.18)'); glow.addColorStop(1, 'rgba(201,162,74,0)');
@@ -4727,7 +4727,7 @@
     c.fillStyle = mg; roundRect(c, P, 60, 64, 64, 16); c.fill();
     c.fillStyle = '#1b1404'; c.font = '700 34px "Baloo 2", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillText('B', P + 32, 94);
-    c.textAlign = 'left'; c.fillStyle = '#8d94b8'; c.font = '600 28px Inter, sans-serif';
+    c.textAlign = 'left'; c.fillStyle = '#8c92a3'; c.font = '600 28px Inter, sans-serif';
     c.fillText('BarnaBank', P + 84, 94);
     if(g.dueDate){ c.textAlign = 'right'; c.fillText('pagar até ' + fmtDate(g.dueDate), W - P, 94); c.textAlign = 'left'; }
 
@@ -4735,7 +4735,7 @@
     c.textBaseline = 'alphabetic';
     c.fillStyle = '#eee9da'; c.font = '700 64px "Baloo 2", sans-serif';
     c.fillText(fitText(c, g.title, W - 2 * P), P, 222);
-    c.fillStyle = '#8d94b8'; c.font = '500 28px Inter, sans-serif';
+    c.fillStyle = '#8c92a3'; c.font = '500 28px Inter, sans-serif';
     c.fillText(fmtDate(g.date) + ' · ' + ms.length + (ms.length === 1 ? ' pessoa' : ' pessoas') + (showMe ? ' · conta total ' + money.format(g.total) : ''), P, 270);
 
     // valores
@@ -4744,7 +4744,7 @@
     var paidTxt = money.format(st.paid);
     c.fillText(paidTxt, P, 372);
     var pw = c.measureText(paidTxt).width;
-    c.fillStyle = '#8d94b8'; c.font = '500 30px Inter, sans-serif';
+    c.fillStyle = '#8c92a3'; c.font = '500 30px Inter, sans-serif';
     c.fillText('de ' + money.format(st.owed) + (isPayable ? ' pagos' : ' recebidos'), P + pw + 18, 370);
     c.textAlign = 'right'; c.fillStyle = '#eee9da'; c.font = '700 44px "Baloo 2", sans-serif';
     c.fillText(Math.round(pct) + '%', W - P, 370); c.textAlign = 'left';
@@ -4756,7 +4756,7 @@
     var COL = {pago: '#57b98a', pendente: '#c9a24a', atrasado: '#e2665c'};
     ms.forEach(function(d){
       var et = Math.max(effectiveTotal(d), 0.01), w = avail * et / tot, s = memberState(d);
-      c.fillStyle = s === 'atrasado' ? 'rgba(226,102,92,0.22)' : '#161c38';
+      c.fillStyle = s === 'atrasado' ? 'rgba(226,102,92,0.22)' : '#101319';
       roundRect(c, x, by, w, bh, 8); c.fill();
       var f = Math.max(0, Math.min(1, paidAmount(d) / et));
       if(f > 0){ c.save(); roundRect(c, x, by, w, bh, 8); c.clip(); c.fillStyle = s === 'pago' ? COL.pago : COL.pendente; c.fillRect(x, by, w * f, bh); c.restore(); }
@@ -4768,16 +4768,16 @@
     function row(name, label, state_, valueTxt){
       c.fillStyle = 'rgba(255,255,255,0.035)'; roundRect(c, P, y, W - 2 * P, rowH - 16, 22); c.fill();
       var cy = y + (rowH - 16) / 2;
-      c.fillStyle = state_ === 'me' ? '#2c3560' : (COL[state_] || '#6f9ee8');
+      c.fillStyle = state_ === 'me' ? '#252a36' : (COL[state_] || '#6f9ee8');
       c.beginPath(); c.arc(P + 50, cy, 28, 0, Math.PI * 2); c.fill();
-      c.fillStyle = state_ === 'me' ? '#eee9da' : '#10152a'; c.font = '700 22px Inter, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillStyle = state_ === 'me' ? '#eee9da' : '#0a0c11'; c.font = '700 22px Inter, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
       c.fillText(initials(name), P + 50, cy + 1);
       c.textAlign = 'left'; c.fillStyle = '#eee9da'; c.font = '600 32px Inter, sans-serif';
       c.fillText(fitText(c, name, 430), P + 98, cy + 1);
       c.textAlign = 'right'; c.font = '700 30px Inter, sans-serif';
-      c.fillStyle = state_ === 'pago' ? '#57b98a' : state_ === 'atrasado' ? '#e2665c' : state_ === 'me' ? '#8d94b8' : '#e8cd8a';
+      c.fillStyle = state_ === 'pago' ? '#57b98a' : state_ === 'atrasado' ? '#e2665c' : state_ === 'me' ? '#8c92a3' : '#e8cd8a';
       c.fillText(label, W - P - 28, cy + 1);
-      if(valueTxt){ var lw = c.measureText(label).width; c.font = '500 24px Inter, sans-serif'; c.fillStyle = '#8d94b8'; c.fillText(valueTxt, W - P - 40 - lw, cy + 2); }
+      if(valueTxt){ var lw = c.measureText(label).width; c.font = '500 24px Inter, sans-serif'; c.fillStyle = '#8c92a3'; c.fillText(valueTxt, W - P - 40 - lw, cy + 2); }
       c.textAlign = 'left'; c.textBaseline = 'alphabetic';
       y += rowH;
     }
@@ -4790,10 +4790,10 @@
 
     // rodapé
     y += 20;
-    c.fillStyle = '#2c3560'; c.fillRect(P, y, W - 2 * P, 2);
+    c.fillStyle = '#252a36'; c.fillRect(P, y, W - 2 * P, 2);
     c.font = '600 28px Inter, sans-serif'; c.fillStyle = '#e8cd8a';
     if(settings.pixKey && !isPayable) c.fillText('PIX: ' + fitText(c, settings.pixKey, W - 2 * P - 80), P, y + 62);
-    c.font = '500 22px Inter, sans-serif'; c.fillStyle = '#5d6390'; c.textAlign = 'right';
+    c.font = '500 22px Inter, sans-serif'; c.fillStyle = '#5a6072'; c.textAlign = 'right';
     c.fillText('atualizado em ' + fmtDate(todayISO()), W - P, y + 108);
     c.textAlign = 'left';
     return cv;
@@ -5363,31 +5363,31 @@
     var H = 470 + 120 + (cats.length ? 120 + cats.length * 74 : 0) + 260 + (buds.length ? 120 + buds.length * 74 : 0) + (goals.length ? 120 + goals.length * 74 : 0) + 200;
     var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     var c = cv.getContext('2d');
-    var bg = c.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#1b2242'); bg.addColorStop(1, '#10152a');
+    var bg = c.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#14171f'); bg.addColorStop(1, '#0a0c11');
     c.fillStyle = bg; c.fillRect(0, 0, W, H);
     var glow = c.createRadialGradient(W, 0, 0, W, 0, 760); glow.addColorStop(0, 'rgba(87,185,138,0.14)'); glow.addColorStop(1, 'rgba(87,185,138,0)');
     c.fillStyle = glow; c.fillRect(0, 0, W, H);
     var mg = c.createLinearGradient(P, 60, P + 64, 124); mg.addColorStop(0, '#e8cd8a'); mg.addColorStop(1, '#c9a24a');
     c.fillStyle = mg; roundRect(c, P, 60, 64, 64, 16); c.fill();
     c.fillStyle = '#1b1404'; c.font = '700 34px "Baloo 2", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('B', P + 32, 94);
-    c.textAlign = 'left'; c.fillStyle = '#8d94b8'; c.font = '600 28px Inter, sans-serif'; c.fillText('BarnaBank', P + 84, 94);
+    c.textAlign = 'left'; c.fillStyle = '#8c92a3'; c.font = '600 28px Inter, sans-serif'; c.fillText('BarnaBank', P + 84, 94);
     c.textBaseline = 'alphabetic';
-    c.fillStyle = '#8d94b8'; c.font = '600 30px Inter, sans-serif'; c.fillText('Resumo de', P, 214);
+    c.fillStyle = '#8c92a3'; c.font = '600 30px Inter, sans-serif'; c.fillText('Resumo de', P, 214);
     c.fillStyle = '#eee9da'; c.font = '700 74px "Baloo 2", sans-serif'; c.fillText(MONTH_NAMES[m] + ' ' + y, P, 290);
     // números
     var bw = (W - 2 * P - 40) / 3, yy = 340;
     [['Entradas', inc, '#57b98a'], ['Gastos', sp.total, '#e2665c'], ['Saldo', inc - sp.total, inc - sp.total >= 0 ? '#57b98a' : '#e2665c']].forEach(function(s, i){
       var x = P + i * (bw + 20);
       c.fillStyle = 'rgba(255,255,255,0.04)'; roundRect(c, x, yy, bw, 130, 22); c.fill();
-      c.fillStyle = '#8d94b8'; c.font = '600 24px Inter, sans-serif'; c.fillText(s[0], x + 24, yy + 46);
+      c.fillStyle = '#8c92a3'; c.font = '600 24px Inter, sans-serif'; c.fillText(s[0], x + 24, yy + 46);
       c.fillStyle = s[2]; c.font = '700 40px "Baloo 2", sans-serif'; c.fillText(fitText(c, money.format(s[1]), bw - 40), x + 24, yy + 102);
     });
     yy += 130 + 60;
     function sectionTitle(t){ c.fillStyle = '#eee9da'; c.font = '700 36px "Baloo 2", sans-serif'; c.fillText(t, P, yy); yy += 34; }
     function bar(label, valTxt, frac, col, sub){
       c.fillStyle = '#eee9da'; c.font = '600 27px Inter, sans-serif'; c.fillText(fitText(c, label, 560), P, yy + 26);
-      c.textAlign = 'right'; c.fillStyle = '#8d94b8'; c.font = '600 26px Inter, sans-serif'; c.fillText(valTxt, W - P, yy + 26); c.textAlign = 'left';
-      c.fillStyle = '#161c38'; roundRect(c, P, yy + 40, W - 2 * P, 14, 7); c.fill();
+      c.textAlign = 'right'; c.fillStyle = '#8c92a3'; c.font = '600 26px Inter, sans-serif'; c.fillText(valTxt, W - P, yy + 26); c.textAlign = 'left';
+      c.fillStyle = '#101319'; roundRect(c, P, yy + 40, W - 2 * P, 14, 7); c.fill();
       if(frac > 0){ c.fillStyle = col; roundRect(c, P, yy + 40, Math.max(14, (W - 2 * P) * Math.min(1, frac)), 14, 7); c.fill(); }
       yy += 74;
     }
@@ -5401,15 +5401,15 @@
     [['Contas fixas', sp.bills, '#6f9ee8'], ['Cartão', sp.card, '#b58cf0'], ['Outros gastos', sp.other, '#e2665c']].forEach(function(s, i){
       var x = P + i * (bw + 20);
       c.fillStyle = s[2]; c.beginPath(); c.arc(x + 10, yy + 18, 9, 0, Math.PI * 2); c.fill();
-      c.fillStyle = '#8d94b8'; c.font = '600 24px Inter, sans-serif'; c.fillText(s[0], x + 30, yy + 27);
+      c.fillStyle = '#8c92a3'; c.font = '600 24px Inter, sans-serif'; c.fillText(s[0], x + 30, yy + 27);
       c.fillStyle = '#eee9da'; c.font = '700 32px "Baloo 2", sans-serif'; c.fillText(money.format(s[1]), x, yy + 72);
     });
     yy += 100;
-    c.fillStyle = '#8d94b8'; c.font = '600 26px Inter, sans-serif';
+    c.fillStyle = '#8c92a3'; c.font = '600 26px Inter, sans-serif';
     c.fillText('Recebi de amigos: ', P, yy + 20);
     var lw = c.measureText('Recebi de amigos: ').width;
     c.fillStyle = '#57b98a'; c.fillText(money.format(loanIn), P + lw, yy + 20);
-    c.fillStyle = '#8d94b8'; c.textAlign = 'right'; c.fillText('Paguei de dívidas: ' + money.format(loanOut), W - P, yy + 20); c.textAlign = 'left';
+    c.fillStyle = '#8c92a3'; c.textAlign = 'right'; c.fillText('Paguei de dívidas: ' + money.format(loanOut), W - P, yy + 20); c.textAlign = 'left';
     yy += 90;
     if(buds.length){
       sectionTitle('Orçamento');
@@ -5426,8 +5426,8 @@
     var out = document.createElement('canvas'); out.width = W; out.height = H2;
     var o = out.getContext('2d');
     o.drawImage(cv, 0, 0);
-    o.fillStyle = '#2c3560'; o.fillRect(P, H2 - 96, W - 2 * P, 2);
-    o.fillStyle = '#5d6390'; o.font = '500 22px Inter, sans-serif'; o.textAlign = 'right';
+    o.fillStyle = '#252a36'; o.fillRect(P, H2 - 96, W - 2 * P, 2);
+    o.fillStyle = '#5a6072'; o.font = '500 22px Inter, sans-serif'; o.textAlign = 'right';
     o.fillText('gerado em ' + fmtDate(todayISO()) + ' · compras no cartão contam no mês da parcela', W - P, H2 - 50);
     return out;
   }
