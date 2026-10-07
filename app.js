@@ -180,6 +180,10 @@
         d.dueDay = base || 1;
       }
       if(d.firstDue && !/^\d{4}-\d{2}-\d{2}$/.test(d.firstDue)) delete d.firstDue;
+      if(d.dueOverride){
+        if(typeof d.dueOverride !== 'object' || Array.isArray(d.dueOverride)) delete d.dueOverride;
+        else { Object.keys(d.dueOverride).forEach(function(k){ if(!/^\d{1,3}$/.test(k) || !/^\d{4}-\d{2}-\d{2}$/.test(d.dueOverride[k])) delete d.dueOverride[k]; }); if(!Object.keys(d.dueOverride).length) delete d.dueOverride; }
+      }
       if(d.groupId && typeof d.groupId !== 'string') delete d.groupId;
       delete d.paid;
       return d;
@@ -417,6 +421,7 @@
   function daysInMonth(y,m){ return new Date(y, m+1, 0).getDate(); }
   function dueDateForInstallment(d, idx){
     // idx: 0-based installment index
+    if(d.dueOverride && d.dueOverride[idx]) return new Date(d.dueOverride[idx] + 'T00:00:00');
     if(d.firstDue){
       // vencimento da 1ª parcela definido direto (ex.: grupo com data de pagamento)
       var f = new Date(d.firstDue + 'T00:00:00');
@@ -446,7 +451,7 @@
   function debtSchedule(d){
     var today = todayISO();
     if(!scheduleCache || scheduleCache.day !== today) scheduleCache = {day: today, map: {}};
-    var key = d.id + '|' + JSON.stringify([d.principal, d.rate, d.interestType, d.installments, d.date, d.dueDay, d.discount, d.lateFeePct, d.lateInterestPct, d.settledDate, d.firstDue, d.payments]);
+    var key = d.id + '|' + JSON.stringify([d.principal, d.rate, d.interestType, d.installments, d.date, d.dueDay, d.discount, d.lateFeePct, d.lateInterestPct, d.settledDate, d.firstDue, d.dueOverride, d.payments]);
     var hit = scheduleCache.map[d.id];
     if(hit && hit.key === key) return hit.sched;
     var sched = computeSchedule(d, today);
@@ -667,6 +672,7 @@
     if(typeof renderClaims === 'function') renderClaims();
     renderAll();
     saveData();
+    if(typeof checkNewlyPaid === 'function') checkNewlyPaid();
   }
 
   // ---------- smart dashboard cards ----------
@@ -1200,6 +1206,7 @@
           (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="settle">' + ic('badge-percent') + ' Quitar c/ desconto</button>') +
           '<div class="spacer"></div>' +
           (!isPayable ? '<button class="btn btn-ghost btn-sm" data-act="share" title="Link só desta dívida">' + ic('share-2') + ' Link' + (shareFor('debt', d.id) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>' : '') +
+          (paid && !isPayable ? '<button class="btn btn-primary btn-sm" data-act="receipt">' + ic('receipt') + ' Recibo de quitação</button>' : '') +
           '<button class="btn btn-ghost btn-sm" data-act="statement">' + ic('file-text') + ' Extrato</button>' +
           '<button class="btn btn-ghost btn-sm" data-act="edit">' + ic('pencil') + ' Editar</button>' +
           '<button class="btn btn-danger btn-sm" data-act="del">' + ic('trash') + ' Excluir</button>' +
@@ -1312,6 +1319,8 @@
     var settleBtn = inner.querySelector('[data-act="settle"]');
     if(settleBtn) settleBtn.addEventListener('click', function(e){ e.stopPropagation(); openSettleModal(d); });
     inner.querySelector('[data-act="statement"]').addEventListener('click', function(e){ e.stopPropagation(); openStatement(d); });
+    var rcBtn = inner.querySelector('[data-act="receipt"]');
+    if(rcBtn) rcBtn.addEventListener('click', function(e){ e.stopPropagation(); shareReceipt(d); });
     inner.querySelector('[data-act="edit"]').addEventListener('click', function(e){ e.stopPropagation(); openModal(d); });
     inner.querySelector('[data-act="del"]').addEventListener('click', function(e){
       e.stopPropagation();
@@ -1397,7 +1406,7 @@
     undoQueue.forEach(function(entry){
       var el = document.createElement('div');
       el.className = 'undo-toast';
-      el.innerHTML = (entry.icon ? ic(entry.icon) : '') + '<span>' + escapeHtml(entry.label) + '</span><button type="button">Desfazer</button>';
+      el.innerHTML = (entry.icon ? ic(entry.icon) : '') + '<span>' + escapeHtml(entry.label) + '</span><button type="button">' + escapeHtml(entry.btn || 'Desfazer') + '</button>';
       el.querySelector('button').addEventListener('click', function(){ undoOne(entry.uid); });
       undoStackEl.appendChild(el);
     });
@@ -5132,11 +5141,8 @@
       label: pct >= 90 ? 'Paga em dia' : pct >= 60 ? 'Às vezes atrasa' : 'Costuma atrasar'};
   }
   function personExtraHtml(key){
-    var c = contactOf(key) || {}, rel = personReliability(key), tags = c.tags || [];
-    return '<div class="person-extra">' +
-      (rel ? '<div class="pe-rel ' + rel.cls + '">' + ic(rel.cls === 'good' ? 'badge-check' : 'clock-alert') +
-        '<div><b>' + rel.label + ' · ' + Math.round(rel.pct) + '%</b><span>pagou em dia ' + rel.onTime + ' de ' + rel.total + (rel.total === 1 ? ' parcela' : ' parcelas') +
-        (rel.late ? ' · atraso médio de ' + rel.avgDelay + (rel.avgDelay === 1 ? ' dia' : ' dias') : '') + '</span></div></div>' : '') +
+    var c = contactOf(key) || {}, tags = c.tags || [];
+    return '<div class="person-extra">' + trustHtml(key) +
       '<div class="pe-tags">' + tags.map(function(t){ return '<span class="pe-tag">' + ic('tag') + escapeHtml(t) + '</span>'; }).join('') +
         '<button type="button" class="btn btn-ghost btn-sm" id="personTagsEdit">' + ic(tags.length || c.notes ? 'pencil' : 'tag') + (tags.length || c.notes ? ' Editar' : ' Etiquetas e notas') + '</button></div>' +
       (c.notes ? '<div class="pe-notes">' + ic('sticky-note') + '<span>' + escapeHtml(c.notes) + '</span></div>' : '') +
@@ -5519,7 +5525,7 @@
       if(state.tgLog[op.id]){ res.push({id: op.id, ok: true, skipped: true, msg: ''}); return; }
       var date = /^\d{4}-\d{2}-\d{2}$/.test(op.date || '') ? op.date : todayISO();
       var amount = round2(+op.amount || 0);
-      if(!(amount > 0)){ res.push({id: op.id, ok: false, msg: 'valor inválido'}); return; }
+      if(!(amount > 0) && op.type !== 'resched'){ res.push({id: op.id, ok: false, msg: 'valor inválido'}); return; }
       if(op.type === 'debt'){
         var n = Math.max(1, Math.min(60, parseInt(op.installments, 10) || 1));
         var dueDay = parseInt(op.dueDay, 10);
@@ -5561,16 +5567,39 @@
       } else if(op.type === 'tx'){
         var wid2 = walletByName(op.wallet);
         if(!wid2){ res.push({id: op.id, ok: false, msg: 'crie uma carteira no app primeiro'}); return; }
-        var cat = String(op.category || '').trim().slice(0, 40) || (op.kind === 'entrada' ? 'Entrada' : 'Outros');
+        var cat = String(op.category || '').trim().slice(0, 40) || (op.store && op.kind !== 'entrada' ? guessCategory(op.store, false) : '') || (op.kind === 'entrada' ? 'Entrada' : 'Outros');
         cat = cat.charAt(0).toUpperCase() + cat.slice(1);
         var known = knownExpenseCats().concat(state.transactions.map(function(t){ return t.category || ''; })).find(function(k){ return normTxt(k) === normTxt(cat); });
         var ntx = {id: uid(), walletId: wid2, type: op.kind === 'entrada' ? 'entrada' : 'gasto', amount: amount, date: date, category: known || cat, note: (op.note ? op.note + ' · ' : '') + 'via Telegram'};
         state.transactions.push(ntx);
         state.tgLog[op.id] = {at: todayISO(), tx: ntx.id};
-        res.push({id: op.id, ok: true, msg: (op.kind === 'entrada' ? 'Entrada ' : 'Gasto ') + money.format(amount) + ' · ' + (known || cat)});
+        res.push({id: op.id, ok: true, category: known || cat, msg: (op.kind === 'entrada' ? 'Entrada ' : 'Gasto ') + money.format(amount) + ' · ' + (known || cat)});
+      } else if(op.type === 'resched'){
+        var rd = op.debtId ? state.debts.filter(function(x){ return x.id === op.debtId && !isPaid(x); }) : findPeopleDebts(op.name, 'receivable');
+        rd = rd.slice().sort(function(a, b){ var x = nextDueDate(a), y = nextDueDate(b); return (x ? x.getTime() : 0) - (y ? y.getTime() : 0); });
+        var newDate = /^\d{4}-\d{2}-\d{2}$/.test(op.newDate || '') ? op.newDate : '';
+        if(!rd.length || !newDate){ res.push({id: op.id, ok: false, msg: 'não achei a dívida para remarcar'}); return; }
+        var r0 = rd[0], moved = reschedule(r0, newDate);
+        if(!moved.length){ res.push({id: op.id, ok: false, msg: 'nada para remarcar'}); return; }
+        invalidateSchedules();
+        state.tgLog[op.id] = {at: todayISO(), resched: {debt: r0.id, moved: moved}};
+        res.push({id: op.id, ok: true, msg: 'Prazo de ' + firstName(r0.name) + ' até ' + fmtDate(newDate)});
       } else res.push({id: op.id, ok: false, msg: 'tipo desconhecido'});
     });
     return res;
+  }
+  // remarca para newDate o que está atrasado (ou, se nada atrasou, a próxima parcela); devolve [{idx, prev}]
+  function reschedule(d, newDate){
+    var s = debtSchedule(d), today = todayISO(), out = [];
+    var targets = s.insts.filter(function(it){ return it.open > 0 && it.dueISO < today; });
+    if(!targets.length && s.firstOpen) targets = [s.firstOpen];
+    targets.forEach(function(it){
+      if(newDate <= it.dueISO) return;
+      d.dueOverride = d.dueOverride || {};
+      out.push({idx: it.i, prev: d.dueOverride[it.i] || null});
+      d.dueOverride[it.i] = newDate;
+    });
+    return out;
   }
   // desfazer pelo Telegram algo que já tinha entrado no app
   function applyCloudUndo(list){
@@ -5581,6 +5610,11 @@
       if(!log || log.undone) return;
       if(log.debt) state.debts = state.debts.filter(function(d){ return d.id !== log.debt; });
       if(log.tx) state.transactions = state.transactions.filter(function(t){ return t.id !== log.tx; });
+      if(log.resched){
+        var rd = state.debts.find(function(dd){ return dd.id === log.resched.debt; });
+        if(rd && rd.dueOverride) log.resched.moved.forEach(function(m){ if(m.prev) rd.dueOverride[m.idx] = m.prev; else delete rd.dueOverride[m.idx]; });
+        if(rd && rd.dueOverride && !Object.keys(rd.dueOverride).length) delete rd.dueOverride;
+      }
       (log.pays || []).forEach(function(x){
         var d = state.debts.find(function(dd){ return dd.id === x.debt; });
         if(d) d.payments = (d.payments || []).filter(function(p){ return p.id !== x.pay; });
@@ -6447,6 +6481,7 @@
       v._ref = {type: sh.type, name: ds[0] ? ds[0].name : '', debtId: sh.type === 'debt' ? sh.ref : null};
       var soon = ds.filter(function(d){ return !isPaid(d); }).sort(function(a, b){ var x = nextDueDate(a), y = nextDueDate(b); return (x ? x.getTime() : 0) - (y ? y.getTime() : 0); })[0];
       v.suggest = v.late > EPS ? v.late : (soon ? round2(amountDueNow(soon)) : v.remaining);
+      if(soon){ var nd = nextDueDate(soon); v.nextDue = nd ? toISO(nd) : ''; }
     }
     return v;
   }
@@ -6459,8 +6494,12 @@
       if(!el) return;
       var cl = cloudExtra.claims || [];
       if(!cl.length){ el.innerHTML = ''; return; }
-      el.innerHTML = '<div class="claim-box"><div class="cb-h">' + ic('hand-coins') + '<b>' + (cl.length === 1 ? 'Alguém disse que pagou' : cl.length + ' pessoas disseram que pagaram') + '</b><span>confira no banco</span></div>' +
+      var nPay = cl.filter(function(c){ return c.kind !== 'prazo'; }).length, nPrazo = cl.length - nPay;
+      var head = nPay && nPrazo ? cl.length + ' pedidos pelos links' : nPrazo ? (nPrazo === 1 ? 'Pediram mais prazo' : nPrazo + ' pedidos de prazo') : (nPay === 1 ? 'Alguém disse que pagou' : nPay + ' pessoas disseram que pagaram');
+      el.innerHTML = '<div class="claim-box"><div class="cb-h">' + ic(nPay ? 'hand-coins' : 'calendar-clock') + '<b>' + head + '</b><span>' + (nPay ? 'confira no banco' : 'você decide') + '</span></div>' +
         cl.map(function(c){
+          if(c.kind === 'prazo') return '<div class="claim-row prazo" data-claim="' + escapeHtml(c.id) + '"><div class="cr-info"><b>' + escapeHtml(c.label) + ' pediu prazo até ' + fmtDate(c.newDate) + '</b><span>' + (c.amount ? money.format(c.amount) + (c.due ? ' que venc' + (c.due < todayISO() ? 'eu' : 'e') + ' em ' + fmtDate(c.due) : '') : '') + (c.note ? ' · “' + escapeHtml(c.note) + '”' : '') + '</span></div>' +
+            '<div class="cr-acts"><button type="button" class="btn btn-ghost btn-sm" data-cl="no">Recusar</button><button type="button" class="btn btn-primary btn-sm" data-cl="ok">' + ic('check') + ' Aceitar</button></div></div>';
           return '<div class="claim-row" data-claim="' + escapeHtml(c.id) + '"><div class="cr-info"><b>' + escapeHtml(c.label) + ' · ' + money.format(c.amount) + '</b><span>' + fmtDate(c.at.slice(0, 10)) + (c.note ? ' · “' + escapeHtml(c.note) + '”' : '') + (c.hasPhoto ? '' : ' · sem comprovante') + '</span></div>' +
             '<div class="cr-acts">' + (c.hasPhoto ? '<button type="button" class="btn btn-ghost btn-sm btn-icon" data-cl="photo" title="Ver comprovante" aria-label="Ver comprovante">' + ic('image') + '</button>' : '') +
             '<button type="button" class="btn btn-ghost btn-sm" data-cl="no">Não recebi</button><button type="button" class="btn btn-primary btn-sm" data-cl="ok">' + ic('check') + ' Recebi</button></div></div>';
@@ -6488,11 +6527,15 @@
       claimCall(id, '', {decision: ok ? 'ok' : 'no'}).then(function(){
         cloudExtra.claims = cloudExtra.claims.filter(function(x){ return x.id !== id; });
         renderClaims();
-        if(ok){ showToast('Confirmado: ' + c.label + ' · ' + money.format(c.amount), 'check'); cloudSync(); }
+        if(c.kind === 'prazo'){
+          if(ok){ showToast('Prazo de ' + c.label + ' remarcado para ' + fmtDate(c.newDate), 'calendar-clock'); cloudSync(); }
+          else showToast('Pedido recusado. A pessoa vê isso no link.', 'x');
+        } else if(ok){ showToast('Confirmado: ' + c.label + ' · ' + money.format(c.amount), 'check'); cloudSync(); }
         else showToast('Marcado como não recebido. A pessoa vê isso no link.', 'x');
       }).catch(function(err){ b.disabled = false; showToast('Nuvem: ' + err.message, 'triangle-alert'); });
     }
     if(a === 'ok') decide(true);
+    else if(c.kind === 'prazo') appConfirm('Recusar o pedido?', '<p class="warn">O link de ' + escapeHtml(c.label) + ' vai mostrar que o novo prazo não foi aceito. Combine com a pessoa se quiser outra data.</p>', {okText: 'Recusar', danger: true, icon: 'x'}).then(function(ok){ if(ok) decide(false); });
     else appConfirm('Não recebeu?', '<p class="warn">O link de ' + escapeHtml(c.label) + ' vai mostrar que o pagamento de ' + money.format(c.amount) + ' não foi encontrado.</p>', {okText: 'Não recebi', danger: true, icon: 'x'}).then(function(ok){ if(ok) decide(false); });
   }
   document.getElementById('claimsDash').addEventListener('click', onClaimClick);
@@ -6914,6 +6957,299 @@
     if(u) u.addEventListener('click', function(e){ e.target.select(); });
   }
 
+  // =====================================================================
+  // v10: esconder valores, prazo pelo link, nota de confiança, recibo de quitação
+  // =====================================================================
+
+  // ---------- olhinho: esconde os valores da tela ----------
+  var PRIV_KEY = 'barnabank_hide_values', privOn = lsGet(PRIV_KEY) === '1', privObs = null, privNodes = [];
+  var MONEY_RE = /R\$[\s ]*-?\d[\d.]*(?:,\d{1,2})?/g, MASK = 'R$ •••••';
+  function privMaskNode(n){
+    var v = n.nodeValue;
+    if(!v || v.indexOf('R$') === -1) return;
+    var p = n.parentNode;
+    if(p && /^(SCRIPT|STYLE|TEXTAREA)$/.test(p.nodeName)) return;
+    var m = v.replace(MONEY_RE, MASK);
+    if(m === v) return;
+    privNodes.push({n: n, orig: v, masked: m});
+    n.nodeValue = m;
+  }
+  function privWalk(root){
+    if(root.nodeType === 3){ privMaskNode(root); return; }
+    if(root.nodeType !== 1) return;
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null), n;
+    while((n = w.nextNode())) privMaskNode(n);
+  }
+  function privApply(){
+    document.body.classList.toggle('hide-values', privOn);
+    var btn = document.getElementById('btnPrivacy');
+    if(btn){ btn.innerHTML = ic(privOn ? 'eye-off' : 'eye'); btn.title = privOn ? 'Mostrar valores' : 'Esconder valores'; btn.setAttribute('aria-pressed', privOn ? 'true' : 'false'); btn.classList.toggle('on', privOn); }
+    if(privOn){
+      privWalk(document.body);
+      if(!privObs && window.MutationObserver){
+        privObs = new MutationObserver(function(list){
+          list.forEach(function(mu){
+            if(mu.type === 'characterData') privMaskNode(mu.target);
+            else Array.prototype.forEach.call(mu.addedNodes, privWalk);
+          });
+          if(privNodes.length > 3000) privNodes = privNodes.filter(function(x){ return x.n.isConnected; });
+        });
+        privObs.observe(document.body, {childList: true, subtree: true, characterData: true});
+      }
+    } else {
+      if(privObs){ privObs.disconnect(); privObs = null; }
+      privNodes.forEach(function(x){ if(x.n.isConnected && x.n.nodeValue === x.masked) x.n.nodeValue = x.orig; });
+      privNodes = [];
+    }
+  }
+  function togglePrivacy(){
+    privOn = !privOn;
+    lsSet(PRIV_KEY, privOn ? '1' : '0');
+    privApply();
+    showToast(privOn ? 'Valores escondidos' : 'Valores à mostra', privOn ? 'eye-off' : 'eye');
+  }
+  (function(){
+    var acts = document.querySelector('.header-actions');
+    if(!acts || document.getElementById('btnPrivacy')) return;
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'btn btn-ghost btn-icon'; b.id = 'btnPrivacy'; b.setAttribute('aria-label', 'Esconder valores');
+    b.addEventListener('click', togglePrivacy);
+    acts.insertBefore(b, acts.firstChild);
+    privApply();
+  })();
+
+  // ---------- nota de confiança ----------
+  function trustInfo(key){
+    var rel = personReliability(key);
+    if(!rel) return null;
+    var today = todayISO(), maxDelay = 0, lateNow = 0, lateNowDays = 0, doneMax = 0, paidTotal = 0;
+    state.debts.forEach(function(d){
+      if(nameKey(d.name) !== key || d.kind !== 'receivable') return;
+      paidTotal += paidAmount(d);
+      if(isPaid(d)) doneMax = Math.max(doneMax, d.principal);
+      debtSchedule(d).insts.forEach(function(it){
+        var dl = it.state === 'paga' && it.lastPayISO ? daysBetweenISO(it.dueISO, it.lastPayISO) : it.late ? daysBetweenISO(it.dueISO, today) : 0;
+        if(dl > maxDelay) maxDelay = dl;
+        if(it.late){ lateNow += it.open; lateNowDays = Math.max(lateNowDays, daysBetweenISO(it.dueISO, today)); }
+      });
+    });
+    // pontualidade pesa mais; atraso médio e atraso de agora tiram pontos
+    var score = 100 * (0.6 * rel.pct / 100 + 0.4 * Math.max(0, 1 - rel.avgDelay / 45));
+    if(lateNow > EPS) score -= 10 + Math.min(25, lateNowDays / 3);
+    if(rel.total < 3) score = Math.min(score, 80); // pouco histórico: não passa de "Boa"
+    score = Math.max(0, Math.min(100, Math.round(score)));
+    var lvl = score >= 85 ? ['Excelente', 'great'] : score >= 70 ? ['Boa', 'good'] : score >= 50 ? ['Regular', 'mid'] : ['Arriscada', 'bad'];
+    var base = doneMax || paidTotal, factor = score >= 85 ? 1.5 : score >= 70 ? 1 : score >= 50 ? 0.5 : 0;
+    var limit = base > 0 && factor > 0 ? Math.max(10, Math.round(base * factor / 10) * 10) : 0;
+    return {score: score, label: lvl[0], cls: lvl[1], rel: rel, maxDelay: maxDelay, lateNow: round2(lateNow), lateNowDays: lateNowDays, limit: limit, base: base, hasDone: doneMax > 0};
+  }
+  function trustHtml(key){
+    var t = trustInfo(key);
+    if(!t) return '<div class="trust none">' + ic('shield-check') + '<div><b>Confiança: sem histórico ainda</b><span>A nota aparece depois da primeira parcela vencida.</span></div></div>';
+    var r = t.rel;
+    var how = t.score >= 85 ? '1,5x o maior empréstimo que já quitou' : t.score >= 70 ? 'o mesmo que o maior empréstimo que já quitou' : 'metade do maior empréstimo que já quitou';
+    var tip = t.limit ? 'Sugestão: emprestar até <b>' + money.format(t.limit) + '</b> (' + (t.hasDone ? how : 'com base no que já pagou') + ')'
+      : t.lateNow > EPS ? 'Melhor não emprestar até acertar o atrasado.' : 'Melhor não emprestar por enquanto.';
+    return '<div class="trust ' + t.cls + '"><div class="tr-score" style="--p:' + t.score + '"><span>' + t.score + '</span></div>' +
+      '<div class="tr-info"><b>Confiança ' + t.label.toLowerCase() + '</b>' +
+      '<span>pagou em dia ' + r.onTime + ' de ' + r.total + (r.total === 1 ? ' parcela' : ' parcelas') + (r.late ? ' · atraso médio de ' + r.avgDelay + (r.avgDelay === 1 ? ' dia' : ' dias') + ' · maior ' + t.maxDelay + (t.maxDelay === 1 ? ' dia' : ' dias') : '') +
+      (t.lateNow > EPS ? ' · <em>' + money.format(t.lateNow) + ' atrasado agora</em>' : '') + '</span>' +
+      '<span class="tr-tip">' + tip + '</span></div></div>';
+  }
+  // dica no formulário de nova dívida, ao digitar o nome
+  (function(){
+    if(typeof fName === 'undefined' || !fName) return;
+    var hint = document.createElement('div');
+    hint.className = 'trust-hint'; hint.id = 'trustHint'; hint.hidden = true;
+    fName.parentNode.appendChild(hint);
+    function upd(){
+      var k = nameKey(fName.value || ''), known = k && state.debts.some(function(d){ return nameKey(d.name) === k && d.kind === 'receivable'; });
+      var t = known && currentFormKind === 'receivable' ? trustInfo(k) : null;
+      if(!t){ hint.hidden = true; return; }
+      hint.hidden = false;
+      hint.className = 'trust-hint ' + t.cls;
+      hint.innerHTML = ic('shield-check') + '<span>Confiança <b>' + t.score + '</b> (' + t.label.toLowerCase() + ')' + (t.limit ? ' · sugerido até ' + money.format(t.limit) : t.lateNow > EPS ? ' · tem ' + money.format(t.lateNow) + ' atrasado' : '') + '</span>';
+    }
+    ['input', 'change'].forEach(function(ev){ fName.addEventListener(ev, upd); });
+    document.addEventListener('click', function(e){ if(e.target.closest && e.target.closest('#kindToggle, [data-kind]')) setTimeout(upd, 0); });
+    document.getElementById('btnNew').addEventListener('click', function(){ setTimeout(upd, 0); });
+  })();
+
+  // ---------- recibo de quitação (PDF feito aqui mesmo, sem biblioteca) ----------
+  var HELV = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+  var HELVB = [278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584];
+  var WIN = {'€': 128, '‚': 130, '„': 132, '…': 133, '•': 149, '–': 150, '—': 151, '‘': 145, '’': 146, '“': 147, '”': 148, '™': 153};
+  function pdfStr(t){
+    var out = '';
+    for(var i = 0; i < t.length; i++){
+      var ch = t[i], c = t.charCodeAt(i);
+      if(WIN[ch]) c = WIN[ch]; else if(c === 0xa0 || c === 0x202f) c = 32; else if(c > 255) c = 63;
+      if(c === 40 || c === 41 || c === 92) out += '\\' + String.fromCharCode(c);
+      else out += String.fromCharCode(c);
+    }
+    return out;
+  }
+  function pdfWidth(t, size, bold){
+    var tb = bold ? HELVB : HELV, w = 0;
+    for(var i = 0; i < t.length; i++){
+      var base = t[i].normalize ? t[i].normalize('NFD').charCodeAt(0) : t.charCodeAt(i);
+      w += (base >= 32 && base <= 126) ? tb[base - 32] : WIN[t[i]] ? 556 : 556;
+    }
+    return w * size / 1000;
+  }
+  function pdfWrap(t, size, bold, maxW){
+    var words = t.split(/\s+/), lines = [], cur = '';
+    words.forEach(function(w){ var tryL = cur ? cur + ' ' + w : w; if(pdfWidth(tryL, size, bold) > maxW && cur){ lines.push(cur); cur = w; } else cur = tryL; });
+    if(cur) lines.push(cur);
+    return lines;
+  }
+  function pdfPage(){
+    var ops = [];
+    function col(c){ return c.map(function(x){ return (x / 255).toFixed(3); }).join(' '); }
+    return {
+      text: function(x, y, size, t, o){ o = o || {}; var w = pdfWidth(t, size, o.bold); if(o.align === 'right') x -= w; else if(o.align === 'center') x -= w / 2;
+        ops.push('BT ' + col(o.color || [20, 22, 28]) + ' rg /' + (o.bold ? 'F2' : 'F1') + ' ' + size + ' Tf ' + x.toFixed(2) + ' ' + y.toFixed(2) + ' Td (' + pdfStr(t) + ') Tj ET'); return w; },
+      rect: function(x, y, w, h, fill){ ops.push(col(fill) + ' rg ' + x + ' ' + y + ' ' + w + ' ' + h + ' re f'); },
+      line: function(x1, y1, x2, y2, c, lw){ ops.push(col(c || [200, 200, 200]) + ' RG ' + (lw || 0.8) + ' w ' + x1 + ' ' + y1 + ' m ' + x2 + ' ' + y2 + ' l S'); },
+      build: function(){
+        var content = ops.join('\n');
+        var objs = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+          '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+          '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+          '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+          '<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream'];
+        var out = '%PDF-1.4\n%âãÏÓ\n', offs = [];
+        objs.forEach(function(o, i){ offs.push(out.length); out += (i + 1) + ' 0 obj\n' + o + '\nendobj\n'; });
+        var xref = out.length;
+        out += 'xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n' + offs.map(function(o){ return ('0000000000' + o).slice(-10) + ' 00000 n \n'; }).join('');
+        out += 'trailer\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R /Info << /Producer (BarnaBank) >> >>\nstartxref\n' + xref + '\n%%EOF';
+        return out;
+      }
+    };
+  }
+  // número por extenso (reais e centavos)
+  function extenso(v){
+    var U = ['zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+    var D = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+    var C = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+    function ate999(n){
+      if(n === 100) return 'cem';
+      var c = Math.floor(n / 100), r = n % 100, parts = [];
+      if(c) parts.push(C[c]);
+      if(r){ if(r < 20) parts.push(U[r]); else { var dz = Math.floor(r / 10), un = r % 10; parts.push(D[dz] + (un ? ' e ' + U[un] : '')); } }
+      return parts.join(' e ');
+    }
+    function inteiro(n){
+      if(n === 0) return 'zero';
+      var grupos = [[1e9, 'bilhão', 'bilhões'], [1e6, 'milhão', 'milhões'], [1e3, 'mil', 'mil']], parts = [], rest = n;
+      grupos.forEach(function(g){
+        var q = Math.floor(rest / g[0]);
+        if(!q) return;
+        rest -= q * g[0];
+        parts.push(g[0] === 1e3 && q === 1 ? 'mil' : ate999(q) + ' ' + (q === 1 ? g[1] : g[2]));
+      });
+      if(rest) parts.push(ate999(rest));
+      // "mil e cem", "mil duzentos e trinta": usa "e" antes do último grupo quando ele é pequeno ou redondo
+      if(parts.length > 1 && (rest < 100 || rest % 100 === 0) && rest) return parts.slice(0, -1).join(', ') + ' e ' + parts[parts.length - 1];
+      return parts.join(', ');
+    }
+    var cents = Math.round(v * 100), r = Math.floor(cents / 100), c = cents % 100, out = [];
+    if(r) out.push(inteiro(r) + (r >= 1e6 && r % 1e6 === 0 ? ' de' : '') + (r === 1 ? ' real' : ' reais'));
+    if(c) out.push(inteiro(c) + (c === 1 ? ' centavo' : ' centavos'));
+    return out.join(' e ') || 'zero reais';
+  }
+  var MONTHS_LOWER = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  function dataExtenso(iso){ return parseInt(iso.slice(8, 10), 10) + ' de ' + MONTHS_LOWER[+iso.slice(5, 7) - 1] + ' de ' + iso.slice(0, 4); }
+  function fmtFull(iso){ return iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4); }
+  function receiptCode(d){ var x = d.id + '|' + JSON.stringify(d.payments || []), h = (hashStr(x) + hashStr(x + '#')).toUpperCase(); return 'BB-' + h.slice(0, 4) + '-' + h.slice(4, 8); }
+  function receiptPdf(d){
+    var pg = pdfPage(), L = 56, R = 539, y = 790, GOLD = [176, 138, 50], MUTED = [110, 114, 128];
+    var pays = (d.payments || []).slice().sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    var total = round2(paidAmount(d)), last = pays.length ? pays[pays.length - 1].date : todayISO(), g = groupOf(d), n = installments(d);
+    var owner = (settings.ownerName || '').trim(), city = (settings.ownerCity || '').trim();
+    pg.rect(0, 812, 595, 30, [20, 22, 28]);
+    pg.rect(0, 809, 595, 3, GOLD);
+    pg.text(L, 822, 11, 'BarnaBank', {bold: true, color: [232, 205, 138]});
+    pg.text(R, 822, 9, receiptCode(d), {align: 'right', color: [200, 200, 205]});
+    pg.text(L, y - 18, 22, 'RECIBO DE QUITAÇÃO', {bold: true});
+    pg.text(L, y - 38, 10, 'Comprovante de que a dívida foi paga por completo.', {color: MUTED});
+    y -= 70;
+    pg.rect(L, y - 54, R - L, 54, [246, 241, 228]);
+    pg.rect(L, y - 54, 4, 54, GOLD);
+    pg.text(L + 18, y - 22, 9, 'VALOR TOTAL RECEBIDO', {bold: true, color: MUTED});
+    pg.text(L + 18, y - 42, 18, money.format(total).replace(/ /g, ' '), {bold: true});
+    pg.text(R - 14, y - 22, 9, 'QUITADO EM', {bold: true, color: MUTED, align: 'right'});
+    pg.text(R - 14, y - 42, 14, fmtFull(last), {bold: true, align: 'right'});
+    y -= 84;
+    var ref = g ? 'referente à sua parte em "' + g.title + '" (' + fmtFull(g.date || d.date) + ')' : 'referente ao empréstimo feito em ' + fmtFull(d.date) + (n > 1 ? ', em ' + n + ' parcelas' : '');
+    var para = (owner ? 'Eu, ' + owner + ', declaro' : 'Declaro') + ' que recebi de ' + d.name + ' a importância de ' + money.format(total).replace(/ /g, ' ') + ' (' + extenso(total) + '), ' + ref +
+      ', e dou plena e total quitação desta dívida, nada mais tendo a receber a esse título.';
+    pdfWrap(para, 12, false, R - L).forEach(function(ln){ pg.text(L, y, 12, ln); y -= 19; });
+    if((d.discount || 0) > EPS){ y -= 4; pg.text(L, y, 10.5, 'Desconto concedido na quitação: ' + money.format(d.discount).replace(/ /g, ' ') + '.', {color: MUTED}); y -= 16; }
+    y -= 18;
+    pg.text(L, y, 10, 'PAGAMENTOS', {bold: true, color: MUTED}); y -= 10;
+    pg.line(L, y, R, y, [220, 214, 200]); y -= 18;
+    var shown = pays.slice(0, 24);
+    shown.forEach(function(p, i){
+      if(i % 2 === 0) pg.rect(L, y - 6, R - L, 20, [250, 248, 243]);
+      pg.text(L + 10, y, 11, fmtFull(p.date));
+      var w = p.walletId && state.wallets.find(function(x){ return x.id === p.walletId; });
+      if(w) pg.text(L + 120, y, 10, w.name, {color: MUTED});
+      pg.text(R - 10, y, 11, money.format(p.amount).replace(/ /g, ' '), {align: 'right', bold: true});
+      y -= 20;
+    });
+    if(pays.length > shown.length){ pg.text(L + 10, y, 10, '+ ' + (pays.length - shown.length) + ' pagamentos', {color: MUTED}); y -= 20; }
+    pg.line(L, y + 6, R, y + 6, [220, 214, 200]);
+    pg.text(L + 10, y - 10, 11, 'Total', {bold: true});
+    pg.text(R - 10, y - 10, 11, money.format(total).replace(/ /g, ' '), {bold: true, align: 'right'});
+    y -= 64; if(y < 150) y = 150;
+    pg.text(L, y, 11, (city ? city + ', ' : '') + dataExtenso(last) + '.');
+    y -= 60;
+    pg.line(L, y, L + 250, y, [60, 60, 60], 0.8);
+    pg.text(L, y - 15, 11, owner || 'Assinatura de quem recebeu', {bold: !!owner, color: owner ? [20, 22, 28] : MUTED});
+    pg.text(L, 40, 8.5, 'Gerado pelo BarnaBank em ' + fmtFull(todayISO()) + ' · código ' + receiptCode(d) + '. Valores conforme os pagamentos registrados.', {color: MUTED});
+    return pg.build();
+  }
+  function receiptFileName(d){ return 'recibo-' + normTxt(firstName(d.name)).replace(/[^a-z0-9]+/g, '-') + '-' + (d.payments && d.payments.length ? d.payments.slice().sort(function(a, b){ return a.date < b.date ? 1 : -1; })[0].date : todayISO()) + '.pdf'; }
+  function shareReceipt(d){
+    var bin = receiptPdf(d), bytes = new Uint8Array(bin.length);
+    for(var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i) & 255;
+    var name = receiptFileName(d), blob = new Blob([bytes], {type: 'application/pdf'});
+    var file = null;
+    try{ file = new File([blob], name, {type: 'application/pdf'}); }catch(e){}
+    if(file && navigator.canShare && navigator.canShare({files: [file]})){
+      navigator.share({files: [file], title: 'Recibo de quitação', text: 'Recibo de quitação · ' + d.name}).catch(function(){});
+      return;
+    }
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    showToast('Recibo baixado: ' + name, 'receipt');
+  }
+  // quando alguém termina de pagar, oferece o recibo
+  var paidSeen = null;
+  function checkNewlyPaid(){
+    var now = {};
+    state.debts.forEach(function(d){ if(d.kind === 'receivable' && isPaid(d) && (d.payments || []).length) now[d.id] = true; });
+    if(paidSeen){
+      Object.keys(now).forEach(function(id){
+        if(paidSeen[id]) return;
+        var d = state.debts.find(function(x){ return x.id === id; });
+        if(d) showAction(firstName(d.name) + ' quitou! 🎉', 'Recibo', function(){ shareReceipt(d); }, 'receipt');
+      });
+    }
+    paidSeen = now;
+  }
+  function showAction(label, btn, fn, icon){
+    var entry = {uid: 'u' + (++undoSeq), label: label, undo: fn, btn: btn, icon: icon};
+    undoQueue.push(entry);
+    if(undoQueue.length > 3){ var ev = undoQueue.shift(); clearTimeout(ev.timer); }
+    entry.timer = setTimeout(function(){ undoQueue = undoQueue.filter(function(e){ return e.uid !== entry.uid; }); renderUndoStack(); }, 12000);
+    renderUndoStack();
+  }
+  checkNewlyPaid();
+
   // ---------- modo motor: a nuvem (bot) roda estas mesmas regras, sem tela ----------
   if(window.__BB_HEADLESS){
     window.__barnaEngine = {
@@ -6924,13 +7260,22 @@
         rebuildMoneyFormatter();
       },
       applyOps: function(ops){
+        var before = {};
+        state.debts.forEach(function(d){ if(isPaid(d)) before[d.id] = true; });
         var res = applyCloudOps(ops);
+        res.quitou = state.debts.filter(function(d){ return d.kind === 'receivable' && isPaid(d) && !before[d.id] && (d.payments || []).length; })
+          .map(function(d){ return {debtId: d.id, name: d.name, key: nameKey(d.name), total: round2(paidAmount(d))}; });
         // a foto fica na nuvem até o app baixar; o pagamento já sai marcado
         res.forEach(function(x){ if(x.ok && x.photo){ x.photo.receiptId = 'rc-tg-' + x.id; x.photo = true; } });
         return res;
       },
       undo: function(list){ return applyCloudUndo(list); },
       runRecurring: runRecurring,
+      receipt: function(debtId){
+        var d = state.debts.find(function(x){ return x.id === debtId; });
+        if(!d || !isPaid(d)) return null;
+        return {name: d.name, key: nameKey(d.name), file: receiptFileName(d), pdf: receiptPdf(d), total: round2(paidAmount(d))};
+      },
       snapshot: cloudSnapshot,
       summary: cloudSummary,
       shares: shareViews

@@ -180,7 +180,7 @@ async function api(req, env, ctx, url) {
   if (req.method === 'GET') {
     const [snapshot, inbox, meta, undo, claimIds, shareIdx, friends] = await Promise.all([getJSON(env, 'snapshot', null), getJSON(env, 'inbox', []), getJSON(env, 'meta', {}), getJSON(env, 'undo', []), getJSON(env, 'claims', []), getJSON(env, 'shareIndex', []), getJSON(env, 'friends', {})]);
     const claims = [];
-    for (const id of claimIds.slice(-60)) { const c = await getJSON(env, 'claim:' + id, null); if (c && c.status === 'pending') claims.push({id: c.id, at: c.at, amount: c.amount, note: c.note, label: c.label, hasPhoto: c.hasPhoto, token: c.token}); }
+    for (const id of claimIds.slice(-60)) { const c = await getJSON(env, 'claim:' + id, null); if (c && c.status === 'pending') claims.push({id: c.id, kind: c.kind || 'pago', at: c.at, amount: c.amount, note: c.note, label: c.label, hasPhoto: c.hasPhoto, token: c.token, newDate: c.newDate || '', due: c.due || ''}); }
     const views = {};
     for (const t of shareIdx) { const vw = await getJSON(env, 'views:' + t, null); if (vw) views[t] = {count: vw.count, first: vw.first, last: vw.last}; }
     const fr = {};
@@ -352,7 +352,8 @@ const HELP =
   '• <code>paguei 40 pro Carlos</code>\n' +
   '• <code>gastei 35 mercado</code>  (ou <code>gastei 35 mercado no nubank</code>)\n' +
   '• <code>ganhei 150 freela</code>\n' +
-  '• 📎 foto do PIX com a legenda <code>recebi 50 do Vini</code> (vai como comprovante)\n\n' +
+  '• 📎 foto do PIX com a legenda <code>recebi 50 do Vini</code> (vai como comprovante)\n' +
+  '• 🧾 foto do cupom fiscal, ou o link do QR Code da nota (vira gasto com loja, valor e data)\n\n' +
   'Entra no BarnaBank na hora (o app pega quando abrir).\n\n' +
   '/cobrar Fulano: mensagem de cobrança pronta para encaminhar\n' +
   '🎙️ Pode mandar <b>áudio</b> também.\n' +
@@ -374,6 +375,12 @@ async function telegram(req, env, url) {
 
 async function onUpdate(env, up) {
   if (!up) return;
+  if (up.update_id != null) {
+    const seen = await getJSON(env, 'seenUpd', []);
+    if (seen.includes(up.update_id)) return;
+    seen.push(up.update_id);
+    await putJSON(env, 'seenUpd', seen.slice(-60));
+  }
   if (up.callback_query) { await onCallback(env, up.callback_query); return; }
   const msg = up.message;
   if (!msg || !msg.chat) return;
@@ -416,7 +423,12 @@ async function onCallback(env, cq) {
   const cd = /^claim:(ok|no):(.+)$/.exec(cq.data || '');
   if (cd) {
     const r = await claimDecide(env, cd[2], cd[1] === 'ok');
-    return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: r.already ? 'Já estava resolvido' : cd[1] === 'ok' ? 'Confirmado' : 'Marcado como não recebido'});
+    return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: r.already ? 'Já estava resolvido' : cd[1] === 'ok' ? 'Feito' : 'Recusado'});
+  }
+  const rc = /^rcpt:(.+)$/.exec(cq.data || '');
+  if (rc) {
+    const r = await receiptToFriend(env, rc[1]);
+    return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: r.ok ? 'Recibo enviado pra ' + r.name : r.error, show_alert: !r.ok});
   }
   const rm = /^remind:(.+)$/.exec(cq.data || '');
   if (rm) {
@@ -457,9 +469,21 @@ async function onCallback(env, cq) {
 }
 
 async function handleText(env, chat, text, photo) {
-  if (photo && !text) return say(env, chat, '📎 Manda a foto com uma <b>legenda</b> dizendo o que é, tipo:\n<code>recebi 50 do Vini</code>\n\nA foto vai junto como comprovante do pagamento.');
-  const cmd = (/^\/(\w+)/.exec(text) || [])[1];
   const summary = await getJSON(env, 'summary', null);
+  const askCaption = () => say(env, chat, '📎 Manda a foto com uma <b>legenda</b> dizendo o que é, tipo:\n<code>recebi 50 do Vini</code>\n\nA foto vai junto como comprovante do pagamento.\n\n🧾 Foto de <b>cupom fiscal</b> eu leio sozinho' + (env.AI ? '' : ' (precisa do Workers AI ligado)') + '.');
+  if (photo && (!text || !parseMessage(text, summary))) {
+    if (!env.AI) return askCaption();
+    const got = await readReceiptPhoto(env, photo);
+    if (got.kind !== 'cupom') return got.error ? say(env, chat, got.error) : askCaption();
+    return launchPurchase(env, chat, {amount: got.total, store: got.store, date: got.date, wallet: walletHint(text, summary)}, '🤖 <i>Lido da foto: confira o valor.</i>');
+  }
+  const nfce = nfceUrl(text);
+  if (nfce) {
+    const got = await readNfce(nfce);
+    if (!got.total) return say(env, chat, '🧾 Não consegui abrir essa nota no site da Sefaz agora.' + (got.store ? ' (' + esc(got.store) + ')' : '') + '\nManda escrito, tipo: <code>gastei 87,50 mercado</code>');
+    return launchPurchase(env, chat, {amount: got.total, store: got.store, date: got.date, items: got.items, wallet: walletHint(text.replace(nfce, ''), summary)}, '');
+  }
+  const cmd = (/^\/(\w+)/.exec(text) || [])[1];
   if (cmd === 'start' || cmd === 'ajuda' || cmd === 'help') return say(env, chat, HELP);
   if (cmd === 'resumo') return say(env, chat, await resumoText(env, summary));
   if (cmd === 'atrasados') return say(env, chat, atrasadosText(summary));
@@ -505,8 +529,9 @@ async function handleText(env, chat, text, photo) {
   const sent = await say(env, chat, '✅ ' + describe(op) + photoNote, {
     reply_markup: {inline_keyboard: [[{text: 'Desfazer', callback_data: 'undo:' + op.id}]]}
   });
-  const res = await cloudApply(env, e => e.applyOps([op]));
+  const res = await cloudApply(env, e => withReceipts(e, e.applyOps([op])));
   const r = res && res[0];
+  if (res) await sendReceipts(env, res);
   if (r && !r.ok && sent && sent.ok) {
     // o app também não conseguiria: avisa já, em vez de esperar o app abrir
     await tg(env, 'editMessageText', {chat_id: chat, message_id: sent.result.message_id, parse_mode: 'HTML',
@@ -754,6 +779,167 @@ async function cobrar(env, chat, summary, who, fromButton) {
   return tg(env, 'sendMessage', {chat_id: chat, text: c.text, disable_web_page_preview: true, reply_markup: {inline_keyboard: buttons}});
 }
 
+// ---------------------------------------------------------------- recibos de quitação (PDF feito pelo motor)
+function withReceipts(e, res) {
+  if (res && res.quitou && res.quitou.length) res.receipts = res.quitou.map(q => { const r = e.receipt(q.debtId); return r ? {...r, debtId: q.debtId} : null; }).filter(Boolean);
+  return res;
+}
+async function sendDoc(env, chat, rc, caption, markup) {
+  const bytes = new Uint8Array(rc.pdf.length);
+  for (let i = 0; i < rc.pdf.length; i++) bytes[i] = rc.pdf.charCodeAt(i) & 255;
+  const fd = new FormData();
+  fd.append('chat_id', chat); fd.append('caption', caption); fd.append('parse_mode', 'HTML');
+  if (markup) fd.append('reply_markup', JSON.stringify(markup));
+  fd.append('document', new Blob([bytes], {type: 'application/pdf'}), rc.file);
+  try { return await (await fetch('https://api.telegram.org/bot' + TOKEN(env) + '/sendDocument', {method: 'POST', body: fd})).json(); } catch (e) { return {ok: false, description: String(e && e.message || e)}; }
+}
+async function sendReceipts(env, res) {
+  const owner = await env.BB.get('owner');
+  if (!owner || !res || !res.receipts) return;
+  for (const rc of res.receipts) {
+    const fr = await friendFor(env, rc.key);
+    const first = firstOf(rc.name);
+    await sendDoc(env, owner, rc, '🎉 <b>' + esc(rc.name) + '</b> quitou! ' + brl(rc.total) + ' recebidos no total.\nO recibo de quitação está aqui, pronto pra encaminhar.',
+      fr ? {inline_keyboard: [[{text: '📨 Mandar o recibo pro ' + first + ' no Telegram', callback_data: ('rcpt:' + rc.debtId).slice(0, 64)}]]} : null);
+  }
+}
+async function receiptToFriend(env, debtId) {
+  const rc = await engineRun(env, e => e.receipt(debtId));
+  if (!rc) return {ok: false, error: 'Essa dívida não está quitada.'};
+  const fr = await friendFor(env, rc.key);
+  if (!fr) return {ok: false, error: firstOf(rc.name) + ' não está nos lembretes do Telegram.'};
+  const s = await getJSON(env, 'summary', null);
+  const who = s && s.owner ? firstOf(s.owner) : 'quem te emprestou';
+  const r = await sendDoc(env, fr.chat, rc, '🧾 Oi, ' + esc(firstOf(rc.name)) + '! Aqui está o recibo de quitação de ' + esc(who) + ': ' + brl(rc.total) + ', tudo pago. Valeu! 🙌');
+  return r.ok ? {ok: true, name: firstOf(rc.name)} : {ok: false, error: 'O Telegram não entregou (' + (r.description || 'erro') + ').'};
+}
+// roda o motor sem gravar nada (só para consultar)
+async function engineRun(env, fn) {
+  try {
+    const str = await env.BB.get('snapshot');
+    if (!str) return null;
+    const origin = await env.BB.get('origin');
+    if (!ENGINE) ENGINE = getEngine();
+    ENGINE.load(JSON.parse(str), {url: origin || ''});
+    return fn(ENGINE);
+  } catch (e) {
+    await putJSON(env, 'lastError', {at: new Date().toISOString(), error: 'motor: ' + String(e && (e.stack || e.message) || e).slice(0, 600)});
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------- notas fiscais: foto do cupom (IA) e link da NFC-e
+const titleCase = s => String(s || '').toLowerCase().replace(/(^|[\s/(-])([a-zà-ú])/g, (m, a, b) => a + b.toUpperCase()).replace(/\b(Ltda|Me|Epp|S\/?a|Eireli)\b\.?/gi, x => x.toUpperCase()).trim();
+function walletHint(text, summary) {
+  const t = norm(String(text || '').replace(/^(no|na|pelo|pela|via)\s+/i, ''));
+  if (!t) return '';
+  const hit = (summary && summary.wallets || []).find(w => norm(w.name) === t || t.includes(norm(w.name)));
+  return hit ? hit.name : '';
+}
+function parseBRL(v) {
+  if (typeof v === 'number') return Math.round(v * 100) / 100;
+  let s = String(v || '').replace(/[^\d.,]/g, '');
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : Math.round(n * 100) / 100;
+}
+// data da nota: aceita até 60 dias para trás; senão usa hoje
+function sanePurchaseDate(d) {
+  const today = todayBR();
+  return /^\d{4}-\d{2}-\d{2}$/.test(d || '') && d <= today && d >= addDays(today, -60) ? d : today;
+}
+async function launchPurchase(env, chat, p, footer) {
+  if (!(p.amount > 0 && p.amount < 100000)) return say(env, chat, '🧾 Não consegui achar o valor total. Manda escrito, tipo: <code>gastei 87,50 mercado</code>');
+  const store = titleCase(p.store || '').slice(0, 60);
+  const op = {type: 'tx', kind: 'gasto', amount: p.amount, store, note: store ? store + ' (nota fiscal)' : 'nota fiscal', wallet: p.wallet || '',
+    id: 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), at: new Date().toISOString(), date: sanePurchaseDate(p.date)};
+  op.text = ('nota: ' + (store || 'compra') + ' ' + brl(p.amount)).slice(0, 200);
+  const inbox = await getJSON(env, 'inbox', []);
+  inbox.push(op);
+  await putJSON(env, 'inbox', inbox.slice(-200));
+  const res = await cloudApply(env, e => e.applyOps([op]));
+  const r = res && res[0];
+  const cat = r && r.ok && r.category ? r.category : '';
+  return say(env, chat, '🧾 ' + (store ? '<b>' + esc(store) + '</b> · ' : '') + fmtDate(op.date) + (p.items ? ' · ' + p.items + (p.items === 1 ? ' item' : ' itens') : '') +
+    '\n✅ Gasto de <b>' + brl(p.amount) + '</b>' + (cat ? ' · ' + esc(cat) : '') + (op.wallet ? ' (' + esc(op.wallet) + ')' : '') + (footer ? '\n' + footer : ''), {
+    reply_markup: {inline_keyboard: [[{text: 'Desfazer', callback_data: 'undo:' + op.id}]]}
+  });
+}
+const VISION = '@cf/meta/llama-3.2-11b-vision-instruct';
+async function readReceiptPhoto(env, ph) {
+  try {
+    if (ph.file_size && ph.file_size > 8 * 1024 * 1024) return {kind: 'outro'};
+    const f = await tg(env, 'getFile', {file_id: ph.file_id});
+    if (!f.ok || !f.result || !f.result.file_path) return {kind: 'outro', error: 'Não consegui baixar a foto.'};
+    const r = await fetch('https://api.telegram.org/file/bot' + TOKEN(env) + '/' + f.result.file_path);
+    const buf = new Uint8Array(await r.arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+    const image = 'data:image/jpeg;base64,' + btoa(bin);
+    const messages = [
+      {role: 'system', content: 'Você lê fotos de comprovantes brasileiros e responde só com JSON, sem texto em volta.'},
+      {role: 'user', content: 'Se a foto for um cupom fiscal, nota fiscal (NFC-e) ou recibo de compra, responda {"tipo":"cupom","loja":"nome da loja","total":"valor final pago, ex 87,50","data":"DD/MM/AAAA"}. ' +
+        'O total é o VALOR A PAGAR / TOTAL final, não um item. Se for comprovante de PIX ou transferência, responda {"tipo":"pix"}. Se for outra coisa, responda {"tipo":"outro"}.'}
+    ];
+    let out;
+    try { out = await env.AI.run(VISION, {messages, image, max_tokens: 160, temperature: 0}); }
+    catch (e) {
+      // o modelo de visão da Meta pede um "aceite" de licença uma vez só
+      if (!/agree|licen/i.test(String(e && e.message || e))) throw e;
+      await env.AI.run(VISION, {prompt: 'agree'}).catch(() => {});
+      out = await env.AI.run(VISION, {messages, image, max_tokens: 160, temperature: 0});
+    }
+    const txt = String(out && (out.response || out.result || out.description) || '');
+    const m = /\{[\s\S]*\}/.exec(txt);
+    if (!m) return {kind: 'outro'};
+    const j = JSON.parse(m[0].replace(/,\s*}/g, '}'));
+    if (j.tipo !== 'cupom') return {kind: j.tipo === 'pix' ? 'pix' : 'outro'};
+    const d = /(\d{2})\/(\d{2})\/(\d{2,4})/.exec(String(j.data || ''));
+    const date = d ? (d[3].length === 2 ? '20' + d[3] : d[3]) + '-' + d[2] + '-' + d[1] : '';
+    return {kind: 'cupom', store: String(j.loja || '').slice(0, 80), total: parseBRL(j.total), date};
+  } catch (e) {
+    await putJSON(env, 'lastError', {at: new Date().toISOString(), error: 'cupom: ' + String(e && e.message || e).slice(0, 300)});
+    return {kind: 'outro', error: '🧾 Não consegui ler a foto agora. Manda escrito, tipo: <code>gastei 87,50 mercado</code>' + (/(\b|_)AI\b|binding|not found|model/i.test(String(e && e.message || e)) ? '\n(Confira se o Workers AI está ligado: veja o README do bot.)' : '')};
+  }
+}
+// link do QR Code da NFC-e (aponte a câmera do celular pro QR e compartilhe o link com o bot)
+function nfceUrl(text) {
+  const m = /https?:\/\/[^\s<>"]+/i.exec(String(text || ''));
+  if (!m) return null;
+  try {
+    const u = new URL(m[0]);
+    if (!/\.gov\.br$/i.test(u.hostname) || !/(nfce|sefaz|fazenda|sef\.|\.set\.)/i.test(u.hostname + u.pathname)) return null;
+    if (!u.searchParams.get('p') && !u.searchParams.get('chNFe')) return null;
+    return m[0];
+  } catch (e) { return null; }
+}
+async function readNfce(link) {
+  const u = new URL(link);
+  const p = (u.searchParams.get('p') || '').split('|');
+  const chave = (p[0] || u.searchParams.get('chNFe') || '').replace(/\D/g, '');
+  const out = {store: '', total: 0, date: '', items: 0};
+  // contingência (offline): o valor e o dia vêm no próprio QR
+  if (p.length >= 8 && /^\d+(\.\d{1,2})?$/.test(p[4] || '')) {
+    out.total = parseBRL(Number(p[4]));
+    if (chave.length === 44 && /^\d{2}$/.test(p[3] || '')) out.date = '20' + chave.slice(2, 4) + '-' + chave.slice(4, 6) + '-' + p[3];
+  }
+  if (!out.total && u.searchParams.get('vNF')) out.total = parseBRL(Number(u.searchParams.get('vNF')));
+  try {
+    const r = await fetch(link, {headers: {'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Mobile Safari/537.36', 'Accept': 'text/html'}, redirect: 'follow'});
+    if (r.ok) {
+      const html = (await r.text()).slice(0, 600000);
+      const st = /class="txtTopo"[^>]*>\s*([^<]+?)\s*</i.exec(html) || /Raz[ãa]o Social:?\s*<\/?[^>]*>\s*([^<]+?)\s*</i.exec(html);
+      if (st) out.store = st[1].replace(/&amp;/g, '&').trim();
+      const tt = /Valor a pagar R\$:?\s*<\/label>\s*<span[^>]*>\s*([\d.]+,\d{2})/i.exec(html) || /class="[^"]*totalNumb[^"]*txtMax[^"]*"[^>]*>\s*([\d.]+,\d{2})/i.exec(html) || /Valor total R\$:?\s*<\/label>\s*<span[^>]*>\s*([\d.]+,\d{2})/i.exec(html);
+      if (tt) out.total = parseBRL(tt[1]);
+      const dt = /Emiss[ãa]o:\s*<\/strong>\s*(\d{2})\/(\d{2})\/(\d{4})/i.exec(html);
+      if (dt) out.date = dt[3] + '-' + dt[2] + '-' + dt[1];
+      out.items = (html.match(/class="txtTit"/g) || []).length;
+    }
+  } catch (e) { /* site da Sefaz fora do ar: fica com o que veio no QR */ }
+  return out;
+}
+
 // ---------------------------------------------------------------- lembretes para quem te deve
 // O app cria um convite por pessoa (snapshot.invites[chave] = {code, on}). A pessoa abre
 // t.me/<seu bot>?start=<code>, aperta Começar e passa a receber os lembretes. friends[chave] = {chat, code, at, name}
@@ -896,6 +1082,7 @@ async function shareRoute(req, url, env, ctx) {
     return json({code, svg: qrSvg(code)});
   }
   if (parts[2] === 'pago' && req.method === 'POST') return claimCreate(req, env, token, v);
+  if (parts[2] === 'prazo' && req.method === 'POST') return prazoCreate(req, env, token, v);
   if (parts.length > 2) return json({error: 'not found'}, 404);
   if (!v) return page('Link desativado', '<div class="card center"><h1>Link desativado</h1><p class="muted">Este link de cobrança não existe mais. Peça um novo para quem te mandou.</p></div>', '', 404);
   if (!BOT_UA.test(req.headers.get('User-Agent') || '') && ctx && ctx.waitUntil) ctx.waitUntil(trackView(env, token, v).catch(() => {}));
@@ -926,6 +1113,7 @@ function pixBlock(token, v, amount, owner) {
     '<p class="muted small center-t">No app do banco: PIX → <b>Copia e cola</b> (ou leia o QR). Vai pra ' + owner + ', chave ' + esc(v.pix) + '.</p></div>';
 }
 function paidBlock(v, claims) {
+  claims = claims.filter(c => c.kind !== 'prazo');
   const list = claims.map(c => '<div class="row slim"><span class="cl ' + c.status + '">' + (c.status === 'ok' ? '✓' : c.status === 'no' ? '✕' : '⏳') + '</span><div class="grow"><b>' + brl(c.amount) + (c.whoName && v.type === 'group' ? ' · ' + esc(c.whoName) : '') + '</b><span class="muted">informado em ' + fmtFull(c.at.slice(0, 10)) +
     (c.status === 'ok' ? ' · confirmado' : c.status === 'no' ? ' · não encontrado, fale com quem te mandou' : ' · aguardando confirmação') + '</span></div></div>').join('');
   return '<div class="card"><h2>Já pagou?</h2><p class="muted small">Avise aqui e mande o comprovante. O pagamento entra quando for confirmado.</p>' +
@@ -944,7 +1132,7 @@ async function sharePage(env, token, v) {
   const upd = '<p class="foot">Atualizado em ' + fmtFull((v.updatedAt || '').slice(0, 10)) + ' · BarnaBank</p>';
   const open = v.type === 'group' ? v.remaining > 0 : v.remaining > 0;
   const suggest = v.type === 'group' ? ((v.members.find(m => m.remaining > 0) || {}).remaining || 0) : (v.suggest || v.remaining || 0);
-  const pay = open ? pixBlock(token, v, suggest, owner) + paidBlock(v, claims) : (claims.length ? paidBlock(v, claims) : '');
+  const pay = open ? pixBlock(token, v, suggest, owner) + paidBlock(v, claims) + prazoBlock(v, claims) : (claims.some(c => c.kind !== 'prazo') ? paidBlock(v, claims) : '');
   const script = '<script>var TK=' + JSON.stringify(token) + ';' + PAGE_JS + '</script>';
   if (v.type === 'group') {
     const pct = v.owed > 0 ? Math.min(100, Math.round(v.paid / v.owed * 100)) : 0;
@@ -993,6 +1181,8 @@ var pwho=document.getElementById("pwho"),pamt=document.getElementById("pamt");
 function syncP(){if(pwho&&pamt)pamt.value=pwho.options[pwho.selectedIndex].getAttribute("data-amt").replace(".",",")}
 if(pwho){pwho.addEventListener("change",syncP);syncP()}else if(pamt&&amt){pamt.value=amt.value}
 function shrink(f){return new Promise(function(res){if(!f)return res("");var u=URL.createObjectURL(f),i=new Image();i.onload=function(){var k=Math.min(1,1400/Math.max(i.naturalWidth,i.naturalHeight)),c=document.createElement("canvas");c.width=Math.round(i.naturalWidth*k);c.height=Math.round(i.naturalHeight*k);var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL("image/jpeg",0.72))};i.onerror=function(){res("")};i.src=u})}
+function sendPrazo(e){e.preventDefault();var b=document.getElementById("zsend"),m=document.getElementById("zmsg"),d=document.getElementById("zdate").value,zw=document.getElementById("zwho");if(!d){m.textContent="Escolha a data.";return false}b.disabled=true;b.textContent="Enviando…";
+fetch("/s/"+TK+"/prazo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({date:d,note:document.getElementById("znote").value,who:zw?+zw.value:null})}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})}).then(function(x){if(x.ok){document.getElementById("przForm").innerHTML='<p class="okmsg">✓ Pedido enviado! A resposta aparece aqui.</p>';setTimeout(function(){location.reload()},2500)}else{m.textContent=x.j.error||"Não deu certo, tente de novo.";b.disabled=false;b.textContent="Enviar pedido"}}).catch(function(){m.textContent="Sem conexão, tente de novo.";b.disabled=false;b.textContent="Enviar pedido"});return false}
 function sendPaid(e){e.preventDefault();var b=document.getElementById("psend"),m=document.getElementById("pmsg"),v=num(pamt.value);if(!(v>0)){m.textContent="Informe o valor.";return false}b.disabled=true;b.textContent="Enviando…";
 shrink(document.getElementById("pfile").files[0]).then(function(photo){return fetch("/s/"+TK+"/pago",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount:v,note:document.getElementById("pnote").value,who:pwho?+pwho.value:null,photo:photo})})}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})}).then(function(x){if(x.ok){document.getElementById("paidForm").innerHTML='<p class="okmsg">✓ Enviado! Assim que for confirmado, aparece aqui.</p>';setTimeout(function(){location.reload()},2500)}else{m.textContent=x.j.error||"Não deu certo, tente de novo.";b.disabled=false;b.textContent="Enviar"}}).catch(function(){m.textContent="Sem conexão, tente de novo.";b.disabled=false;b.textContent="Enviar"});return false}
 `;
@@ -1007,6 +1197,55 @@ async function claimsFor(env, token) {
     if (out.length >= 6) break;
   }
   return out;
+}
+async function prazoCreate(req, env, token, v) {
+  if (!v) return json({error: 'Link desativado.'}, 404);
+  const rate = await getJSON(env, 'crate:' + token, {n: 0, t: 0});
+  if (Date.now() - rate.t > 3600000) { rate.n = 0; rate.t = Date.now(); }
+  if (rate.n >= 5) return json({error: 'Muitos envios seguidos. Tente de novo em uma hora.'}, 429);
+  const body = await req.json().catch(() => null);
+  if (!body) return json({error: 'Envio inválido.'}, 400);
+  const today = todayBR(), newDate = String(body.date || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate) || newDate <= today || newDate > addDays(today, 120)) return json({error: 'Escolha uma data entre amanhã e daqui a 4 meses.'}, 400);
+  let who = null, whoName = '', amount = 0, due = '';
+  if (v.type === 'group') {
+    who = +body.who;
+    if (!(who >= 0 && who < v.members.length)) return json({error: 'Escolha quem vai pagar.'}, 400);
+    whoName = v.members[who].name; amount = v.members[who].remaining; due = v.dueDate || '';
+  } else { amount = v.suggest || v.remaining || 0; due = v.nextDue || ''; }
+  const claims = await claimsFor(env, token);
+  if (claims.some(c => c.kind === 'prazo' && c.status === 'pending' && (v.type !== 'group' || c.who === who))) return json({error: 'Já tem um pedido de prazo esperando resposta.'}, 409);
+  rate.n++; await putJSON(env, 'crate:' + token, rate);
+  const id = 'cl' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const claim = {id, kind: 'prazo', token, at: new Date().toISOString(), newDate, amount, due, note: String(body.note || '').slice(0, 140), who, whoName, status: 'pending', hasPhoto: false,
+    label: v.type === 'group' ? whoName + ' · ' + v.title : v.name, linkName: v.type === 'group' ? v.title : v.name};
+  const ids = await getJSON(env, 'claims', []);
+  ids.push(id);
+  await putJSON(env, 'claims', ids.slice(-200));
+  const owner = await env.BB.get('owner');
+  if (owner) {
+    const text = '🗓️ <b>' + esc(claim.label) + '</b> pediu mais prazo\nPagar <b>' + brl(amount) + '</b>' + (due ? ' (' + (due < today ? 'venceu' : 'vence') + ' ' + fmtDate(due) + ')' : '') + ' até <b>' + fmtDate(newDate) + '</b>' +
+      (claim.note ? '\n“' + esc(claim.note) + '”' : '') + '\n\nAceita?';
+    const r = await say(env, owner, text, {reply_markup: {inline_keyboard: [[{text: '✅ Aceitar', callback_data: 'claim:ok:' + id}, {text: '❌ Recusar', callback_data: 'claim:no:' + id}]]}});
+    if (r && r.ok && r.result) claim.tg = {chat: owner, msg: r.result.message_id, photo: false};
+  }
+  await putJSON(env, 'claim:' + id, claim);
+  return json({ok: true});
+}
+function prazoBlock(v, claims) {
+  const today = todayBR();
+  const mine = claims.filter(c => c.kind === 'prazo');
+  const list = mine.map(c => '<div class="row slim"><span class="cl ' + c.status + '">' + (c.status === 'ok' ? '✓' : c.status === 'no' ? '✕' : '⏳') + '</span><div class="grow"><b>Até ' + fmtFull(c.newDate) + (c.whoName && v.type === 'group' ? ' · ' + esc(c.whoName) : '') + '</b><span class="muted">pedido em ' + fmtFull(c.at.slice(0, 10)) +
+    (c.status === 'ok' ? ' · aceito, a nova data já vale' : c.status === 'no' ? ' · não aceito, fale com quem te mandou' : ' · aguardando resposta') + '</span></div></div>').join('');
+  const pendingAll = v.type !== 'group' && mine.some(c => c.status === 'pending');
+  return '<div class="card"><h2>Precisa de mais prazo?</h2><p class="muted small">Proponha uma nova data. A pessoa recebe o pedido e a resposta aparece aqui.</p>' +
+    (list ? '<div class="claims">' + list + '</div>' : '') +
+    (pendingAll ? '' : '<button class="wide ghost" id="przOpen" onclick="document.getElementById(\'przForm\').hidden=false;this.hidden=true">Pedir mais prazo</button>' +
+    '<form id="przForm" hidden onsubmit="return sendPrazo(event)">' +
+    (v.type === 'group' ? '<label class="lbl" for="zwho">Quem</label><select id="zwho">' + v.members.map((m, i) => m.remaining > 0 ? '<option value="' + i + '">' + esc(m.name) + '</option>' : '').join('') + '</select>' : '') +
+    '<label class="lbl" for="zdate">Consigo pagar até</label><input id="zdate" type="date" min="' + addDays(today, 1) + '" max="' + addDays(today, 120) + '" required>' +
+    '<label class="lbl" for="znote">Mensagem (opcional)</label><input id="znote" maxlength="140" placeholder="Ex: recebo meu salário dia 15">' +
+    '<button class="wide" id="zsend" type="submit">Enviar pedido</button><p class="muted small" id="zmsg"></p></form>') + '</div>';
 }
 async function claimCreate(req, env, token, v) {
   if (!v) return json({error: 'Link desativado.'}, 404);
@@ -1060,7 +1299,10 @@ async function claimDecide(env, id, ok) {
   c.decidedAt = new Date().toISOString();
   if (ok) {
     const ref = (v && v._ref) || {};
-    const op = {type: 'pay', kind: 'receivable', amount: c.amount, date: todayBR(), at: c.decidedAt, text: 'pagamento informado pelo link (' + c.label + ')',
+    const op = c.kind === 'prazo'
+      ? {type: 'resched', newDate: c.newDate, date: todayBR(), at: c.decidedAt, text: 'prazo pedido pelo link (' + c.label + ') até ' + fmtDate(c.newDate),
+        id: 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), viaLink: true}
+      : {type: 'pay', kind: 'receivable', amount: c.amount, date: todayBR(), at: c.decidedAt, text: 'pagamento informado pelo link (' + c.label + ')',
       id: 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), viaLink: true};
     if (ref.type === 'group' && ref.members && ref.members[c.who]) { op.debtId = ref.members[c.who].debtId; op.name = ref.members[c.who].name; }
     else if (ref.debtId) { op.debtId = ref.debtId; op.name = ref.name; }
@@ -1075,12 +1317,17 @@ async function claimDecide(env, id, ok) {
     c.opId = op.id;
   }
   await putJSON(env, 'claim:' + id, c);
-  let applied = null;
-  if (ok) { const res = await cloudApply(env, e => e.applyOps([op])); applied = res && res[0]; }
-  if (c.tg) {
+  let applied = null, res = null;
+  if (ok) { res = await cloudApply(env, e => withReceipts(e, e.applyOps([op]))); applied = res && res[0]; }
+  if (c.tg && c.kind === 'prazo') {
+    const note = ok ? '✅ <b>Prazo aceito</b>: ' + esc(c.label) + ' paga até ' + fmtDate(c.newDate) + '.' + (applied && applied.ok ? ' Já está no app (e nos lembretes).' : ' Entra no app na próxima vez que você abrir.')
+      : '❌ Pedido de prazo recusado (' + esc(c.label) + ', até ' + fmtDate(c.newDate) + '). A pessoa vê isso no link.';
+    await tg(env, 'editMessageText', {chat_id: c.tg.chat, message_id: c.tg.msg, parse_mode: 'HTML', text: note});
+  } else if (c.tg) {
     const note = ok ? '✅ <b>Confirmado</b>: ' + esc(c.label) + ' pagou ' + brl(c.amount) + '.' + (applied && applied.ok ? ' Já está no app.' : ' Entra no app na próxima vez que você abrir.') : '❌ Marcado como não recebido (' + esc(c.label) + ', ' + brl(c.amount) + '). A pessoa vê isso no link.';
     await tg(env, c.tg.photo ? 'editMessageCaption' : 'editMessageText', {chat_id: c.tg.chat, message_id: c.tg.msg, parse_mode: 'HTML', ...(c.tg.photo ? {caption: note} : {text: note})});
   }
+  if (res) await sendReceipts(env, res);
   return {ok: true, status: c.status};
 }
 function initials(n) { const p = String(n || '?').replace(/\./g, '').trim().split(/\s+/); return ((p[0] || '?')[0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase(); }
