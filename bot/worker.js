@@ -1,4 +1,5 @@
 import {pixCode, qrSvg} from './pix.mjs';
+import {getEngine} from './engine.js';
 // BarnaBank: bot do Telegram + nuvem para sincronizar o app.
 // Roda como Cloudflare Worker. Precisa de:
 //   KV "BB" (os dados), segredos TELEGRAM_TOKEN e SYNC_KEY.
@@ -7,7 +8,12 @@ import {pixCode, qrSvg} from './pix.mjs';
 //   GET  /setup?key=...    registra o webhook e os comandos do bot
 //   GET  /api/state        o app busca os dados e as mensagens pendentes (Authorization: Bearer SYNC_KEY)
 //   PUT  /api/state        o app envia os dados atualizados e confirma as mensagens aplicadas
-//   (cron diário)          manda os vencimentos do dia no Telegram
+//   GET  /api/backups[/d]  backups diários (últimos 30 dias)
+//   (cron diário)          contas recorrentes, backup, lembretes (seus e de quem te deve)
+//
+// O "motor" (engine.js, gerado do app.js por build-engine.mjs) roda aqui as mesmas regras do app:
+// o que chega pelo bot já entra nos dados da nuvem na hora. As mensagens ficam na fila até um app
+// confirmar, e o app ignora as que já aplicou (tgLog): se o motor falhar, o app aplica quando abrir.
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -25,6 +31,7 @@ export default {
       if (url.pathname === '/api/state') return await api(req, env, ctx, url);
       if (url.pathname.startsWith('/api/photo/')) return await apiPhoto(req, url, env);
       if (url.pathname.startsWith('/api/claim/')) return await apiClaim(req, url, env);
+      if (url.pathname === '/api/backups' || url.pathname.startsWith('/api/backups/')) return await apiBackups(req, url, env);
       if (url.pathname === '/setup') return await setup(req, url, env);
       if (url.pathname === '/status') return await status(req, url, env);
       if (url.pathname.startsWith('/tg/')) return await telegram(req, env, url);
@@ -36,11 +43,18 @@ export default {
     }
   },
   async scheduled(event, env, ctx) {
-    ctx.waitUntil((async () => {
+    const step = async (name, fn) => { try { await fn(); } catch (e) { await putJSON(env, 'lastError', {at: new Date().toISOString(), error: name + ': ' + String(e && (e.stack || e.message) || e).slice(0, 500)}); } };
+    const job = (async () => {
       const origin = await env.BB.get('origin');
-      if (origin) await ensureWebhook(env, origin, true);
-      await dailyReminder(env);
-    })());
+      if (origin) await step('webhook', () => ensureWebhook(env, origin, true));
+      await step('backup', () => backupDaily(env));
+      // contas recorrentes do dia e resumo refeito com a data de hoje
+      await step('motor', () => cloudApply(env, e => e.runRecurring()));
+      await step('lembretes', () => dailyReminder(env));
+      await step('amigos', () => friendReminders(env));
+    })();
+    if (ctx && ctx.waitUntil) ctx.waitUntil(job);
+    await job;
   }
 };
 
@@ -70,6 +84,17 @@ async function getJSON(env, key, fallback) {
   try { return JSON.parse(v); } catch (e) { return fallback; }
 }
 const putJSON = (env, key, v) => env.BB.put(key, JSON.stringify(v));
+// o plano grátis do KV tem 1000 gravações por dia: só grava o que mudou (ignorando carimbos de hora)
+function sameJSON(a, b, ignore) {
+  const strip = o => { if (!o || typeof o !== 'object') return o; const c = {...o}; (ignore || []).forEach(k => delete c[k]); return JSON.stringify(c); };
+  return strip(a) === strip(b);
+}
+async function putIfChanged(env, key, v, ignore) {
+  const old = await getJSON(env, key, null);
+  if (old && sameJSON(old, v, ignore)) return false;
+  await putJSON(env, key, v);
+  return true;
+}
 const brl = v => 'R$ ' + Number(v || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -106,6 +131,8 @@ async function registerWebhook(env, origin) {
     {command: 'ajuda', description: 'Como escrever as mensagens'}
   ]});
   await env.BB.put('origin', origin);
+  const me = await tg(env, 'getMe');
+  if (me.ok && me.result && me.result.username) await env.BB.put('botName', me.result.username);
   await putJSON(env, 'hook', {at: new Date().toISOString(), ok: !!a.ok, description: a.description || ''});
   return {webhook: a, commands: b};
 }
@@ -151,20 +178,27 @@ async function api(req, env, ctx, url) {
   // aproveita a visita do app para garantir que o bot está ligado
   if (ctx && ctx.waitUntil) ctx.waitUntil(ensureWebhook(env, url.origin, false).catch(() => {}));
   if (req.method === 'GET') {
-    const [snapshot, inbox, meta, undo, claimIds, shareIdx] = await Promise.all([getJSON(env, 'snapshot', null), getJSON(env, 'inbox', []), getJSON(env, 'meta', {}), getJSON(env, 'undo', []), getJSON(env, 'claims', []), getJSON(env, 'shareIndex', [])]);
+    const [snapshot, inbox, meta, undo, claimIds, shareIdx, friends] = await Promise.all([getJSON(env, 'snapshot', null), getJSON(env, 'inbox', []), getJSON(env, 'meta', {}), getJSON(env, 'undo', []), getJSON(env, 'claims', []), getJSON(env, 'shareIndex', []), getJSON(env, 'friends', {})]);
     const claims = [];
     for (const id of claimIds.slice(-60)) { const c = await getJSON(env, 'claim:' + id, null); if (c && c.status === 'pending') claims.push({id: c.id, at: c.at, amount: c.amount, note: c.note, label: c.label, hasPhoto: c.hasPhoto, token: c.token}); }
     const views = {};
     for (const t of shareIdx) { const vw = await getJSON(env, 'views:' + t, null); if (vw) views[t] = {count: vw.count, first: vw.first, last: vw.last}; }
-    return json({snapshot, inbox, undo, claims, views, updatedAt: meta.updatedAt || null});
+    const fr = {};
+    Object.keys(friends).forEach(k => { fr[k] = {code: friends[k].code, at: friends[k].at, name: friends[k].name || ''}; });
+    let bot = await env.BB.get('botName');
+    if (!bot) { const me = await tg(env, 'getMe'); if (me.ok && me.result && me.result.username) { bot = me.result.username; await env.BB.put('botName', bot); } }
+    return json({snapshot, inbox, undo, claims, views, friends: fr, bot: bot || '', rev: meta.rev || 0, updatedAt: meta.updatedAt || null});
   }
   if (req.method === 'PUT') {
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== 'object') return json({error: 'bad body'}, 400);
     const ack = Array.isArray(body.ack) ? body.ack : [];
-    if (body.snapshot && typeof body.snapshot === 'object') await putJSON(env, 'snapshot', body.snapshot);
-    if (body.summary && typeof body.summary === 'object') await putJSON(env, 'summary', body.summary);
-    if (body.shares && typeof body.shares === 'object') await saveShares(env, body.shares);
+    const snap = body.snapshot && typeof body.snapshot === 'object' ? body.snapshot : null;
+    const meta = await saveState(env, {
+      snapshot: snap,
+      summary: body.summary && typeof body.summary === 'object' ? body.summary : null,
+      shares: body.shares && typeof body.shares === 'object' ? body.shares : null
+    });
     let inbox = await getJSON(env, 'inbox', []);
     if (ack.length) {
       inbox = inbox.filter(op => !ack.includes(op.id));
@@ -172,15 +206,98 @@ async function api(req, env, ctx, url) {
       if (env.BB.delete) for (const id of ack) await env.BB.delete('photo:' + id);
     }
     const undoAck = Array.isArray(body.undoAck) ? body.undoAck : [];
+    let undo = await getJSON(env, 'undo', []);
     if (undoAck.length) {
-      const undo = await getJSON(env, 'undo', []);
-      await putJSON(env, 'undo', undo.filter(u => !undoAck.includes(u.id)));
+      undo = undo.filter(u => !undoAck.includes(u.id));
+      await putJSON(env, 'undo', undo);
     }
-    const updatedAt = new Date().toISOString();
-    await putJSON(env, 'meta', {updatedAt});
-    return json({ok: true, updatedAt, pending: inbox.length});
+    // chegou mensagem do bot enquanto o app mandava os dados: aplica de novo por cima (não duplica)
+    if (snap) {
+      const log = snap.tgLog || {};
+      const ops = inbox.filter(op => !log[op.id]);
+      const und = undo.filter(u => log[u.id] && !log[u.id].undone);
+      if (ops.length || und.length) {
+        const job = cloudApply(env, e => { if (ops.length) e.applyOps(ops); if (und.length) e.undo(und); });
+        if (ctx && ctx.waitUntil) ctx.waitUntil(job); else await job;
+      }
+    }
+    return json({ok: true, updatedAt: meta.updatedAt, rev: meta.rev, pending: inbox.length});
   }
   return json({error: 'method'}, 405);
+}
+
+// ---------------------------------------------------------------- motor: as regras do app rodando na nuvem
+let ENGINE = null;
+// carrega os dados, roda fn(motor), grava o resultado. Devolve o que fn devolveu (ou null se não deu).
+async function cloudApply(env, fn) {
+  try {
+    const oldStr = await env.BB.get('snapshot');
+    if (!oldStr) return null;
+    const origin = await env.BB.get('origin');
+    if (!ENGINE) ENGINE = getEngine();
+    // tudo síncrono daqui até o fim das contas: duas mensagens ao mesmo tempo não se misturam
+    ENGINE.load(JSON.parse(oldStr), {url: origin || ''});
+    const out = fn(ENGINE);
+    const data = {snapshot: ENGINE.snapshot(), summary: ENGINE.summary(), shares: ENGINE.shares()};
+    await saveState(env, data, oldStr);
+    return out === undefined ? true : out;
+  } catch (e) {
+    await putJSON(env, 'lastError', {at: new Date().toISOString(), error: 'motor: ' + String(e && (e.stack || e.message) || e).slice(0, 600)});
+    return null;
+  }
+}
+const stripStamp = s => String(s || '').replace(/"exportedAt":"[^"]*",?/, '');
+// grava dados, resumo e links; a versão (rev) só sobe quando os dados mudam
+async function saveState(env, data, oldStr) {
+  const meta = await getJSON(env, 'meta', {});
+  let changed = false;
+  if (data.snapshot) {
+    if (oldStr === undefined) oldStr = await env.BB.get('snapshot');
+    const newStr = JSON.stringify(data.snapshot);
+    if (stripStamp(oldStr) !== stripStamp(newStr)) {
+      if (oldStr) await backupDaily(env, oldStr);
+      await env.BB.put('snapshot', newStr);
+      changed = true;
+    }
+  }
+  if (data.summary) {
+    const old = await getJSON(env, 'summary', null);
+    // o "at" só conta se o resumo antigo já tem mais de 12h (senão o bot acharia que os dados estão velhos)
+    if (!old || !sameJSON(old, data.summary, ['at']) || Date.now() - Date.parse(old.at || 0) > 12 * 3600000) await putJSON(env, 'summary', data.summary);
+  }
+  if (data.shares) await saveShares(env, data.shares);
+  if (changed || !meta.rev) {
+    meta.rev = (meta.rev || 0) + 1;
+    meta.updatedAt = new Date().toISOString();
+    await putJSON(env, 'meta', meta);
+  }
+  return meta;
+}
+// backup: a primeira vez que os dados mudam no dia (ou o cron das 9h) guarda como estavam; fica 35 dias
+async function backupDaily(env, snapStr) {
+  const day = todayBR();
+  const idx = await getJSON(env, 'bkIndex', []);
+  if (idx.some(b => b.date === day)) return false;
+  const str = snapStr || await env.BB.get('snapshot');
+  if (!str) return false;
+  await env.BB.put('bk:' + day, str, {expirationTtl: 60 * 60 * 24 * 35});
+  const keep = addDays(day, -30);
+  const next = idx.filter(b => b.date >= keep).concat([{date: day, size: str.length}]);
+  await putJSON(env, 'bkIndex', next.slice(-40));
+  return true;
+}
+async function apiBackups(req, url, env) {
+  if (!authed(req, url, env)) return json({error: 'unauthorized'}, 401);
+  const day = url.pathname.slice('/api/backups/'.length);
+  if (day) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return json({error: 'data inválida'}, 400);
+    const str = await env.BB.get('bk:' + day);
+    if (!str) return json({error: 'not found'}, 404);
+    return new Response('{"date":"' + day + '","snapshot":' + str + '}', {headers: {'Content-Type': 'application/json; charset=utf-8', ...CORS}});
+  }
+  const keep = addDays(todayBR(), -30);
+  const idx = (await getJSON(env, 'bkIndex', [])).filter(b => b.date >= keep);
+  return json({backups: idx.slice().sort((a, b) => a.date < b.date ? 1 : -1)});
 }
 
 async function apiClaim(req, url, env) {
@@ -236,7 +353,7 @@ const HELP =
   '• <code>gastei 35 mercado</code>  (ou <code>gastei 35 mercado no nubank</code>)\n' +
   '• <code>ganhei 150 freela</code>\n' +
   '• 📎 foto do PIX com a legenda <code>recebi 50 do Vini</code> (vai como comprovante)\n\n' +
-  'Tudo entra no BarnaBank na próxima vez que você abrir o app.\n\n' +
+  'Entra no BarnaBank na hora (o app pega quando abrir).\n\n' +
   '/cobrar Fulano: mensagem de cobrança pronta para encaminhar\n' +
   '🎙️ Pode mandar <b>áudio</b> também.\n' +
   '❓ Perguntas: <code>quanto gastei com ifood esse mês?</code>, <code>quem me deve mais?</code>, <code>quanto o Vini já me pagou?</code>\n\n' +
@@ -267,6 +384,12 @@ async function onUpdate(env, up) {
   const chat = String(msg.chat.id);
   let owner = await env.BB.get('owner');
   const text = String(msg.text || msg.caption || '').trim();
+  const invite = /^\/start\s+([A-Za-z0-9]{8,40})$/.exec(text);
+  if (chat !== owner && (invite || (owner && await friendByChat(env, chat)))) {
+    if (!owner) { await say(env, chat, 'Este bot ainda não foi ativado pelo dono.'); return; }
+    await friendMessage(env, chat, msg, invite ? invite[1] : null);
+    return;
+  }
   if (!owner) {
     if (/^\/start/.test(text)) {
       await env.BB.put('owner', chat);
@@ -295,6 +418,11 @@ async function onCallback(env, cq) {
     const r = await claimDecide(env, cd[2], cd[1] === 'ok');
     return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: r.already ? 'Já estava resolvido' : cd[1] === 'ok' ? 'Confirmado' : 'Marcado como não recebido'});
   }
+  const rm = /^remind:(.+)$/.exec(cq.data || '');
+  if (rm) {
+    const r = await remindFriend(env, rm[1], 'manual');
+    return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: r.ok ? 'Lembrete enviado pra ' + r.name : r.error, show_alert: !r.ok});
+  }
   const cb = /^cobrar:(.+)$/.exec(cq.data || '');
   if (cb) {
     await tg(env, 'answerCallbackQuery', {callback_query_id: cq.id});
@@ -305,18 +433,21 @@ async function onCallback(env, cq) {
     const id = m[1];
     const inbox = await getJSON(env, 'inbox', []);
     const i = inbox.findIndex(op => op.id === id);
-    let note;
     if (i !== -1) {
       inbox.splice(i, 1);
       await putJSON(env, 'inbox', inbox);
       if (env.BB.delete) await env.BB.delete('photo:' + id);
-      note = '↩️ Desfeito. Não vai entrar no app.';
-    } else {
-      // já entrou no app: o app desfaz na próxima vez que abrir
+    }
+    const snap = await getJSON(env, 'snapshot', null);
+    const inCloud = !!(snap && snap.tgLog && snap.tgLog[id]);
+    let note = '↩️ Desfeito. Não vai entrar no app.';
+    if (i === -1 || inCloud) {
+      // já está nos dados (da nuvem ou de um app): fica na lista de desfazer até o app confirmar
       const undo = await getJSON(env, 'undo', []);
       if (!undo.some(u => u.id === id)) undo.push({id, at: new Date().toISOString()});
       await putJSON(env, 'undo', undo.slice(-100));
-      note = '↩️ Desfeito. Sai do app na próxima vez que você abrir.';
+      const done = inCloud && await cloudApply(env, e => e.undo([{id}]));
+      note = done ? '↩️ Desfeito. Já saiu do app.' : '↩️ Desfeito. Sai do app na próxima vez que você abrir.';
     }
     const old = (cq.message && cq.message.text) || '';
     await tg(env, 'editMessageText', {chat_id: chat, message_id: cq.message.message_id, text: '<s>' + esc(old.split('\n')[0].replace(/^✅\s*/, '')) + '</s>\n' + note, parse_mode: 'HTML'});
@@ -347,8 +478,8 @@ async function handleText(env, chat, text, photo) {
   if (cmd === 'saldo') return say(env, chat, saldoText(summary));
   if (cmd === 'cobrar' || /^cobrar\b/i.test(text)) return cobrar(env, chat, summary, text.replace(/^\/?cobrar(@\w+)?\s*/i, ''));
   if (cmd === 'pendentes') {
-    const inbox = await getJSON(env, 'inbox', []);
-    return say(env, chat, inbox.length ? '<b>Esperando o app abrir:</b>\n' + inbox.map(o => '• ' + esc(o.text)).join('\n') : 'Nada pendente: o app já pegou tudo. ✅');
+    const waiting = await pendingOps(env);
+    return say(env, chat, waiting.length ? '<b>Esperando o app abrir:</b>\n' + waiting.map(o => '• ' + esc(o.text)).join('\n') : 'Nada pendente: tudo já está nos seus dados. ✅');
   }
   const op = parseMessage(cmd ? text.replace(/^\/\w+\s*/, cmd + ' ') : text, summary);
   if (!op) {
@@ -370,9 +501,20 @@ async function handleText(env, chat, text, photo) {
   const inbox = await getJSON(env, 'inbox', []);
   inbox.push(op);
   await putJSON(env, 'inbox', inbox.slice(-200));
-  return say(env, chat, '✅ ' + describe(op) + photoNote + '\n<i>Entra no app na próxima vez que você abrir.</i>', {
+  // responde primeiro (a mensagem já está salva na fila) e depois lança nos dados da nuvem
+  const sent = await say(env, chat, '✅ ' + describe(op) + photoNote, {
     reply_markup: {inline_keyboard: [[{text: 'Desfazer', callback_data: 'undo:' + op.id}]]}
   });
+  const res = await cloudApply(env, e => e.applyOps([op]));
+  const r = res && res[0];
+  if (r && !r.ok && sent && sent.ok) {
+    // o app também não conseguiria: avisa já, em vez de esperar o app abrir
+    await tg(env, 'editMessageText', {chat_id: chat, message_id: sent.result.message_id, parse_mode: 'HTML',
+      text: '⚠️ <s>' + describe(op) + '</s>\nNão lancei: ' + esc(r.msg) + '.'});
+    const again = (await getJSON(env, 'inbox', [])).filter(o => o.id !== op.id);
+    await putJSON(env, 'inbox', again);
+  }
+  return sent;
 }
 
 // ---------------------------------------------------------------- fotos de comprovante
@@ -486,6 +628,12 @@ function describe(op) {
 }
 
 // ---------------------------------------------------------------- respostas
+// mensagens que nem a nuvem nem o app lançaram ainda
+async function pendingOps(env) {
+  const [inbox, snap] = await Promise.all([getJSON(env, 'inbox', []), getJSON(env, 'snapshot', null)]);
+  const log = (snap && snap.tgLog) || {};
+  return inbox.filter(o => !log[o.id]);
+}
 function stale(summary) {
   if (!summary) return '\n\n<i>O app ainda não mandou os dados. Abra o BarnaBank e ligue a nuvem em Configurações.</i>';
   const h = (Date.now() - new Date(summary.at).getTime()) / 3600000;
@@ -495,7 +643,7 @@ async function resumoText(env, s) {
   if (!s) return 'Ainda não tenho dados.' + stale(s);
   const rec = (s.people || []).reduce((a, p) => a + p.rec, 0), pay = (s.people || []).reduce((a, p) => a + p.pay, 0);
   const late = (s.late || []).reduce((a, p) => a + p.amount, 0);
-  const inbox = await getJSON(env, 'inbox', []);
+  const inbox = await pendingOps(env);
   let out = '<b>📊 Resumo</b>\n' +
     '💰 Saldo nas carteiras: <b>' + brl(s.balance) + '</b>\n' +
     '🤝 A receber: <b>' + brl(rec) + '</b>' + (late > 0 ? ' (' + brl(late) + ' atrasado)' : '') + '\n' +
@@ -598,19 +746,141 @@ async function cobrar(env, chat, summary, who, fromButton) {
   if (c.phone) buttons.push([{text: '💬 Abrir no WhatsApp', url: 'https://wa.me/' + c.phone + '?text=' + encodeURIComponent(c.text)}]);
   else buttons.push([{text: '💬 Escolher conversa no WhatsApp', url: 'https://wa.me/?text=' + encodeURIComponent(c.text)}]);
   if (c.link) buttons.push([{text: '🔗 Ver o link de cobrança', url: c.link}]);
+  const fr = await friendFor(env, c.key);
+  if (fr) buttons.push([{text: '📨 Mandar lembrete pro ' + c.name.split(' ')[0] + ' no Telegram', callback_data: ('remind:' + c.key).slice(0, 64)}]);
   await say(env, chat, '<b>Cobrança para ' + esc(c.name) + '</b> · ' + brl(c.remaining) + ' em aberto' + (c.late ? ', ' + brl(c.late) + ' atrasado' : '') +
     '\n<i>Encaminhe a mensagem abaixo ou use o botão.</i>' + stale(summary));
   // a mensagem vai sem formatação, pronta para encaminhar
   return tg(env, 'sendMessage', {chat_id: chat, text: c.text, disable_web_page_preview: true, reply_markup: {inline_keyboard: buttons}});
 }
 
+// ---------------------------------------------------------------- lembretes para quem te deve
+// O app cria um convite por pessoa (snapshot.invites[chave] = {code, on}). A pessoa abre
+// t.me/<seu bot>?start=<code>, aperta Começar e passa a receber os lembretes. friends[chave] = {chat, code, at, name}
+async function friendFor(env, key) {
+  const [friends, snap] = await Promise.all([getJSON(env, 'friends', {}), getJSON(env, 'snapshot', null)]);
+  const fr = friends[key], iv = snap && snap.invites && snap.invites[key];
+  return fr && iv && iv.code === fr.code ? {...fr, on: iv.on !== false} : null;
+}
+async function friendByChat(env, chat) {
+  const friends = await getJSON(env, 'friends', {});
+  const key = Object.keys(friends).find(k => friends[k].chat === chat);
+  return key ? {key, ...friends[key]} : null;
+}
+const firstOf = n => String(n || '').trim().split(/\s+/)[0] || '';
+function friendText(c, kind, owner) {
+  const who = owner ? '<b>' + esc(owner) + '</b>' : 'quem te emprestou';
+  let out = '👋 Oi, ' + esc(firstOf(c.name)) + '! ';
+  if (kind === 'late') out += 'Lembrete de ' + who + ': tem <b>' + brl(c.late) + '</b> atrasado' + (c.lateSince ? ' desde ' + fmtDate(c.lateSince) : '') + '.';
+  else if (kind === 'today') out += 'Lembrete de ' + who + ': <b>hoje</b> vence <b>' + brl(c.next.amount) + '</b>.';
+  else if (kind === 'tomorrow') out += 'Lembrete de ' + who + ': <b>amanhã</b> (' + fmtDate(c.next.date) + ') vence <b>' + brl(c.next.amount) + '</b>.';
+  else {
+    out += 'Resumo com ' + who + ':';
+    if (c.late > 0) out += '\n⏰ Atrasado: <b>' + brl(c.late) + '</b>' + (c.lateSince ? ' (desde ' + fmtDate(c.lateSince) + ')' : '');
+    if (c.next && !(c.late > 0 && c.next.date < todayBR())) out += '\n📅 Próximo: <b>' + brl(c.next.amount) + '</b> em ' + fmtDate(c.next.date);
+  }
+  out += '\nEm aberto no total: ' + brl(c.remaining) + '.';
+  return out;
+}
+async function sendFriend(env, fr, c, kind, s) {
+  let text = friendText(c, kind, s.owner);
+  if (s.pix) text += '\n\nPIX: <code>' + esc(s.pix) + '</code>';
+  text += '\n\n<i>Mensagem automática. Já pagou? Avise ' + (s.owner ? esc(firstOf(s.owner)) : 'quem te mandou') + '. Para não receber mais: /parar</i>';
+  const extra = c.link ? {reply_markup: {inline_keyboard: [[{text: '🔗 Ver detalhes e pagar com PIX', url: c.link}]]}} : {};
+  const r = await tg(env, 'sendMessage', {chat_id: fr.chat, text, parse_mode: 'HTML', disable_web_page_preview: true, ...extra});
+  return r;
+}
+async function remindFriend(env, key, kind) {
+  const s = await getJSON(env, 'summary', null);
+  const c = s && (s.charges || []).find(x => x.key === key);
+  if (!c) return {ok: false, error: 'Não tem nada em aberto com essa pessoa.'};
+  const fr = await friendFor(env, key);
+  if (!fr) return {ok: false, error: firstOf(c.name) + ' ainda não entrou nos lembretes.'};
+  const r = await sendFriend(env, fr, c, kind, s);
+  if (!r.ok) return {ok: false, error: 'O Telegram não entregou (' + (r.description || 'erro') + ').'};
+  return {ok: true, name: firstOf(c.name)};
+}
+async function friendMessage(env, chat, msg, code) {
+  const friends = await getJSON(env, 'friends', {});
+  const owner = await env.BB.get('owner');
+  const s = await getJSON(env, 'summary', null);
+  const ownerName = s && s.owner ? firstOf(s.owner) : '';
+  const text = String(msg.text || '').trim();
+  if (code) {
+    const snap = await getJSON(env, 'snapshot', null);
+    const inv = (snap && snap.invites) || {};
+    const key = Object.keys(inv).find(k => inv[k].code === code);
+    if (!key) { await say(env, chat, 'Esse convite não vale mais. Peça um novo para quem te mandou.'); return; }
+    Object.keys(friends).forEach(k => { if (friends[k].chat === chat && k !== key) delete friends[k]; });
+    const isNew = !friends[key] || friends[key].chat !== chat || friends[key].code !== code;
+    const name = [msg.from && msg.from.first_name, msg.from && msg.from.last_name].filter(Boolean).join(' ');
+    friends[key] = {chat, code, at: new Date().toISOString(), name, sent: {}};
+    await putJSON(env, 'friends', friends);
+    const c = s && (s.charges || []).find(x => x.key === key);
+    await say(env, chat, '✅ Pronto! Você vai receber aqui os lembretes do que está em aberto' + (ownerName ? ' com <b>' + esc(ownerName) + '</b>' : '') +
+      ': na véspera e no dia do vencimento, e a cada 3 dias se atrasar.' + (c ? '\n\n' + friendText(c, 'status', s.owner) : '') +
+      '\n\n/status mostra quanto está em aberto. /parar para não receber mais.');
+    if (isNew && owner) {
+      const who = c ? c.name : (name || 'Alguém');
+      await say(env, owner, '📨 <b>' + esc(who) + '</b> entrou nos lembretes do Telegram. O bot avisa na véspera e no dia do vencimento (e a cada 3 dias se atrasar).');
+    }
+    return;
+  }
+  const me = Object.keys(friends).find(k => friends[k].chat === chat);
+  if (!me) { await say(env, chat, 'Este bot é privado.'); return; }
+  const c = s && (s.charges || []).find(x => x.key === me);
+  if (/^\/(parar|stop|sair)\b/i.test(text)) {
+    delete friends[me];
+    await putJSON(env, 'friends', friends);
+    await say(env, chat, 'Pronto, você não recebe mais lembretes. Se mudar de ideia, é só abrir o convite de novo.');
+    if (owner) await say(env, owner, '🔕 <b>' + esc(c ? c.name : me) + '</b> saiu dos lembretes do Telegram.');
+    return;
+  }
+  if (/^\/(status|resumo|start)\b/i.test(text)) {
+    await say(env, chat, c ? friendText(c, 'status', s.owner) + (s.pix ? '\n\nPIX: <code>' + esc(s.pix) + '</code>' : '') : 'Nada em aberto agora. 🎉', c && c.link ? {reply_markup: {inline_keyboard: [[{text: '🔗 Ver detalhes', url: c.link}]]}} : undefined);
+    return;
+  }
+  await say(env, chat, 'Este bot só manda os lembretes' + (ownerName ? ' de ' + esc(ownerName) : '') + '. Para falar com ' + (ownerName ? esc(ownerName) : 'a pessoa') + ', mande mensagem direto.\n\n/status mostra quanto está em aberto. /parar para não receber mais.');
+}
+// todo dia às 9h: véspera, dia do vencimento e, se atrasado, a cada 3 dias
+async function friendReminders(env) {
+  const [friends, snap, s, owner] = await Promise.all([getJSON(env, 'friends', {}), getJSON(env, 'snapshot', null), getJSON(env, 'summary', null), env.BB.get('owner')]);
+  if (!s || !snap || !Object.keys(friends).length) return;
+  const today = todayBR(), tomorrow = addDays(today, 1), inv = snap.invites || {}, done = [];
+  let dirty = false;
+  for (const key of Object.keys(friends)) {
+    const fr = friends[key], iv = inv[key];
+    if (!iv || iv.code !== fr.code || iv.on === false) continue;
+    const c = (s.charges || []).find(x => x.key === key);
+    if (!c) continue;
+    fr.sent = fr.sent || {};
+    let kind = null;
+    if (c.late > 0) { if (!fr.sent.late || addDays(fr.sent.late, 3) <= today) kind = 'late'; }
+    else if (c.next && c.next.date === today) kind = 'today';
+    else if (c.next && c.next.date === tomorrow) kind = 'tomorrow';
+    if (!kind || fr.sent.day === today) continue;
+    const r = await sendFriend(env, fr, c, kind, s);
+    if (r.ok) {
+      fr.sent.day = today;
+      if (kind === 'late') fr.sent.late = today;
+      done.push(esc(firstOf(c.name)) + ' (' + (kind === 'late' ? 'atrasado' : kind === 'today' ? 'vence hoje' : 'vence amanhã') + ')');
+    } else if (r.error_code === 403) {
+      delete friends[key];
+      if (owner) await say(env, owner, '🔕 <b>' + esc(c.name) + '</b> bloqueou o bot e não recebe mais lembretes.');
+    }
+    dirty = true;
+  }
+  if (dirty) await putJSON(env, 'friends', friends);
+  if (owner && done.length) await say(env, owner, '📨 Lembrete enviado no Telegram: ' + done.join(', ') + '.');
+}
+
 // ---------------------------------------------------------------- links de cobrança (páginas públicas, só leitura)
 async function saveShares(env, shares) {
   const old = await getJSON(env, 'shareIndex', []);
   const now = Object.keys(shares).filter(t => /^[A-Za-z0-9]{16,40}$/.test(t) && shares[t] && typeof shares[t] === 'object').slice(0, 300);
-  for (const t of now) await putJSON(env, 'share:' + t, shares[t]);
+  for (const t of now) await putIfChanged(env, 'share:' + t, shares[t], ['updatedAt']);
   for (const t of old) if (!now.includes(t) && env.BB.delete) await env.BB.delete('share:' + t);
-  await putJSON(env, 'shareIndex', now);
+  if (JSON.stringify(old) !== JSON.stringify(now)) await putJSON(env, 'shareIndex', now);
 }
 const fmtFull = iso => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(2, 4) : '';
 const STATE = {paga: ['Paga', 'ok'], pago: ['Pagou', 'ok'], atrasada: ['Atrasada', 'late'], atrasado: ['Atrasado', 'late'], parcial: ['Parcial', 'part'], aberta: ['Em aberto', ''], pendente: ['Falta pagar', '']};
@@ -805,8 +1075,10 @@ async function claimDecide(env, id, ok) {
     c.opId = op.id;
   }
   await putJSON(env, 'claim:' + id, c);
+  let applied = null;
+  if (ok) { const res = await cloudApply(env, e => e.applyOps([op])); applied = res && res[0]; }
   if (c.tg) {
-    const note = ok ? '✅ <b>Confirmado</b>: ' + esc(c.label) + ' pagou ' + brl(c.amount) + '. Entra no app na próxima vez que você abrir.' : '❌ Marcado como não recebido (' + esc(c.label) + ', ' + brl(c.amount) + '). A pessoa vê isso no link.';
+    const note = ok ? '✅ <b>Confirmado</b>: ' + esc(c.label) + ' pagou ' + brl(c.amount) + '.' + (applied && applied.ok ? ' Já está no app.' : ' Entra no app na próxima vez que você abrir.') : '❌ Marcado como não recebido (' + esc(c.label) + ', ' + brl(c.amount) + '). A pessoa vê isso no link.';
     await tg(env, c.tg.photo ? 'editMessageCaption' : 'editMessageText', {chat_id: c.tg.chat, message_id: c.tg.msg, parse_mode: 'HTML', ...(c.tg.photo ? {caption: note} : {text: note})});
   }
   return {ok: true, status: c.status};

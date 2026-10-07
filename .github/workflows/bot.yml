@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['bot/**', '.github/workflows/bot.yml']
+    # app.js também: o bot roda as mesmas regras do app (bot/engine.js é gerado dele)
+    paths: ['bot/**', 'app.js', '.github/workflows/bot.yml']
 
 jobs:
   deploy:
@@ -50,6 +51,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Gerar o motor do bot a partir do app.js
+        run: node bot/build-engine.mjs
 
       - name: Publicar o Worker
         id: deploy
