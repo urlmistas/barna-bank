@@ -890,6 +890,24 @@ function parseSpecial(raw, summary) {
   return parseBankNotice(t, summary);
 }
 // notificação do banco encaminhada: "Compra aprovada R$ 45,90 em MERCADO X", "Pix recebido de Fulano R$ 100,00"
+// nome do banco ("LARISSA MOTA SILVA", "VINICIUS P PRADO") → nome do app ("Larissa Mota", "Vini"), só se for um só
+const NAME_STOP = new Set(['da', 'de', 'do', 'das', 'dos', 'e']);
+const tokens = n => norm(n).split(/\s+/).filter(w => w && !NAME_STOP.has(w));
+function matchPerson(raw, summary, kind) {
+  const people = ((summary && summary.people) || []).filter(p => kind === 'pay' ? p.pay > 0 : kind === 'rec' ? p.rec > 0 : true);
+  const q = tokens(raw);
+  if (!q.length) return '';
+  const pick = list => { const names = [...new Set(list.map(p => p.name))]; return names.length === 1 ? names[0] : ''; };
+  let hit = pick(people.filter(p => tokens(p.name).join(' ') === q.join(' ')));
+  if (hit) return hit;
+  // todas as palavras do nome no app aparecem no nome do banco (o banco costuma mandar o nome completo)
+  hit = pick(people.filter(p => { const t = tokens(p.name); return t.length && t.every(w => q.includes(w)) && t[0] === q[0]; }));
+  if (hit) return hit;
+  // mesmo primeiro nome (ou apelido que começa igual: Vini → Vinicius), e só uma pessoa assim
+  hit = pick(people.filter(p => (tokens(p.name)[0] || '') === q[0]));
+  if (hit) return hit;
+  return pick(people.filter(p => { const f = tokens(p.name)[0] || ''; return f.length >= 3 && q[0].startsWith(f); }));
+}
 function parseBankNotice(t, summary) {
   if (/^(gastei|recebi|paguei|ganhei|emprestei|devo|comprei)\b/i.test(t)) return null;
   const vm = /R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2}|\d+(?:,\d{2})?)/i.exec(t);
@@ -909,8 +927,9 @@ function parseBankNotice(t, summary) {
   const person = pm && !BANKS.some(b => norm(pm[1]).startsWith(b[0])) ? pm[1].trim() : '';
   const base = {text: t.slice(0, 200), bank, wallet, viaBank: true};
   if (isPix && person) {
-    if (incoming && isKnownPerson(summary, person, 'rec')) return {...base, type: 'pay', kind: 'receivable', name: cleanName(person), amount};
-    if (!incoming && isKnownPerson(summary, person, 'pay')) return {...base, type: 'pay', kind: 'payable', name: cleanName(person), amount};
+    const recName = incoming ? matchPerson(person, summary, 'rec') : '', payName = incoming ? '' : matchPerson(person, summary, 'pay');
+    if (recName) return {...base, type: 'pay', kind: 'receivable', name: recName, amount};
+    if (payName) return {...base, type: 'pay', kind: 'payable', name: payName, amount};
   }
   if (incoming) return {...base, type: 'tx', kind: 'entrada', amount, category: isPix ? 'Pix recebido' : 'Entrada', note: person ? 'de ' + person : ''};
   // estabelecimento

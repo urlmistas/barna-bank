@@ -69,6 +69,14 @@ tg('devo 30 pro Carlos')
 dp = [x for x in snap()['debts'] if x['principal'] == 30 and x['kind'] == 'payable']
 check(dp and dp[0]['lateFeePct'] == 0, 'o que eu devo não ganha multa padrão')
 
+# ---------------- notificação com o nome completo do banco
+tg('Você recebeu um Pix de LARISSA MOTA SILVA no valor de R$ 20,00')
+lar = [x for x in snap()['debts'] if x['name'] == 'Larissa Mota'][0]
+check(any(p_['amount'] == 20 for p_ in lar['payments']), 'Pix de "LARISSA MOTA SILVA" vira pagamento da Larissa Mota')
+tg('Pix recebido: R$ 10,00 de VINICIUS P PRADO')
+vin = [x for x in snap()['debts'] if x['name'] == 'Vinicius Prado'][0]
+check(any(p_['amount'] == 10 for p_ in vin['payments']), 'Pix de "VINICIUS P PRADO" vira pagamento do Vinicius Prado')
+
 # ---------------- resumo do mês no dia 1
 nm = (T.replace(day=28) + datetime.timedelta(days=5)).replace(day=1)
 http('GET', '/__now=' + nm.isoformat() + 'T12:30:00Z')
@@ -81,6 +89,7 @@ check(len([m for m in msgs() if 'Seu ' + MESES[T.month - 1] in m['body']['text']
 tg('/lembretes mensal')
 check('Resumo do mês (dia 1): <b>desligado' in last(), '/lembretes mensal desliga')
 
+data['debts'].append(debt('rt', 'Rita Teste', 300, ago(100), 3, payments=[{'id': 'pa', 'date': ago(40), 'amount': 100, 'mode': 'fifo'}, {'id': 'pb', 'date': ago(10), 'amount': 100, 'mode': 'target', 'target': 2}]))
 # ---------------- app: formulário já vem com a multa padrão
 with sync_playwright() as p:
     b = p.chromium.launch()
@@ -96,6 +105,21 @@ with sync_playwright() as p:
     page.click('#btnSettings'); page.wait_for_timeout(200)
     page.fill('#setDefaultLateFee', '5'); page.click('#btnSettingsSave'); page.wait_for_timeout(200)
     check(json.loads(page.evaluate("localStorage.getItem('barnabank_settings_v1')"))['defaultLateFee'] == 5, 'configuração salva')
+    # apagar um pagamento antigo: o adiantado (parcela 3) volta a cobrir a mais antiga em aberto
+    page.click('#btnSearch'); page.fill('#gsInput', 'rita'); page.wait_for_timeout(200)
+    page.locator('#gsResults .gs-item', has_text='Rita').first.click(); page.wait_for_timeout(400)
+    page.locator('#personDebts .card').first.locator('.card-head .avatar').click(); page.wait_for_timeout(300)
+    page.locator('#personDebts .ct-btn[data-tab="historico"]').click(); page.wait_for_timeout(200)
+    st = lambda: json.loads(page.evaluate("localStorage.getItem('barnabank_debts_v3')"))
+    page.locator('#personDebts .hr-del[data-idx="0"]').click(); page.wait_for_timeout(300)
+    rt = [x for x in st()['debts'] if x['id'] == 'rt'][0]
+    check(len(rt['payments']) == 1 and rt['payments'][0]['mode'] == 'fifo', 'apagar o pagamento antigo: o adiantado volta a cobrir a parcela mais antiga')
+    page.locator('#personDebts .ct-btn[data-tab="parcelas"]').click(); page.wait_for_timeout(200)
+    insts = N(page.inner_text('#personDebts .inst-list'))
+    check(insts.index('Recebida') < insts.index('Em atraso') if 'Recebida' in insts and 'Em atraso' in insts else False, 'parcela 1 paga, 2 em atraso: %s' % insts[:160])
+    page.locator('#undoStack button').first.click(); page.wait_for_timeout(300)
+    rt = [x for x in st()['debts'] if x['id'] == 'rt'][0]
+    check(len(rt['payments']) == 2 and rt['payments'][1]['mode'] == 'target' and rt['payments'][1]['target'] == 2, 'Desfazer devolve tudo como era')
     check(not errs, 'sem erros de JS %s' % errs)
     b.close()
 print('\n%d falha(s)' % len(fails))
