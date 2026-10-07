@@ -3556,7 +3556,7 @@
   function renderAll(){
     if(state.page === 'carteiras'){ renderWalletsPage(); renderRecurring(); renderGoals(); }
     if(state.page === 'dashboard') renderDashboard();
-    if(state.page === 'relatorios') renderRelatorios();
+    if(state.page === 'relatorios'){ renderRelatorios(); if(typeof renderSubs === 'function') renderSubs(); }
     if(state.page === 'pessoa') renderPersonPage();
     if(state.page === 'contas' && typeof renderContasPage === 'function'){ renderContasPage(); renderCalendar(); }
   }
@@ -4430,10 +4430,18 @@
       if(days < 0) late = true;
       else perMonth = left / Math.max(1, Math.round(days / 30.44));
     }
+    // ritmo: quanto já devia ter guardado, se fosse guardando igual todo mês desde que criou a meta
+    var behind = 0, monthAdds = 0, ym = ymOf(todayISO());
+    (g.adds || []).forEach(function(a){ if(ymOf(a.date) === ym) monthAdds += a.amount; });
+    if(g.deadline && g.created && !done && !late && g.deadline > g.created){
+      var total = daysBetweenISO(g.created, g.deadline), el = daysBetweenISO(g.created, todayISO());
+      var expected = g.target * Math.max(0, Math.min(1, el / total));
+      if(saved < expected - Math.max(1, g.target * 0.05)) behind = round2(expected - saved);
+    }
     var w = g.walletId ? state.wallets.find(function(x){ return x.id === g.walletId; }) : null;
-    var sub = done ? 'Meta batida!' : g.deadline ? (late ? 'prazo era ' + fmtDate(g.deadline) : 'até ' + fmtDate(g.deadline) + ' · guarde ' + money.format(perMonth) + '/mês') : 'sem prazo · faltam ' + money.format(left);
+    var sub = done ? 'Meta batida!' : g.deadline ? (late ? 'prazo era ' + fmtDate(g.deadline) : 'até ' + fmtDate(g.deadline) + ' · guarde ' + money.format(perMonth) + '/mês' + (behind ? ' · ' + money.format(behind) + ' abaixo do ritmo' : '')) : 'sem prazo · faltam ' + money.format(left);
     if(w) sub += ' · saldo de ' + w.name;
-    return {saved: saved, left: left, pct: pct, done: done, perMonth: perMonth, late: late, wallet: w, sub: sub};
+    return {saved: saved, left: left, pct: pct, done: done, perMonth: round2(perMonth), late: late, wallet: w, sub: sub, behind: behind, monthAdds: round2(monthAdds)};
   }
   function renderGoals(){
     var el = document.getElementById('goalList');
@@ -5490,7 +5498,8 @@
       late: lateReceivables().map(function(p){ return {name: p.name, amount: p.overdue, since: p.oldest ? toISO(p.oldest) : ''}; }),
       due: items.map(function(it){ return {date: it.date, title: it.title, sub: it.sub, amount: round2(it.amount), dir: it.dir}; }),
       budgets: budgetStatus(ymOf(today)).map(function(b){ return {name: b.name, spent: b.spent, limit: b.limit}; }),
-      goals: state.goals.map(function(g){ var gi = goalInfo(g); return {name: g.name, saved: gi.saved, target: g.target}; }),
+      goals: state.goals.map(function(g){ var gi = goalInfo(g); return {name: g.name, saved: gi.saved, target: g.target, deadline: g.deadline || '', perMonth: gi.perMonth, behind: gi.behind, monthAdds: gi.monthAdds, wallet: !!g.walletId, done: gi.done, late: gi.late}; }),
+      subs: typeof detectSubs === 'function' ? detectSubs().map(function(x){ return {key: x.key, name: x.name, last: x.last, prev: x.prev, raised: x.raised}; }) : [],
       forecast: state.wallets.length ? monthForecast().end : null,
       charges: chargeList(),
       week: weekSummary(),
@@ -5525,6 +5534,7 @@
       if(state.tgLog[op.id]){ res.push({id: op.id, ok: true, skipped: true, msg: ''}); return; }
       var date = /^\d{4}-\d{2}-\d{2}$/.test(op.date || '') ? op.date : todayISO();
       var amount = round2(+op.amount || 0);
+      if(op.type === 'edit'){ res.push(editLogged(op)); return; }
       if(!(amount > 0) && op.type !== 'resched'){ res.push({id: op.id, ok: false, msg: 'valor inválido'}); return; }
       if(op.type === 'debt'){
         var n = Math.max(1, Math.min(60, parseInt(op.installments, 10) || 1));
@@ -5565,6 +5575,15 @@
         state.tgLog[op.id] = {at: todayISO(), pays: made};
         res.push({id: op.id, ok: true, photo: op.photo ? firstPay : null, msg: (kind === 'payable' ? 'Pago ' : 'Recebido ') + money.format(amount) + (kind === 'payable' ? ' a ' : ' de ') + ds[0].name + (op.photo ? ' 📎' : '')});
       } else if(op.type === 'tx'){
+        if(op.card && op.kind !== 'entrada' && state.cards.length){
+          var hint = normTxt(op.cardHint || ''), card = (hint && state.cards.find(function(c){ return normTxt(c.name).indexOf(hint) !== -1 || hint.indexOf(normTxt(c.name)) !== -1; })) || state.cards[0];
+          var pcat = String(op.category || '').trim() || (op.store ? guessCategory(op.store, false) : '') || 'Outros';
+          var cp = {id: uid('p-'), cardId: card.id, desc: (op.store || pcat).slice(0, 60), amount: amount, installments: Math.max(1, Math.min(24, parseInt(op.installments, 10) || 1)), date: date, category: pcat};
+          state.cardPurchases.push(cp);
+          state.tgLog[op.id] = {at: todayISO(), cp: cp.id};
+          res.push({id: op.id, ok: true, category: pcat, card: card.name, msg: 'Compra no cartão ' + card.name + ' · ' + money.format(amount) + ' · ' + pcat});
+          return;
+        }
         var wid2 = walletByName(op.wallet);
         if(!wid2){ res.push({id: op.id, ok: false, msg: 'crie uma carteira no app primeiro'}); return; }
         var cat = String(op.category || '').trim().slice(0, 40) || (op.store && op.kind !== 'entrada' ? guessCategory(op.store, false) : '') || (op.kind === 'entrada' ? 'Entrada' : 'Outros');
@@ -5574,6 +5593,22 @@
         state.transactions.push(ntx);
         state.tgLog[op.id] = {at: todayISO(), tx: ntx.id};
         res.push({id: op.id, ok: true, category: known || cat, msg: (op.kind === 'entrada' ? 'Entrada ' : 'Gasto ') + money.format(amount) + ' · ' + (known || cat)});
+      } else if(op.type === 'group'){
+        var gr = createRacha(op, amount, date);
+        if(gr.error){ res.push({id: op.id, ok: false, msg: gr.error}); return; }
+        state.tgLog[op.id] = {at: todayISO(), group: gr.g.id, share: gr.token};
+        res.push({id: op.id, ok: true, msg: 'Racha: ' + gr.g.title + ' · ' + money.format(amount), group: {title: gr.g.title, token: gr.token, due: gr.g.dueDate, myShare: gr.g.myShare,
+          parts: gr.debts.map(function(d){ return {name: d.name, amount: d.principal}; })}});
+      } else if(op.type === 'goal'){
+        var q = normTxt(op.name || '').trim();
+        var gl = state.goals.find(function(x){ return normTxt(x.name) === q; }) || state.goals.find(function(x){ return normTxt(x.name).indexOf(q) === 0 || q.indexOf(normTxt(x.name)) === 0; });
+        if(!gl){ res.push({id: op.id, ok: false, msg: 'não achei a meta "' + op.name + '"'}); return; }
+        if(gl.walletId){ res.push({id: op.id, ok: false, msg: 'a meta ' + gl.name + ' acompanha o saldo de uma carteira: é só lançar a entrada nela'}); return; }
+        var ad = {id: uid('ga-'), date: date, amount: amount, note: 'via Telegram'};
+        gl.adds = gl.adds || []; gl.adds.push(ad);
+        state.tgLog[op.id] = {at: todayISO(), goal: gl.id, add: ad.id};
+        var gi2 = goalInfo(gl);
+        res.push({id: op.id, ok: true, msg: 'Meta ' + gl.name + ': +' + money.format(amount), goal: {name: gl.name, saved: gi2.saved, target: gl.target, pct: Math.round(gi2.pct), perMonth: gi2.perMonth, behind: gi2.behind, deadline: gl.deadline || ''}});
       } else if(op.type === 'resched'){
         var rd = op.debtId ? state.debts.filter(function(x){ return x.id === op.debtId && !isPaid(x); }) : findPeopleDebts(op.name, 'receivable');
         rd = rd.slice().sort(function(a, b){ var x = nextDueDate(a), y = nextDueDate(b); return (x ? x.getTime() : 0) - (y ? y.getTime() : 0); });
@@ -5587,6 +5622,86 @@
       } else res.push({id: op.id, ok: false, msg: 'tipo desconhecido'});
     });
     return res;
+  }
+  // "racha 120 com Bia e Caio": cria o grupo (você incluso, salvo "sem mim") e o link
+  function createRacha(op, total, date){
+    var names = (op.names || []).map(function(n){ return String(n || '').trim().slice(0, 60); }).filter(Boolean);
+    var seen = {};
+    names = names.filter(function(n){ var k = nameKey(n); if(seen[k]) return false; seen[k] = true; return true; });
+    if(!names.length) return {error: 'diga com quem dividiu'};
+    // nome completo de quem já está no app ("Bia" → "Bia Lima")
+    names = names.map(function(n){
+      var hit = state.debts.filter(function(d){ return normTxt(firstName(d.name)) === normTxt(n) || normTxt(d.name) === normTxt(n); });
+      var u = {}; hit.forEach(function(d){ u[nameKey(d.name)] = d.name; });
+      return Object.keys(u).length === 1 ? u[Object.keys(u)[0]] : n.replace(/(^|\s)\S/g, function(c){ return c.toUpperCase(); });
+    });
+    var inc = op.includeMe !== false, n = names.length + (inc ? 1 : 0);
+    var each = Math.floor(total / n * 100) / 100, mine = inc ? round2(total - each * names.length) : 0;
+    if(!inc){ each = Math.floor(total / names.length * 100) / 100; }
+    var due = /^\d{4}-\d{2}-\d{2}$/.test(op.dueDate || '') ? op.dueDate : addDaysISO(date, 7);
+    var g = {id: uid('g-'), title: String(op.title || ('Racha de ' + fmtDate(date))).slice(0, 60), kind: 'receivable', date: date, total: total,
+      splitMode: 'equal', includeMe: inc, myShare: mine, dueDate: due, walletId: '', notes: 'via Telegram'};
+    state.groups.push(g);
+    var debts = names.map(function(nm, i){
+      var amt = !inc && i === names.length - 1 ? round2(total - each * (names.length - 1)) : each;
+      var d = migrateDebts([newGroupDebt(g, nm, amt)])[0];
+      state.debts.push(d);
+      return d;
+    });
+    linkGroups(state.debts, state.groups);
+    var token = newShareToken();
+    state.shares[token] = {type: 'group', ref: g.id, created: todayISO()};
+    invalidateSchedules();
+    return {g: g, debts: debts, token: token};
+  }
+  // "na verdade foi 45": corrige o valor (ou a categoria) do que foi lançado pelo bot
+  function editLogged(op){
+    var log = state.tgLog[op.target];
+    if(!log || log.undone) return {id: op.id, ok: false, msg: 'esse lançamento ainda não entrou (ou foi desfeito)'};
+    var amt = round2(+op.amount || 0), cat = String(op.category || '').trim(), prev = null, what = '';
+    if(log.tx){
+      var t = state.transactions.find(function(x){ return x.id === log.tx; });
+      if(!t) return {id: op.id, ok: false, msg: 'não achei o lançamento'};
+      prev = {tx: t.id, amount: t.amount, category: t.category};
+      if(amt > 0) t.amount = amt;
+      if(cat){ var known = knownExpenseCats().find(function(k){ return normTxt(k) === normTxt(cat); }); t.category = known || (cat.charAt(0).toUpperCase() + cat.slice(1)); }
+      what = (t.type === 'entrada' ? 'Entrada ' : 'Gasto ') + money.format(t.amount) + ' · ' + t.category;
+    } else if(log.cp){
+      var cp = state.cardPurchases.find(function(x){ return x.id === log.cp; });
+      if(!cp) return {id: op.id, ok: false, msg: 'não achei a compra'};
+      prev = {cp: cp.id, amount: cp.amount, category: cp.category};
+      if(amt > 0) cp.amount = amt;
+      if(cat) cp.category = cat.charAt(0).toUpperCase() + cat.slice(1);
+      what = 'Compra no cartão ' + money.format(cp.amount) + ' · ' + cp.category;
+    } else if(log.debt){
+      var d = state.debts.find(function(x){ return x.id === log.debt; });
+      if(!d || !(amt > 0)) return {id: op.id, ok: false, msg: 'diga o valor certo'};
+      prev = {debt: d.id, amount: d.principal};
+      d.principal = amt;
+      what = (d.kind === 'payable' ? 'Você deve ' : d.name + ' te deve ') + money.format(amt);
+    } else if(log.pays && log.pays.length === 1){
+      var pd = state.debts.find(function(x){ return x.id === log.pays[0].debt; }), pp = pd && pd.payments.find(function(x){ return x.id === log.pays[0].pay; });
+      if(!pp || !(amt > 0)) return {id: op.id, ok: false, msg: 'diga o valor certo'};
+      prev = {pay: log.pays[0], amount: pp.amount};
+      pp.amount = amt;
+      what = 'Pagamento de ' + pd.name + ': ' + money.format(amt);
+    } else if(log.goal){
+      var gl = state.goals.find(function(x){ return x.id === log.goal; }), ga = gl && (gl.adds || []).find(function(a){ return a.id === log.add; });
+      if(!ga || !(amt > 0)) return {id: op.id, ok: false, msg: 'diga o valor certo'};
+      prev = {goal: gl.id, add: ga.id, amount: ga.amount};
+      ga.amount = amt;
+      what = 'Meta ' + gl.name + ': ' + money.format(amt);
+    } else return {id: op.id, ok: false, msg: 'esse tipo de lançamento só dá pra editar no app'};
+    invalidateSchedules();
+    state.tgLog[op.id] = {at: todayISO(), edit: prev};
+    return {id: op.id, ok: true, msg: 'Corrigido: ' + what};
+  }
+  function restoreEdit(p){
+    if(p.tx){ var t = state.transactions.find(function(x){ return x.id === p.tx; }); if(t){ t.amount = p.amount; t.category = p.category; } }
+    if(p.cp){ var c = state.cardPurchases.find(function(x){ return x.id === p.cp; }); if(c){ c.amount = p.amount; c.category = p.category; } }
+    if(p.debt){ var d = state.debts.find(function(x){ return x.id === p.debt; }); if(d) d.principal = p.amount; }
+    if(p.pay){ var pd = state.debts.find(function(x){ return x.id === p.pay.debt; }), pp = pd && pd.payments.find(function(x){ return x.id === p.pay.pay; }); if(pp) pp.amount = p.amount; }
+    if(p.goal){ var g = state.goals.find(function(x){ return x.id === p.goal; }), a = g && (g.adds || []).find(function(x){ return x.id === p.add; }); if(a) a.amount = p.amount; }
   }
   // remarca para newDate o que está atrasado (ou, se nada atrasou, a próxima parcela); devolve [{idx, prev}]
   function reschedule(d, newDate){
@@ -5610,6 +5725,16 @@
       if(!log || log.undone) return;
       if(log.debt) state.debts = state.debts.filter(function(d){ return d.id !== log.debt; });
       if(log.tx) state.transactions = state.transactions.filter(function(t){ return t.id !== log.tx; });
+      if(log.cp) state.cardPurchases = state.cardPurchases.filter(function(x){ return x.id !== log.cp; });
+      if(log.goal){ var ug = state.goals.find(function(x){ return x.id === log.goal; }); if(ug) ug.adds = (ug.adds || []).filter(function(a){ return a.id !== log.add; }); }
+      if(log.group){
+        var keepPaid = state.debts.filter(function(dd){ return dd.groupId === log.group && paidAmount(dd) > EPS; });
+        keepPaid.forEach(function(dd){ delete dd.groupId; });
+        state.debts = state.debts.filter(function(dd){ return dd.groupId !== log.group; });
+        state.groups = state.groups.filter(function(gg){ return gg.id !== log.group; });
+        if(log.share && state.shares) delete state.shares[log.share];
+      }
+      if(log.edit) restoreEdit(log.edit);
       if(log.resched){
         var rd = state.debts.find(function(dd){ return dd.id === log.resched.debt; });
         if(rd && rd.dueOverride) log.resched.moved.forEach(function(m){ if(m.prev) rd.dueOverride[m.idx] = m.prev; else delete rd.dueOverride[m.idx]; });
@@ -6960,6 +7085,53 @@
   // =====================================================================
   // v10: esconder valores, prazo pelo link, nota de confiança, recibo de quitação
   // =====================================================================
+
+  // ---------- caçador de assinaturas: gastos que se repetem todo mês ----------
+  function subKeyOf(t){
+    var txt = String(t.desc || t.note || '').replace(/\s*·?\s*via Telegram/i, '').replace(/\(nota fiscal\)/i, '').trim();
+    return {key: normTxt(txt || t.category || '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(), name: txt || t.category || ''};
+  }
+  function detectSubs(){
+    var today = todayISO(), from = ymAdd(ymOf(today), -6), by = {};
+    function add(item, amount, date, category){
+      if(!(amount > 0) || ymOf(date) < from) return;
+      var k = subKeyOf(item);
+      if(!k.key) return;
+      var b = by[k.key] || (by[k.key] = {key: k.key, name: k.name, category: category || '', items: []});
+      b.items.push({date: date, amount: round2(amount)});
+    }
+    state.transactions.forEach(function(t){ if(t.type === 'gasto' && !(t.auto && /^card:/.test(t.auto)) && !t.isTransfer) add(t, t.amount, t.date, t.category); });
+    state.cardPurchases.forEach(function(p){ if((p.installments || 1) === 1) add(p, p.amount, p.date, p.category); });
+    var out = [];
+    Object.keys(by).forEach(function(k){
+      var b = by[k], months = {};
+      b.items.sort(function(a, c){ return a.date < c.date ? -1 : 1; });
+      b.items.forEach(function(it){ var m = ymOf(it.date); (months[m] = months[m] || []).push(it); });
+      var ms = Object.keys(months).sort();
+      if(ms.length < 3) return;
+      if(ms.some(function(m){ return months[m].length > 2; })) return; // várias vezes no mês: não é assinatura (ex.: mercado)
+      var amts = b.items.map(function(x){ return x.amount; }).slice().sort(function(a, c){ return a - c; }), med = amts[Math.floor(amts.length / 2)];
+      if(b.items.some(function(x){ return Math.abs(x.amount - med) > med * 0.3; })) return; // valor muda demais
+      var lastIt = b.items[b.items.length - 1];
+      if(daysBetweenISO(lastIt.date, today) > 40) return; // parou de cobrar
+      var prevIt = b.items.length > 1 ? b.items[b.items.length - 2] : null;
+      var raised = prevIt && lastIt.amount - prevIt.amount >= 1 && lastIt.amount > prevIt.amount * 1.03;
+      out.push({key: k, name: b.name, category: b.category, last: lastIt.amount, lastDate: lastIt.date, prev: prevIt ? prevIt.amount : 0, raised: !!raised, months: ms.length, yearly: round2(lastIt.amount * 12)});
+    });
+    return out.sort(function(a, c){ return c.yearly - a.yearly; });
+  }
+  function renderSubs(){
+    var el = document.getElementById('relSubs');
+    if(!el) return;
+    var list = detectSubs();
+    if(!list.length){ el.innerHTML = '<div class="chart-empty">Nenhum gasto se repetindo todo mês ainda (precisa de 3 meses de histórico).</div>'; return; }
+    var total = list.reduce(function(s, x){ return s + x.last; }, 0);
+    el.innerHTML = '<div class="subs-total">Somando <b>' + money.format(total) + '</b> por mês, ou <b>' + money.format(total * 12) + '</b> por ano.</div>' +
+      list.map(function(x){
+        return '<div class="sub-row' + (x.raised ? ' up' : '') + '"><div class="sub-n"><b>' + escapeHtml(x.name) + '</b><span>' + (x.raised ? 'subiu de ' + money.format(x.prev) + ' para ' + money.format(x.last) : 'há ' + x.months + ' meses' + (x.category && normTxt(x.category) !== x.key ? ' · ' + escapeHtml(x.category) : '')) + '</span></div>' +
+          '<div class="sub-v"><b>' + money.format(x.last) + '</b><span>' + money.format(x.yearly) + '/ano</span></div></div>';
+      }).join('');
+  }
 
   // ---------- olhinho: esconde os valores da tela ----------
   var PRIV_KEY = 'barnabank_hide_values', privOn = lsGet(PRIV_KEY) === '1', privObs = null, privNodes = [];

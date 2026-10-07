@@ -15,6 +15,10 @@ Com o bot, você manda mensagens como estas e elas entram no app:
 | 📎 foto do PIX com a legenda `recebi 50 do Vini` | pagamento com o comprovante anexado |
 | 🧾 foto do cupom fiscal (legenda opcional: a carteira, ex. `nubank`) | gasto com loja, valor, data e categoria (lido pela IA: confira) |
 | 🔗 link do QR Code da nota (aponte a câmera pro QR e compartilhe o link com o bot) | gasto com os dados oficiais da Sefaz |
+| 🏦 notificação do banco encaminhada (`Compra aprovada R$ 45,90 em PADARIA…`) | gasto (no cartão, se for crédito), entrada, ou pagamento se o Pix é de quem te deve |
+| `racha 120 do churrasco com Bia e Caio até sexta` | cria o grupo (você incluso; `sem mim` tira você) e manda o link pro WhatsApp |
+| `guardei 100 na viagem` | guarda na meta e diz se está no ritmo pra chegar no prazo |
+| `na verdade foi 45` / `na verdade foi lazer` | corrige o valor ou a categoria do último lançamento |
 
 Tudo entra **na hora**: a nuvem roda as mesmas regras do app (o arquivo `bot/engine.js` é gerado do `app.js` na publicação), então um `/resumo` logo depois já mostra o valor novo, e o app só pega a versão atualizada quando você abrir. Toda confirmação tem o botão **Desfazer**, que também vale na hora.
 
@@ -22,6 +26,7 @@ Comandos:
 - `/cobrar` (ou `cobrar Larissa`): mensagem de cobrança pronta para encaminhar, com botão do WhatsApp e o link de cobrança
 - `/resumo`, `/atrasados`, `/semana` (próximos 7 dias), `/semanal` (resumo da semana), `/saldo`, `/pendentes`, `/ajuda`
 - `/lembretes`: liga ou desliga os avisos
+- `/ultimos`: os 5 últimos lançamentos feitos pelo bot, com botão de apagar
 - No `/cobrar`, se a pessoa já entrou nos lembretes, aparece **Mandar lembrete no Telegram**
 
 Lembretes: todo dia às 9h o bot avisa o que vence hoje, o que vence amanhã e o que está atrasado. No domingo manda também o resumo da semana (quanto entrou e saiu, onde mais gastou, quem pagou).
@@ -43,6 +48,10 @@ Você também fica sabendo quando a pessoa abre o link (o bot avisa, no máximo 
 - Perguntas que o bot não reconhece vão para uma IA que responde só com os seus dados (marcada com 🤖; confira no app).
 
 Áudio, foto de cupom e IA usam o **Workers AI** da Cloudflare (tem uma cota grátis por dia). Se o resumo da publicação disser que ficou desligado, crie de novo o token da Cloudflare incluindo a permissão **Account → Workers AI → Edit** e rode a publicação de novo.
+
+### Assinaturas e metas
+- **Assinaturas**: o app acha gastos que se repetem todo mês (em Relatórios, com quanto custam por ano). Se uma ficar mais cara, o bot avisa uma vez.
+- **Metas com prazo**: além de quanto guardar por mês, o app mostra se a meta está abaixo do ritmo. Todo dia 20 o bot avisa das metas que estão ficando pra trás.
 
 ### Gastos fora do padrão
 Se uma categoria passar muito da sua média dos últimos meses (ex.: Lazer 3x maior), aparece um aviso no Início e o bot avisa uma vez no mês.
