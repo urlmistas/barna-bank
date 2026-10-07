@@ -1,0 +1,85 @@
+name: Publicar bot do Telegram
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['bot/**', '.github/workflows/bot.yml']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      SYNC_KEY: ${{ secrets.SYNC_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Conferir segredos
+        run: |
+          faltando=""
+          for v in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID TELEGRAM_TOKEN SYNC_KEY; do
+            [ -n "${!v}" ] || faltando="$faltando $v"
+          done
+          if [ -n "$faltando" ]; then
+            echo "::error::Faltam estes segredos em Settings > Secrets and variables > Actions:$faltando"
+            exit 1
+          fi
+          if [ ${#SYNC_KEY} -lt 16 ]; then
+            echo "::error::A SYNC_KEY precisa ter pelo menos 16 caracteres."
+            exit 1
+          fi
+
+      - name: Criar ou achar o armazenamento (KV)
+        run: |
+          set -o pipefail
+          API="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/storage/kv/namespaces"
+          AUTH="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+          ID=$(curl -fsS -H "$AUTH" "$API?per_page=100" | jq -r '.result[] | select(.title=="barnabank-data") | .id' | head -n1)
+          if [ -z "$ID" ]; then
+            ID=$(curl -fsS -X POST -H "$AUTH" -H "Content-Type: application/json" -d '{"title":"barnabank-data"}' "$API" | jq -r '.result.id')
+          fi
+          if [ -z "$ID" ] || [ "$ID" = "null" ]; then
+            echo "::error::Não consegui criar o KV. Confira se o token tem a permissão 'Workers KV Storage: Edit'."
+            exit 1
+          fi
+          sed -i "s/__KV_ID__/$ID/" bot/wrangler.toml
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Publicar o Worker
+        id: deploy
+        working-directory: bot
+        run: |
+          set -o pipefail
+          npx -y wrangler@3 deploy 2>&1 | tee deploy.log
+          printf '%s' "$TELEGRAM_TOKEN" | npx -y wrangler@3 secret put TELEGRAM_TOKEN
+          printf '%s' "$SYNC_KEY" | npx -y wrangler@3 secret put SYNC_KEY
+          URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' deploy.log | head -n1)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Ligar o bot no Telegram
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          URL="$DEPLOY_URL"
+          if [ -z "$URL" ]; then
+            SUB=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | jq -r '.result.subdomain')
+            URL="https://barnabank-bot.$SUB.workers.dev"
+          fi
+          URL="${URL%/}"
+          sleep 5
+          curl -fsS "$URL/setup?key=$SYNC_KEY" | tee setup.json
+          {
+            echo "## Bot publicado"
+            echo
+            echo "Endereço para colar no app (Configurações > Nuvem e bot do Telegram):"
+            echo
+            echo "\`$URL\`"
+            echo
+            echo "Agora abra o seu bot no Telegram e mande **/start**."
+          } >> "$GITHUB_STEP_SUMMARY"
