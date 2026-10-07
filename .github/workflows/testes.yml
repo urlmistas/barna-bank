@@ -1,0 +1,35 @@
+name: Testes
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar ferramentas de teste
+        run: |
+          pip install playwright opencv-python-headless numpy
+          python -m playwright install --with-deps chromium
+      - name: Montar o motor do bot
+        run: node bot/build-engine.mjs
+      - name: Rodar todos os testes
+        run: python tests/run_all.py
+      - name: Guardar prints se algo falhar
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prints-dos-testes
+          path: /tmp/bb-tests
+          retention-days: 7

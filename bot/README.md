@@ -14,12 +14,13 @@ Com o bot, você manda mensagens como estas e elas entram no app:
 
 | 📎 foto do PIX com a legenda `recebi 50 do Vini` | pagamento com o comprovante anexado |
 
-Toda confirmação tem o botão **Desfazer**: se a mensagem ainda não entrou no app, ela some da fila; se já entrou, sai do app na próxima vez que você abrir.
+Tudo entra **na hora**: a nuvem roda as mesmas regras do app (o arquivo `bot/engine.js` é gerado do `app.js` na publicação), então um `/resumo` logo depois já mostra o valor novo, e o app só pega a versão atualizada quando você abrir. Toda confirmação tem o botão **Desfazer**, que também vale na hora.
 
 Comandos:
 - `/cobrar` (ou `cobrar Larissa`): mensagem de cobrança pronta para encaminhar, com botão do WhatsApp e o link de cobrança
 - `/resumo`, `/atrasados`, `/semana` (próximos 7 dias), `/semanal` (resumo da semana), `/saldo`, `/pendentes`, `/ajuda`
 - `/lembretes`: liga ou desliga os avisos
+- No `/cobrar`, se a pessoa já entrou nos lembretes, aparece **Mandar lembrete no Telegram**
 
 Lembretes: todo dia às 9h o bot avisa o que vence hoje, o que vence amanhã e o que está atrasado. No domingo manda também o resumo da semana (quanto entrou e saiu, onde mais gastou, quem pagou).
 
@@ -42,7 +43,16 @@ Você também fica sabendo quando a pessoa abre o link (o bot avisa, no máximo 
 ### Gastos fora do padrão
 Se uma categoria passar muito da sua média dos últimos meses (ex.: Lazer 3x maior), aparece um aviso no Início e o bot avisa uma vez no mês.
 
-As mensagens ficam numa fila e entram no BarnaBank quando você abre o app.
+### Lembretes para quem te deve
+Na página de uma pessoa, toque em **Lembretes no Telegram** e mande o convite (tem botão do WhatsApp). Quando a pessoa abrir o convite e tocar em **Começar**, o seu bot passa a mandar para ela, às 9h:
+- na véspera e no dia do vencimento: quanto vence;
+- se atrasar: quanto está atrasado, a cada 3 dias.
+
+A mensagem leva o valor, o total em aberto, o link de cobrança (se você tiver criado) e o seu PIX. Você fica sabendo quando a pessoa entra, quando um lembrete é enviado e se ela sair (`/parar`). A pessoa só consegue ver o que ela deve (`/status`); nada mais do bot responde a ela. Dá para pausar ou desconectar cada pessoa na mesma tela do app.
+
+### Backups diários
+A nuvem guarda uma cópia dos dados por dia (como estavam no começo do dia) e mantém os últimos 30 dias. Para voltar: **Configurações** → **Nuvem e bot do Telegram** → **Backups diários** → escolha o dia.
+
 O app também guarda uma cópia dos dados na nuvem, então dá para usar em outro aparelho.
 
 ## Instalação (uma vez só, dá para fazer pelo celular)
@@ -88,7 +98,8 @@ Pronto. Em outro aparelho, faça só o passo 5.2: o app oferece puxar os dados d
 - Os dados ficam no **seu** Cloudflare (KV `barnabank-data`), não em servidor de terceiros.
 - O app só lê e grava com a `SYNC_KEY`; o webhook do Telegram só aceita chamadas com uma assinatura secreta.
 - As fotos de comprovante ficam no aparelho (e no backup .json). As que você manda pelo Telegram passam pela nuvem só até o app pegar, e aí são apagadas de lá.
-- Se dois aparelhos mexerem ao mesmo tempo, vale o último que salvar. As mensagens do bot nunca se perdem: ficam na fila até um app aplicar.
+- Se dois aparelhos mexerem ao mesmo tempo, vale o último que salvar. As mensagens do bot nunca se perdem: ficam na fila até um app confirmar, e ninguém lança a mesma mensagem duas vezes.
+- No plano grátis da Cloudflare cada mensagem tem um limite curto de processamento. Se os seus dados ficarem grandes demais para ele, o bot continua respondendo e a mensagem entra quando o app abrir (como era antes). O bot só grava o que mudou, então as 1000 gravações por dia do KV grátis sobram.
 - Para trocar o dono do bot, apague a chave `owner` no KV `barnabank-data` (Cloudflare → Storage → KV).
 
 ## O bot não responde?
