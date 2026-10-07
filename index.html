@@ -2228,7 +2228,7 @@
     if(p.shares && typeof p.shares === 'object' && !Array.isArray(p.shares)){
       Object.keys(p.shares).forEach(function(t){
         var sh = p.shares[t];
-        if(/^[A-Za-z0-9]{16,40}$/.test(t) && sh && (sh.type === 'person' || sh.type === 'group') && typeof sh.ref === 'string') shares[t] = sh;
+        if(/^[A-Za-z0-9]{16,40}$/.test(t) && sh && (sh.type === 'person' || sh.type === 'group' || sh.type === 'debt') && typeof sh.ref === 'string') shares[t] = sh;
       });
     }
     var tgLog = {}, cutoff = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
@@ -2599,7 +2599,7 @@
       msg = 'Oi ' + d.name + ', tudo bem? Sua próxima parcela é de ' + money.format(amountDueNow(d)) + (due ? (', vencimento em ' + fmtDate(toISO(due))) : '') + '. Qualquer coisa me avisa 🙂';
     }
     if(settings.pixKey) msg += '\nPIX: ' + settings.pixKey;
-    var slink = shareLinkFor('person', nameKey(d.name));
+    var slink = shareLinkFor('debt', d.id) || shareLinkFor('person', nameKey(d.name));
     if(slink) msg += '\nDetalhes: ' + slink;
     return msg;
   }
@@ -3148,6 +3148,7 @@
           (opts.inPerson ? '' : '<button class="btn btn-ghost btn-sm" data-act="profile">' + ic('user') + ' Ver pessoa</button>') +
           (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="settle">' + ic('badge-percent') + ' Quitar c/ desconto</button>') +
           '<div class="spacer"></div>' +
+          (!isPayable ? '<button class="btn btn-ghost btn-sm" data-act="share" title="Link só desta dívida">' + ic('share-2') + ' Link' + (shareFor('debt', d.id) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>' : '') +
           '<button class="btn btn-ghost btn-sm" data-act="statement">' + ic('file-text') + ' Extrato</button>' +
           '<button class="btn btn-ghost btn-sm" data-act="edit">' + ic('pencil') + ' Editar</button>' +
           '<button class="btn btn-danger btn-sm" data-act="del">' + ic('trash') + ' Excluir</button>' +
@@ -3251,6 +3252,8 @@
     });
     var noWhats = inner.querySelector('[data-act="nowhats"]');
     if(noWhats) noWhats.addEventListener('click', function(e){ e.stopPropagation(); showToast('Cadastre o telefone em "Editar" para cobrar pelo WhatsApp.', 'phone'); });
+    var shareBtn = inner.querySelector('[data-act="share"]');
+    if(shareBtn) shareBtn.addEventListener('click', function(e){ e.stopPropagation(); openShareDialog('debt', d.id, d.name); });
     var whatsBtn = inner.querySelector('[data-act="whats"]');
     if(whatsBtn) whatsBtn.addEventListener('click', function(e){ e.stopPropagation(); });
     var profBtn = inner.querySelector('[data-act="profile"]');
@@ -7719,8 +7722,8 @@
     return p.length > 1 ? p[0] + ' ' + p[p.length - 1][0].toUpperCase() + '.' : p[0];
   }
   function sortedPays(d){ return (d.payments || []).slice().sort(function(a, b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; }).map(function(p){ return {date: p.date, amount: round2(p.amount)}; }); }
-  function personShareView(key){
-    var ds = state.debts.filter(function(d){ return nameKey(d.name) === key && d.kind === 'receivable'; });
+  function personShareView(key, onlyDebtId){
+    var ds = state.debts.filter(function(d){ return onlyDebtId ? d.id === onlyDebtId : (nameKey(d.name) === key && d.kind === 'receivable'); });
     if(!ds.length) return null;
     var open = ds.filter(function(d){ return !isPaid(d); }), done = ds.filter(isPaid);
     var sum = function(arr, fn){ return round2(arr.reduce(function(s, d){ return s + fn(d); }, 0)); };
@@ -7755,7 +7758,7 @@
     var out = {};
     Object.keys(state.shares || {}).forEach(function(t){
       var sh = state.shares[t];
-      var v = sh.type === 'group' ? (groupById(sh.ref) ? groupShareView(groupById(sh.ref)) : null) : personShareView(sh.ref);
+      var v = sh.type === 'group' ? (groupById(sh.ref) ? groupShareView(groupById(sh.ref)) : null) : sh.type === 'debt' ? personShareView(null, sh.ref) : personShareView(sh.ref);
       if(v) out[t] = v;
     });
     return out;
@@ -7785,14 +7788,15 @@
     var token = shareFor(type, ref);
     function show(){
       var url = shareUrl(token);
-      var phone = type === 'person' ? whatsPhone(label) : '';
+      var phone = type !== 'group' ? whatsPhone(label) : '';
       var waText = type === 'group'
         ? 'Pessoal, aqui dá pra ver quem já pagou o *' + label + '* e quanto falta pra cada um: ' + url
         : 'Oi ' + firstName(label) + '! Aqui tá o resumo do que ficou em aberto comigo, com as parcelas e o PIX: ' + url;
       openDialog({
-        title: type === 'group' ? 'Link do grupo' : 'Link de cobrança · ' + firstName(label), icon: 'share-2', alert: true, okText: 'Fechar',
+        title: type === 'group' ? 'Link do grupo' : type === 'debt' ? 'Link desta dívida · ' + firstName(label) : 'Link de cobrança · ' + firstName(label), icon: 'share-2', alert: true, okText: 'Fechar',
         html: '<p class="warn">' + (type === 'group'
             ? 'Quem abrir vê o <b>' + escapeHtml(label) + '</b>: quanto cada um já pagou e quanto falta, e o seu PIX.'
+            : type === 'debt' ? 'Quem abrir vê só <b>esta dívida</b> de <b>' + escapeHtml(firstName(label)) + '</b>: parcelas, pagamentos e o seu PIX. As outras dívidas e o resto do app ficam de fora.'
             : 'Quem abrir vê só as dívidas de <b>' + escapeHtml(firstName(label)) + '</b> com você: parcelas, pagamentos e o seu PIX. Nada do resto do app.') +
           ' Atualiza sozinho quando você mexe no app.</p>' +
           '<div class="share-url"><input id="shUrl" type="text" readonly value="' + escapeHtml(url) + '"></div>' +
