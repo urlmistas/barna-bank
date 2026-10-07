@@ -68,9 +68,15 @@ def main():
             print(report[-1], flush=True)
             for f in fails: print('    ' + f)
             if crashed and not fails: print('    ' + '\n    '.join(out.strip().splitlines()[-15:]))
+            if os.environ.get('GITHUB_ACTIONS'):
+                # aparece na página da execução (e na API), sem precisar abrir o log
+                for f in fails: print('::error title=%s::%s' % (name, f[5:].replace('\n', ' ')[:300]))
+                if crashed and not fails: print('::error title=%s::%s' % (name, ' | '.join(out.strip().splitlines()[-6:])[:900]))
     finally:
         web.kill()
     print('\n'.join(['', 'Resumo:'] + report))
+    if os.environ.get('GITHUB_STEP_SUMMARY'):
+        with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as fh: fh.write('### Testes\n```\n' + '\n'.join(report) + '\n```\n')
     sys.exit(1 if total_fail else 0)
 
 if __name__ == '__main__':
