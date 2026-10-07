@@ -54,9 +54,13 @@ def check(cond, msg):
     print(('OK   ' if cond else 'FAIL ') + msg)
     if not cond: fails.append(msg)
 
+INLINE_CARDS_CSS = (".card[data-debt-id].open{position:relative !important;inset:auto !important;z-index:auto !important;border-radius:18px !important;overflow:visible !important;padding-bottom:0 !important;background:var(--card) !important;border:1px solid var(--stroke) !important}"
+    ".card[data-debt-id].open > .card-head{position:static !important}body.sheet-open{overflow:auto !important}body.sheet-open .fab{display:inline-flex !important}")
+
 with sync_playwright() as p:
     b = p.chromium.launch()
     ctx = b.new_context(viewport={'width': 400, 'height': 900}, accept_downloads=True)
+    ctx.add_init_script("document.addEventListener('DOMContentLoaded',function(){var s=document.createElement('style');s.textContent=%s;document.head.appendChild(s);});" % json.dumps(INLINE_CARDS_CSS))
     ctx.add_init_script("if(!sessionStorage.getItem('seeded')){localStorage.setItem('barnabank_debts_v3', %s); sessionStorage.setItem('seeded','1');}" % json.dumps(json.dumps(data)))
     page = ctx.new_page()
     errors = []
@@ -78,6 +82,7 @@ with sync_playwright() as p:
         c = card(name)
         if 'open' not in (c.get_attribute('class') or ''):
             c.locator('.card-head').click(); page.wait_for_timeout(150)
+        page.evaluate("document.querySelectorAll('.od-details').forEach(function(d){ d.open = true; })")
         return card(name)
 
     # A: parcial fica em atraso

@@ -19,9 +19,13 @@ def N(t): return t.replace('\xa0', ' ').replace(' ', ' ')
 seed = {'debts': [], 'contacts': {'bia': {'phone': '11988887777'}}, 'transactions': [], 'groups': [],
         'wallets': [{'id': 'w1', 'name': 'Nubank', 'icon': '💜'}]}
 
+INLINE_CARDS_CSS = (".card[data-debt-id].open{position:relative !important;inset:auto !important;z-index:auto !important;border-radius:18px !important;overflow:visible !important;padding-bottom:0 !important;background:var(--card) !important;border:1px solid var(--stroke) !important}"
+    ".card[data-debt-id].open > .card-head{position:static !important}body.sheet-open{overflow:auto !important}body.sheet-open .fab{display:inline-flex !important}")
+
 with sync_playwright() as p:
     b = p.chromium.launch()
     ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, accept_downloads=True)
+    ctx.add_init_script("document.addEventListener('DOMContentLoaded',function(){var s=document.createElement('style');s.textContent=%s;document.head.appendChild(s);});" % json.dumps(INLINE_CARDS_CSS))
     ctx.add_init_script("if(!sessionStorage.getItem('s')){localStorage.setItem('barnabank_debts_v3', %s);localStorage.setItem('barnabank_settings_v1', JSON.stringify({pixKey:'joao@pix.com'}));sessionStorage.setItem('s','1');}" % json.dumps(json.dumps(seed)))
     page = ctx.new_page()
     errors = []
