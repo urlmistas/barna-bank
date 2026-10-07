@@ -1164,6 +1164,14 @@
   .cal-legend span{display:inline-flex;align-items:center;gap:5px;}
 
   .cloud-status{font-size:12px;color:var(--muted);margin:-4px 0 10px;}
+  .diag{list-style:none;margin:0 0 6px;padding:0;display:flex;flex-direction:column;gap:8px;}
+  .diag li{display:flex;gap:10px;align-items:flex-start;background:var(--card);border:1px solid var(--stroke);border-radius:12px;padding:10px 12px;}
+  .diag li > .i{width:18px;height:18px;flex-shrink:0;margin-top:1px;}
+  .diag li div{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .diag li b{font-size:13.5px;}
+  .diag li span{font-size:12.5px;color:var(--muted);line-height:1.45;overflow-wrap:anywhere;}
+  .diag li.ok > .i{color:var(--green);} .diag li.bad > .i{color:var(--red);} .diag li.warn > .i{color:var(--gold-soft);}
+  .diag li.bad{border-color:rgba(226,102,92,0.4);}
   .cloud-status.ok{color:var(--green);} .cloud-status.err{color:var(--red);}
   .rel-actions{display:flex;gap:8px;align-items:center;}
 
@@ -7469,7 +7477,7 @@
         '<div class="field"><label for="clUrl">Endereço do bot</label><input id="clUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://barnabank-bot.seu-nome.workers.dev" value="' + escapeHtml(cloudCfg.url || '') + '"></div>' +
         '<div class="field"><label for="clKey">Chave (SYNC_KEY)</label><input id="clKey" type="password" autocomplete="off" placeholder="a mesma que você colocou no GitHub" value="' + escapeHtml(cloudCfg.key || '') + '"></div>' +
         '<div class="cloud-status" id="cloudStatus"></div>' +
-        (cloudOn() ? '<div class="card-actions"><button type="button" class="btn btn-ghost btn-sm" id="clPull">' + ic('cloud-download') + ' Trocar pelos dados da nuvem</button><div class="spacer"></div><button type="button" class="btn btn-danger btn-sm" id="clOff">Desligar</button></div>' : ''),
+        (cloudOn() ? '<div class="card-actions"><button type="button" class="btn btn-ghost btn-sm" id="clTest">' + ic('send') + ' Testar bot</button><button type="button" class="btn btn-ghost btn-sm" id="clPull">' + ic('cloud-download') + ' Trocar pelos dados da nuvem</button><div class="spacer"></div><button type="button" class="btn btn-danger btn-sm" id="clOff">Desligar</button></div>' : ''),
       onOk: function(body){
         var url = body.querySelector('#clUrl').value.trim(), key = body.querySelector('#clKey').value.trim();
         if(url && !/^https:\/\/[^\s/]+/.test(url)) return 'O endereço precisa começar com https://';
@@ -7483,6 +7491,8 @@
     renderCloudStatus();
     var off = document.getElementById('clOff');
     if(off) off.addEventListener('click', function(){ cloudCfg = {}; cloudSaveCfg(); closeDialog(false); showToast('Nuvem desligada neste aparelho', 'cloud'); });
+    var test = document.getElementById('clTest');
+    if(test) test.addEventListener('click', function(){ closeDialog(false); botDiagnose(); });
     var pull = document.getElementById('clPull');
     if(pull) pull.addEventListener('click', function(){
       closeDialog(false);
@@ -7494,6 +7504,61 @@
     });
   }
   document.getElementById('btnCloud').addEventListener('click', function(){ closeSettings(); openCloudSettings(); });
+
+  // diagnóstico do bot: o que está funcionando e o que não está
+  function botCall(path){
+    return fetch(cloudUrl(path), {headers: {'Authorization': 'Bearer ' + cloudCfg.key}}).then(function(r){
+      if(r.status === 401) throw new Error('A chave (SYNC_KEY) do app não bate com a do GitHub.');
+      if(r.status === 404) throw new Error('O bot está numa versão antiga. Rode o "Publicar bot do Telegram" de novo no GitHub.');
+      if(!r.ok) throw new Error('O bot respondeu com erro ' + r.status + '.');
+      return r.json();
+    }, function(){ throw new Error('Não consegui falar com o bot. Confira o endereço (precisa ser o https://…workers.dev do resumo do GitHub).'); });
+  }
+  var TG_ERRORS = [
+    [/ssl|certificate/i, 'o endereço *.workers.dev ainda está ganhando o certificado de segurança (pode levar alguns minutos depois de criado)'],
+    [/resolve|dns|host/i, 'o endereço *.workers.dev ainda não está no ar para o Telegram (espere alguns minutos e toque em Religar)'],
+    [/unauthorized|not found/i, 'o token do Telegram no GitHub (TELEGRAM_TOKEN) está errado'],
+    [/timeout|timed out/i, 'o bot demorou para responder ao Telegram'],
+    [/wrong response|bad gateway|5\d\d/i, 'o bot deu erro ao receber a mensagem']
+  ];
+  function tgReason(msg){
+    for(var i = 0; i < TG_ERRORS.length; i++){ if(TG_ERRORS[i][0].test(msg || '')) return TG_ERRORS[i][1]; }
+    return msg || '';
+  }
+  function botDiagnose(){
+    openDialog({title: 'Testando o bot…', icon: 'send', alert: true, okText: 'Fechar', html: '<p class="warn">Conversando com a nuvem e com o Telegram…</p>'});
+    botCall('/status').then(showDiag, function(e){ showDiagError(e.message); });
+  }
+  function showDiagError(msg){
+    openDialog({title: 'Teste do bot', icon: 'send', alert: true, okText: 'Fechar',
+      html: '<ul class="diag"><li class="bad">' + ic('x') + '<div><b>Nuvem</b><span>' + escapeHtml(msg) + '</span></div></li></ul>'});
+  }
+  function showDiag(st){
+    function row(ok, title, txt, warn){ return '<li class="' + (ok ? 'ok' : warn ? 'warn' : 'bad') + '">' + ic(ok ? 'check' : warn ? 'circle-alert' : 'x') + '<div><b>' + title + '</b><span>' + txt + '</span></div></li>'; }
+    var rows = row(true, 'Nuvem', 'respondendo, chave certa' + (st.summaryAt ? ' · dados enviados ' + relDay(st.summaryAt.slice(0, 10)) : ''));
+    rows += row(st.tokenOk, 'Token do Telegram', st.tokenOk ? 'válido · ' + escapeHtml(st.bot || '') : 'o Telegram recusou o TELEGRAM_TOKEN' + (st.tokenError ? ' (' + escapeHtml(st.tokenError) + ')' : '') + '. Confira o segredo no GitHub e publique de novo.');
+    var hookTxt = st.webhookOk ? 'o Telegram está entregando as mensagens para o bot'
+      : st.webhookPointsElsewhere ? 'o Telegram está mandando as mensagens para outro endereço'
+      : 'o Telegram ainda não sabe para onde mandar as mensagens';
+    if(st.lastSetup && !st.lastSetup.ok && st.lastSetup.description) hookTxt += ' · motivo: ' + escapeHtml(tgReason(st.lastSetup.description));
+    rows += row(st.webhookOk, 'Ligação com o Telegram', hookTxt);
+    var recent = st.lastErrorAt && (Date.now() - new Date(st.lastErrorAt).getTime()) < 6 * 3600000;
+    if(st.lastError && recent) rows += row(false, 'Entrega das mensagens', 'falhou ' + relDay(st.lastErrorAt.slice(0, 10)) + ': ' + escapeHtml(tgReason(st.lastError)) + (st.pending ? ' · ' + st.pending + ' mensagem(ns) na espera' : ''), true);
+    rows += row(st.owner, 'Dono do bot', st.owner ? 'definido' : 'falta mandar /start para o bot' + (st.bot ? ' (' + escapeHtml(st.bot) + ')' : ''), true);
+    if(st.botError && (Date.now() - new Date(st.botError.at).getTime()) < 24 * 3600000) rows += row(false, 'Último erro do bot', escapeHtml(String(st.botError.error).split('\n')[0]), true);
+    if(st.inbox) rows += row(true, 'Mensagens', st.inbox + ' esperando para entrar no app');
+    var allOk = st.tokenOk && st.webhookOk && st.owner;
+    openDialog({title: allOk ? 'Bot funcionando' : 'Teste do bot', icon: 'send', okText: st.webhookOk ? 'Fechar' : 'Religar bot', cancelText: 'Fechar', alert: !!st.webhookOk,
+      html: '<ul class="diag">' + rows + '</ul>' + (!st.webhookOk ? '<p class="warn">Toque em <b>Religar bot</b> para pedir de novo ao Telegram que mande as mensagens para cá.</p>' : ''),
+      onOk: function(){
+        if(st.webhookOk) return true;
+        botCall('/setup').then(function(r){
+          if(r.webhook) showToast('Bot religado ' + (r.bot ? '(' + r.bot + ')' : '') + '. Manda /start ou /resumo pra ele.', 'send');
+          botCall('/status').then(showDiag, function(e){ showDiagError(e.message); });
+        }, function(e){ showDiagError(e.message); });
+        return true;
+      }});
+  }
   document.addEventListener('visibilitychange', function(){ if(document.visibilityState === 'visible' && cloudOn()) cloudSync(); });
 
   // ---------- inicialização ----------

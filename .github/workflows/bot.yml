@@ -72,14 +72,30 @@ jobs:
             URL="https://barnabank-bot.$SUB.workers.dev"
           fi
           URL="${URL%/}"
-          sleep 5
-          curl -fsS "$URL/setup?key=$SYNC_KEY" | tee setup.json
+          OK=""
+          for i in 1 2 3 4 5 6; do
+            sleep 10
+            RES=$(curl -sS "$URL/setup?key=$SYNC_KEY" || true)
+            echo "$RES" | jq -c '{webhook, description, tokenOk, bot, tokenError, lastError}' 2>/dev/null || echo "$RES"
+            if [ "$(echo "$RES" | jq -r '.webhook // false' 2>/dev/null)" = "true" ]; then OK=1; break; fi
+            echo "Tentativa $i: o Telegram ainda não aceitou. Tentando de novo..."
+            sleep 10
+          done
+          BOT=$(echo "$RES" | jq -r '.bot // empty' 2>/dev/null)
           {
-            echo "## Bot publicado"
+            if [ -n "$OK" ]; then echo "## Bot publicado e ligado ✅"; else echo "## Bot publicado, mas o Telegram ainda não aceitou ⚠️"; fi
             echo
+            if [ -z "$OK" ]; then
+              echo "Motivo informado: \`$(echo "$RES" | jq -r '.description // .tokenError // .error // "sem resposta"' 2>/dev/null)\`"
+              echo
+              echo "Se o endereço *.workers.dev é novo, ele pode levar alguns minutos para entrar no ar. O bot tenta ligar de novo sozinho toda vez que o app sincroniza (ou use **Testar bot** no app)."
+              echo
+            fi
+            [ -n "$BOT" ] && echo "Seu bot: **$BOT**" && echo
             echo "Endereço para colar no app (Configurações > Nuvem e bot do Telegram):"
             echo
             echo "\`$URL\`"
             echo
-            echo "Agora abra o seu bot no Telegram e mande **/start**."
+            echo "Depois mande **/start** para o seu bot no Telegram."
           } >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$OK" ]; then echo "::warning::O Telegram ainda não aceitou o endereço do bot. Veja o resumo da execução."; fi
