@@ -13,6 +13,8 @@ Com o bot, você manda mensagens como estas e elas entram no app:
 | `ganhei 150 freela` | entrada de R$ 150 |
 
 | 📎 foto do PIX com a legenda `recebi 50 do Vini` | pagamento com o comprovante anexado |
+| 🧾 foto do cupom fiscal (legenda opcional: a carteira, ex. `nubank`) | gasto com loja, valor, data e categoria (lido pela IA: confira) |
+| 🔗 link do QR Code da nota (aponte a câmera pro QR e compartilhe o link com o bot) | gasto com os dados oficiais da Sefaz |
 
 Tudo entra **na hora**: a nuvem roda as mesmas regras do app (o arquivo `bot/engine.js` é gerado do `app.js` na publicação), então um `/resumo` logo depois já mostra o valor novo, e o app só pega a versão atualizada quando você abrir. Toda confirmação tem o botão **Desfazer**, que também vale na hora.
 
@@ -27,6 +29,8 @@ Lembretes: todo dia às 9h o bot avisa o que vence hoje, o que vence amanhã e o
 ### Links de cobrança
 Na página de uma pessoa (**Link de cobrança**) ou num grupo (**Link do grupo**), o app cria uma página só de leitura no seu bot: a pessoa vê só o que deve a você (ou o grupo vê quem já pagou), com o seu PIX. Também dá pra gerar o link de **uma dívida só** (botão **Link** dentro da dívida). Os links não expiram: ficam no ar até você desativar, e atualizam sozinhos.
 
+Na página do link a pessoa tem também **Pedir mais prazo**: ela escolhe até quando consegue pagar (até 4 meses) e manda uma mensagem. Você recebe no Telegram (**Aceitar** / **Recusar**) ou no aviso do Início do app. Se aceitar, o que estava atrasado (ou a próxima parcela) passa a vencer na nova data, sem multa até lá, e os lembretes seguem a data nova.
+
 Na página do link a pessoa tem:
 - **PIX com o valor certo**: QR Code e "copia e cola" já com o valor (dá pra mudar o valor). Para isso, preencha em Configurações a chave PIX, o tipo da chave, seu nome e sua cidade.
 - **Já paguei**: ela informa o valor e manda o print do comprovante. Você recebe no Telegram com os botões **Recebi** / **Não recebi** (ou confirma no app, no aviso do Início). Ao confirmar, o pagamento entra no app com o comprovante. Para evitar spam, cada link aceita até 5 envios por hora.
@@ -38,7 +42,7 @@ Você também fica sabendo quando a pessoa abre o link (o bot avisa, no máximo 
 - Mande **áudio** ("gastei 30 no mercado") e o bot transcreve e lança.
 - Perguntas que o bot não reconhece vão para uma IA que responde só com os seus dados (marcada com 🤖; confira no app).
 
-Áudio e IA usam o **Workers AI** da Cloudflare (tem uma cota grátis por dia). Se o resumo da publicação disser que ficou desligado, crie de novo o token da Cloudflare incluindo a permissão **Account → Workers AI → Edit** e rode a publicação de novo.
+Áudio, foto de cupom e IA usam o **Workers AI** da Cloudflare (tem uma cota grátis por dia). Se o resumo da publicação disser que ficou desligado, crie de novo o token da Cloudflare incluindo a permissão **Account → Workers AI → Edit** e rode a publicação de novo.
 
 ### Gastos fora do padrão
 Se uma categoria passar muito da sua média dos últimos meses (ex.: Lazer 3x maior), aparece um aviso no Início e o bot avisa uma vez no mês.
@@ -49,6 +53,9 @@ Na página de uma pessoa, toque em **Lembretes no Telegram** e mande o convite (
 - se atrasar: quanto está atrasado, a cada 3 dias.
 
 A mensagem leva o valor, o total em aberto, o link de cobrança (se você tiver criado) e o seu PIX. Você fica sabendo quando a pessoa entra, quando um lembrete é enviado e se ela sair (`/parar`). A pessoa só consegue ver o que ela deve (`/status`); nada mais do bot responde a ela. Dá para pausar ou desconectar cada pessoa na mesma tela do app.
+
+### Recibo de quitação
+Quando alguém termina de pagar, o bot manda o **recibo de quitação em PDF** (com valor por extenso, pagamentos, sua cidade e seu nome, de Configurações). Se a pessoa está nos lembretes do Telegram, um botão manda o recibo direto pra ela. No app, aparece o aviso "quitou! · Recibo", e toda dívida quitada tem o botão **Recibo de quitação**.
 
 ### Backups diários
 A nuvem guarda uma cópia dos dados por dia (como estavam no começo do dia) e mantém os últimos 30 dias. Para voltar: **Configurações** → **Nuvem e bot do Telegram** → **Backups diários** → escolha o dia.

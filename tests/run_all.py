@@ -10,8 +10,8 @@ import os, sys, subprocess, time, urllib.request, re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-SUITES = ['test_bb', 'test_new', 'test_group', 'test_v5', 'test_v6', 'test_v7a', 'test_v7b', 'test_v8', 'test_debtlink', 'test_diag', 'test_v9']
-BOT_SUITES = {'test_v9', 'test_v6', 'test_v7a', 'test_v7b', 'test_v8', 'test_debtlink', 'test_diag'}
+SUITES = ['test_bb', 'test_new', 'test_group', 'test_v5', 'test_v6', 'test_v7a', 'test_v7b', 'test_v8', 'test_debtlink', 'test_diag', 'test_v9', 'test_v10']
+BOT_SUITES = {'test_v10', 'test_v9', 'test_v6', 'test_v7a', 'test_v7b', 'test_v8', 'test_debtlink', 'test_diag'}
 
 def wait(url, timeout=20):
     t = time.time()
