@@ -1288,12 +1288,37 @@ async function trackView(env, token, v) {
   }
   await putJSON(env, 'views:' + token, rec);
 }
+// pessoa com mais de uma dívida: escolher qual vai pagar (ou tudo)
+function payChoices(v) {
+  const ds = (v.type === 'person' && v.debts) || [];
+  if (ds.length < 2) return [];
+  const today = todayBR(), out = [];
+  const lateN = ds.filter(d => d.late > 0).length;
+  if (lateN > 1) out.push({value: 'late', amt: v.late, label: 'Tudo que está atrasado · ' + brl(v.late)});
+  ds.forEach((d, i) => {
+    const when = d.late > 0 ? 'atrasado' : d.due ? 'vence ' + fmtFull(d.due) : (d.insts || []).find(x => x.open > 0) ? 'parcela de ' + fmtFull((d.insts || []).find(x => x.open > 0).due) : '';
+    out.push({value: String(i), amt: d.payNow || d.remaining, label: d.title + ' (' + fmtFull(d.date) + ') · ' + brl(d.payNow || d.remaining) + (when ? ' ' + when : '')});
+  });
+  out.push({value: 'all', amt: v.remaining, label: 'Tudo que falta · ' + brl(v.remaining)});
+  return out;
+}
+function whichSelect(v, amount) {
+  const ch = payChoices(v);
+  if (!ch.length) return '';
+  let sel = ch.findIndex(c => Math.abs(c.amt - amount) < 0.005);
+  if (sel < 0) sel = 0;
+  return '<label class="lbl" for="which">O que você vai pagar</label><select id="which">' +
+    ch.map((c, i) => '<option value="' + c.value + '" data-amt="' + Number(c.amt).toFixed(2) + '"' + (i === sel ? ' selected' : '') + '>' + esc(c.label) + '</option>').join('') + '</select>';
+}
 function pixBlock(token, v, amount, owner) {
   if (!v.pixInfo && !v.pix) return '';
   if (!v.pixInfo) return '<div class="card pix"><div><span class="muted">PIX de ' + owner + '</span><code id="pix">' + esc(v.pix) + '</code></div><button onclick="copyEl(\'pix\',this)">Copiar</button></div>';
+  const ch = payChoices(v);
+  if (ch.length && !ch.some(c => Math.abs(c.amt - amount) < 0.005)) amount = ch[0].amt;
   const code = pixCode({...v.pixInfo, amount, txid: 'BB' + token.slice(0, 10)});
-  return '<div class="card paybox"><h2>Pagar com PIX</h2>' +
+  return '<div class="card paybox" id="pagar"><h2>Pagar com PIX</h2>' +
     (v.type === 'group' ? '<label class="lbl" for="who">Quem está pagando</label><select id="who">' + v.members.map((m, i) => m.remaining > 0 ? '<option value="' + i + '" data-amt="' + m.remaining.toFixed(2) + '">' + esc(m.name) + ' · ' + brl(m.remaining) + '</option>' : '').join('') + '</select>' : '') +
+    whichSelect(v, amount) +
     '<label class="lbl" for="amt">Valor</label><div class="amt"><span>R$</span><input id="amt" inputmode="decimal" autocomplete="off" value="' + amount.toFixed(2).replace('.', ',') + '"></div>' +
     '<div class="qr"><img id="qr" alt="QR Code do PIX" src="data:image/svg+xml;base64,' + btoa(qrSvg(code)) + '"></div>' +
     '<div class="cc"><code id="cc">' + esc(code) + '</code></div>' +
@@ -1309,6 +1334,7 @@ function paidBlock(v, claims) {
     '<button class="wide ghost" id="paidOpen" onclick="document.getElementById(\'paidForm\').hidden=false;this.hidden=true">Já paguei · mandar comprovante</button>' +
     '<form id="paidForm" hidden onsubmit="return sendPaid(event)">' +
     (v.type === 'group' ? '<label class="lbl" for="pwho">Quem pagou</label><select id="pwho">' + v.members.map((m, i) => m.remaining > 0 ? '<option value="' + i + '" data-amt="' + m.remaining.toFixed(2) + '">' + esc(m.name) + '</option>' : '').join('') + '</select>' : '') +
+    (payChoices(v).length ? '<p class="muted small">Referente a: <b id="pwhichl"></b></p>' : '') +
     '<label class="lbl" for="pamt">Quanto pagou</label><div class="amt"><span>R$</span><input id="pamt" inputmode="decimal" autocomplete="off" required></div>' +
     '<label class="lbl" for="pfile">Comprovante (foto ou print)</label><input id="pfile" type="file" accept="image/*">' +
     '<label class="lbl" for="pnote">Mensagem (opcional)</label><input id="pnote" maxlength="140" placeholder="Ex: paguei a parcela de outubro">' +
@@ -1339,16 +1365,17 @@ async function sharePage(env, token, v) {
       '<div class="card">' + rows + '</div>' + pay + upd + script;
     return page(v.title, body, 'Faltam ' + brl(v.remaining) + ' · ' + done + ' de ' + v.members.length + ' já pagaram');
   }
-  const debts = (v.debts || []).map(d => {
+  const debts = (v.debts || []).map((d, i) => {
     const insts = (d.insts || []).map(it => {
       const st = STATE[it.state] || ['', ''];
       return '<div class="row slim"><span class="n">' + it.n + 'ª</span><div class="grow"><b>' + brl(it.value) + '</b><span class="muted">vence ' + fmtFull(it.due) + (it.open > 0 && it.open < it.value - 0.005 ? ' · falta ' + brl(it.open) : '') + '</span></div><span class="tag ' + st[1] + '">' + st[0] + '</span></div>';
     }).join('');
     const pays = (d.payments || []).slice(0, 8).map(p => '<div class="row slim"><span class="muted">' + fmtFull(p.date) + '</span><div class="grow"></div><b class="okc">' + brl(p.amount) + '</b></div>').join('');
+    const pickBtn = (v.debts || []).length > 1 && v.pixInfo ? '<button class="ghost small" onclick="pickDebt(' + i + ')">Pagar esta</button>' : '';
     return '<div class="card"><div class="dh"><div><h2>' + esc(d.title) + '</h2><span class="muted">desde ' + fmtFull(d.date) + (d.due ? ' · vence ' + fmtFull(d.due) : '') + '</span></div>' +
       '<div class="right"><b class="' + (d.late > 0 ? 'latec' : '') + '">' + brl(d.remaining) + '</b><span class="muted">em aberto</span></div></div>' +
       '<div class="prog"><i style="width:' + (d.total > 0 ? Math.min(100, d.paid / d.total * 100) : 0) + '%"></i></div>' +
-      '<p class="muted small">Total ' + brl(d.total) + ' · já pago ' + brl(d.paid) + (d.late > 0 ? ' · <span class="latec">' + brl(d.late) + ' atrasado</span>' : '') + '</p>' +
+      '<p class="muted small">Total ' + brl(d.total) + ' · já pago ' + brl(d.paid) + (d.late > 0 ? ' · <span class="latec">' + brl(d.late) + ' atrasado</span>' : '') + '</p>' + pickBtn +
       (insts ? '<h3>Parcelas</h3>' + insts : '') + (pays ? '<h3>Pagamentos</h3>' + pays : '') + '</div>';
   }).join('');
   const hero = '<div class="card hero"><span class="muted">Oi, ' + esc(v.name) + '!</span>' +
@@ -1365,14 +1392,18 @@ var amt=document.getElementById("amt"),tm;
 function upd(){clearTimeout(tm);tm=setTimeout(function(){fetch("/s/"+TK+"/pix.json?v="+num(amt.value)).then(function(r){return r.json()}).then(function(j){if(!j.code)return;document.getElementById("cc").textContent=j.code;document.getElementById("qr").src="data:image/svg+xml;base64,"+btoa(j.svg)})},350)}
 if(amt)amt.addEventListener("input",upd);
 var who=document.getElementById("who");if(who)who.addEventListener("change",function(){amt.value=who.options[who.selectedIndex].getAttribute("data-amt").replace(".",",");upd()});
+var which=document.getElementById("which");function useWhich(){amt.value=which.options[which.selectedIndex].getAttribute("data-amt").replace(".",",");var pa=document.getElementById("pamt");if(pa)pa.value=amt.value;var pl=document.getElementById("pwhichl");if(pl)pl.textContent=which.options[which.selectedIndex].textContent;upd()}
+if(which)which.addEventListener("change",useWhich);
+function pickDebt(i){if(!which)return;for(var k=0;k<which.options.length;k++){if(which.options[k].value===String(i))which.selectedIndex=k}useWhich();document.getElementById("pagar").scrollIntoView({behavior:"smooth"})}
 var pwho=document.getElementById("pwho"),pamt=document.getElementById("pamt");
 function syncP(){if(pwho&&pamt)pamt.value=pwho.options[pwho.selectedIndex].getAttribute("data-amt").replace(".",",")}
 if(pwho){pwho.addEventListener("change",syncP);syncP()}else if(pamt&&amt){pamt.value=amt.value}
+if(which){var pl0=document.getElementById("pwhichl");if(pl0)pl0.textContent=which.options[which.selectedIndex].textContent}
 function shrink(f){return new Promise(function(res){if(!f)return res("");var u=URL.createObjectURL(f),i=new Image();i.onload=function(){var k=Math.min(1,1400/Math.max(i.naturalWidth,i.naturalHeight)),c=document.createElement("canvas");c.width=Math.round(i.naturalWidth*k);c.height=Math.round(i.naturalHeight*k);var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL("image/jpeg",0.72))};i.onerror=function(){res("")};i.src=u})}
 function sendPrazo(e){e.preventDefault();var b=document.getElementById("zsend"),m=document.getElementById("zmsg"),d=document.getElementById("zdate").value,zw=document.getElementById("zwho");if(!d){m.textContent="Escolha a data.";return false}b.disabled=true;b.textContent="Enviando…";
 fetch("/s/"+TK+"/prazo",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({date:d,note:document.getElementById("znote").value,who:zw?+zw.value:null})}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})}).then(function(x){if(x.ok){document.getElementById("przForm").innerHTML='<p class="okmsg">✓ Pedido enviado! A resposta aparece aqui.</p>';setTimeout(function(){location.reload()},2500)}else{m.textContent=x.j.error||"Não deu certo, tente de novo.";b.disabled=false;b.textContent="Enviar pedido"}}).catch(function(){m.textContent="Sem conexão, tente de novo.";b.disabled=false;b.textContent="Enviar pedido"});return false}
 function sendPaid(e){e.preventDefault();var b=document.getElementById("psend"),m=document.getElementById("pmsg"),v=num(pamt.value);if(!(v>0)){m.textContent="Informe o valor.";return false}b.disabled=true;b.textContent="Enviando…";
-shrink(document.getElementById("pfile").files[0]).then(function(photo){return fetch("/s/"+TK+"/pago",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount:v,note:document.getElementById("pnote").value,who:pwho?+pwho.value:null,photo:photo})})}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})}).then(function(x){if(x.ok){document.getElementById("paidForm").innerHTML='<p class="okmsg">✓ Enviado! Assim que for confirmado, aparece aqui.</p>';setTimeout(function(){location.reload()},2500)}else{m.textContent=x.j.error||"Não deu certo, tente de novo.";b.disabled=false;b.textContent="Enviar"}}).catch(function(){m.textContent="Sem conexão, tente de novo.";b.disabled=false;b.textContent="Enviar"});return false}
+shrink(document.getElementById("pfile").files[0]).then(function(photo){return fetch("/s/"+TK+"/pago",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount:v,note:document.getElementById("pnote").value,who:pwho?+pwho.value:null,debt:which?which.value:null,photo:photo})})}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})}).then(function(x){if(x.ok){document.getElementById("paidForm").innerHTML='<p class="okmsg">✓ Enviado! Assim que for confirmado, aparece aqui.</p>';setTimeout(function(){location.reload()},2500)}else{m.textContent=x.j.error||"Não deu certo, tente de novo.";b.disabled=false;b.textContent="Enviar"}}).catch(function(){m.textContent="Sem conexão, tente de novo.";b.disabled=false;b.textContent="Enviar"});return false}
 `;
 
 // ---------------------------------------------------------------- "Já paguei" (pedidos de confirmação)
@@ -1453,8 +1484,11 @@ async function claimCreate(req, env, token, v) {
   const photo = typeof body.photo === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(body.photo) && body.photo.length < 4.5 * 1024 * 1024 ? body.photo : '';
   rate.n++; await putJSON(env, 'crate:' + token, rate);
   const id = 'cl' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const claim = {id, token, at: new Date().toISOString(), amount, note: String(body.note || '').slice(0, 140), who, whoName, status: 'pending', hasPhoto: !!photo,
-    label: v.type === 'group' ? whoName + ' · ' + v.title : v.name, linkName: v.type === 'group' ? v.title : v.name};
+  let debtId = null, debtTitle = '';
+  if (v.type === 'person' && /^\d+$/.test(String(body.debt || '')) && v.debts && v.debts[+body.debt]) { debtId = v.debts[+body.debt]._id || null; debtTitle = v.debts[+body.debt].title + ' de ' + fmtFull(v.debts[+body.debt].date); }
+  else if (body.debt === 'late') debtTitle = 'o que está atrasado';
+  const claim = {id, token, at: new Date().toISOString(), amount, note: String(body.note || '').slice(0, 140), who, whoName, status: 'pending', hasPhoto: !!photo, debtId, debtTitle,
+    label: (v.type === 'group' ? whoName + ' · ' + v.title : v.name) + (debtTitle ? ' · ' + debtTitle : ''), linkName: v.type === 'group' ? v.title : v.name};
   if (photo) await env.BB.put('cphoto:' + id, photo, {expirationTtl: 60 * 60 * 24 * 45});
   const ids = await getJSON(env, 'claims', []);
   ids.push(id);
@@ -1483,17 +1517,19 @@ async function claimDecide(env, id, ok) {
   if (!c) return {error: 'não encontrado'};
   if (c.status !== 'pending') return {already: c.status};
   const v = await getJSON(env, 'share:' + c.token, null);
+  let op = null;
   c.status = ok ? 'ok' : 'no';
   c.decidedAt = new Date().toISOString();
   if (ok) {
     const ref = (v && v._ref) || {};
-    const op = c.kind === 'prazo'
+    op = c.kind === 'prazo'
       ? {type: 'resched', newDate: c.newDate, date: todayBR(), at: c.decidedAt, text: 'prazo pedido pelo link (' + c.label + ') até ' + fmtDate(c.newDate),
         id: 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), viaLink: true}
       : {type: 'pay', kind: 'receivable', amount: c.amount, date: todayBR(), at: c.decidedAt, text: 'pagamento informado pelo link (' + c.label + ')',
       id: 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), viaLink: true};
     if (ref.type === 'group' && ref.members && ref.members[c.who]) { op.debtId = ref.members[c.who].debtId; op.name = ref.members[c.who].name; }
     else if (ref.debtId) { op.debtId = ref.debtId; op.name = ref.name; }
+    else if (c.debtId) { op.debtId = c.debtId; op.name = ref.name || c.linkName; }
     else op.name = ref.name || c.linkName;
     if (c.hasPhoto) {
       const ph = await env.BB.get('cphoto:' + id);

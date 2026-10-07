@@ -6079,6 +6079,7 @@
       debts: open.sort(function(a, b){ return a.date < b.date ? -1 : 1; }).map(function(d){
         var s = debtSchedule(d), g = groupOf(d), n = installments(d);
         return {
+          payNow: round2(s.overdue > EPS ? s.overdue : amountDueNow(d)), _id: d.id,
           title: g ? g.title : (n > 1 ? 'Empréstimo em ' + n + 'x' : 'Empréstimo'), date: d.date,
           total: round2(effectiveTotal(d)), paid: round2(Math.min(paidAmount(d), effectiveTotal(d))), remaining: round2(remaining(d)), late: round2(s.overdue),
           due: n === 1 && s.insts[0] ? s.insts[0].dueISO : '',
