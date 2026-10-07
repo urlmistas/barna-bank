@@ -397,13 +397,27 @@
   .glist{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
   .glist:empty{display:none;}
   .glist-title{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;font-weight:600;}
-  .gcard{background:var(--card);border:1px solid var(--stroke);border-left:3px solid var(--blue);border-radius:var(--radius);overflow:hidden;}
+  .gcard{background:radial-gradient(120% 90% at 0% 0%, rgba(111,158,232,0.09), transparent 55%), var(--card);border:1px solid var(--stroke);border-radius:var(--radius);overflow:hidden;}
   .gcard-head{display:flex;align-items:center;gap:14px;padding:15px 16px 10px;cursor:pointer;user-select:none;}
   .g-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--blue-soft);font-size:18px;flex-shrink:0;}
   .gcard.open .chev{transform:rotate(180deg);}
-  .gcard-prog{padding:0 16px 10px;}
+  .gcard-prog{padding:2px 16px 12px;}
+  .gp-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px;}
+  .gp-amount{font-size:12.5px;color:var(--muted);}
+  .gp-amount b{font-family:'Nunito',sans-serif;font-size:16px;color:var(--text);font-variant-numeric:tabular-nums;}
+  .gp-amount span{font-variant-numeric:tabular-nums;}
+  .gp-pct{font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--gold-soft);}
+  .gp-bar{display:flex;gap:3px;height:8px;}
+  .gp-seg{position:relative;border-radius:5px;background:var(--ink-2);box-shadow:inset 0 0 0 1px var(--stroke);overflow:hidden;min-width:10px;}
+  .gp-seg i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--gold);}
+  .gp-seg.st-pago i{background:var(--green);}
+  .gp-seg.st-atrasado{background:var(--red-soft);box-shadow:inset 0 0 0 1px rgba(226,102,92,0.45);}
+  .gp-seg.st-atrasado i{background:var(--gold);}
+  .gp-meta{font-size:11.5px;color:var(--muted);margin-top:8px;}
   .g-prog-label{font-size:11.5px;color:var(--muted);margin-top:6px;font-family:'Nunito',sans-serif;line-height:1.4;}
-  .g-avatars{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 14px;}
+  .g-avatars{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 14px;}
+  .g-av-due{font-family:'Nunito',sans-serif;font-size:11.5px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .g-av.st-atrasado .g-av-due{color:var(--red);}
   .g-av{display:inline-flex;align-items:center;gap:6px;background:var(--ink-2);border:1px solid var(--stroke);border-radius:20px;padding:3px 10px 3px 3px;cursor:pointer;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;font-weight:600;}
   .g-av:hover{border-color:var(--muted-2);}
   .g-av .avatar{width:26px;height:26px;font-size:10.5px;}
@@ -3560,18 +3574,24 @@
 
     var sub = fmtDate(g.date) + ' · ' + n + (n === 1 ? ' pessoa' : ' pessoas') + (g.dueDate ? ' · pagar até ' + fmtDate(g.dueDate) : '');
     var pct = st.owed > 0 ? Math.max(0, Math.min(100, st.paid / st.owed * 100)) : 0;
-    var progLabel = money.format(st.paid) + ' de ' + money.format(st.owed) + (isPayable ? ' pagos' : ' recebidos');
-    if(g.includeMe && g.myShare > EPS) progLabel += ' · conta de ' + money.format(g.total) + ', sua parte ' + money.format(g.myShare);
-    else if(Math.abs(g.total - st.owed) > 0.009 && n) progLabel += ' · total combinado ' + money.format(g.total);
+    var meta = '';
+    if(g.includeMe && g.myShare > EPS) meta = 'Conta total ' + money.format(g.total) + ' · sua parte ' + money.format(g.myShare);
+    else if(Math.abs(g.total - st.owed) > 0.009 && n) meta = 'Total combinado ' + money.format(g.total);
+    // barra dividida por pessoa: cada pedaço tem o tamanho da parte dela e mostra quanto já foi pago
+    var segs = st.members.map(function(d){
+      var et = effectiveTotal(d), s = memberState(d);
+      var fill = et > 0 ? Math.max(0, Math.min(100, paidAmount(d) / et * 100)) : 100;
+      return '<span class="gp-seg st-' + s + '" style="flex:' + Math.max(et, 0.01).toFixed(2) + ' 1 0" title="' + escapeHtml(d.name + ': ' + money.format(Math.min(paidAmount(d), et)) + ' de ' + money.format(et)) + '"><i style="width:' + fill.toFixed(1) + '%"></i></span>';
+    }).join('');
 
     var avatars = st.members.map(function(d){
       var s = memberState(d);
       var label = s === 'pago' ? (isPayable ? 'pago' : 'pagou') : (s === 'atrasado' ? 'atrasado, falta ' + money.format(remaining(d)) : 'falta ' + money.format(remaining(d)));
-      var mark = s === 'pago' ? ic('check') : (s === 'atrasado' ? ic('circle-alert') : '');
+      var tail = s === 'pago' ? '<span class="g-av-st" aria-hidden="true">' + ic('check') + '</span>'
+        : '<span class="g-av-due">' + money.format(remaining(d)) + '</span>';
       return '<button type="button" class="g-av st-' + s + '" data-debt="' + escapeHtml(d.id) + '" title="' + escapeHtml(d.name + ': ' + label) + '" aria-label="' + escapeHtml(d.name + ': ' + label + '. Abrir dívida') + '">' +
         '<span class="avatar">' + escapeHtml(initials(d.name)) + '</span>' +
-        '<span class="g-av-name">' + escapeHtml(firstName(d.name)) + '</span>' +
-        (mark ? '<span class="g-av-st" aria-hidden="true">' + mark + '</span>' : '') +
+        '<span class="g-av-name">' + escapeHtml(firstName(d.name)) + '</span>' + tail +
       '</button>';
     }).join('');
 
@@ -3590,8 +3610,12 @@
 
     var top = document.createElement('div');
     top.innerHTML =
-      '<div class="gcard-prog"><div class="progress-track"><div class="progress-fill" style="width:' + pct.toFixed(1) + '%;"></div></div>' +
-      '<div class="g-prog-label">' + progLabel + '</div></div>' +
+      (n ? '<div class="gcard-prog">' +
+        '<div class="gp-top"><div class="gp-amount"><b>' + money.format(st.paid) + '</b> <span>de ' + money.format(st.owed) + (isPayable ? ' pagos' : ' recebidos') + '</span></div>' +
+        '<div class="gp-pct">' + Math.round(pct) + '%</div></div>' +
+        '<div class="gp-bar">' + segs + '</div>' +
+        (meta ? '<div class="gp-meta">' + meta + '</div>' : '') +
+      '</div>' : '') +
       (n ? '<div class="g-avatars">' + avatars + '</div>' : '');
     while(top.firstChild) card.appendChild(top.firstChild);
 
