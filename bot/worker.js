@@ -1,3 +1,4 @@
+import {pixCode, qrSvg} from './pix.mjs';
 // BarnaBank: bot do Telegram + nuvem para sincronizar o app.
 // Roda como Cloudflare Worker. Precisa de:
 //   KV "BB" (os dados), segredos TELEGRAM_TOKEN e SYNC_KEY.
@@ -23,10 +24,11 @@ export default {
     try {
       if (url.pathname === '/api/state') return await api(req, env, ctx, url);
       if (url.pathname.startsWith('/api/photo/')) return await apiPhoto(req, url, env);
+      if (url.pathname.startsWith('/api/claim/')) return await apiClaim(req, url, env);
       if (url.pathname === '/setup') return await setup(req, url, env);
       if (url.pathname === '/status') return await status(req, url, env);
       if (url.pathname.startsWith('/tg/')) return await telegram(req, env, url);
-      if (url.pathname.startsWith('/s/') && req.method === 'GET') return await sharePage(url, env);
+      if (url.pathname.startsWith('/s/')) return await shareRoute(req, url, env, ctx);
       if (url.pathname === '/') return json({app: 'BarnaBank', ok: true});
       return json({error: 'not found'}, 404);
     } catch (e) {
@@ -149,8 +151,12 @@ async function api(req, env, ctx, url) {
   // aproveita a visita do app para garantir que o bot está ligado
   if (ctx && ctx.waitUntil) ctx.waitUntil(ensureWebhook(env, url.origin, false).catch(() => {}));
   if (req.method === 'GET') {
-    const [snapshot, inbox, meta, undo] = await Promise.all([getJSON(env, 'snapshot', null), getJSON(env, 'inbox', []), getJSON(env, 'meta', {}), getJSON(env, 'undo', [])]);
-    return json({snapshot, inbox, undo, updatedAt: meta.updatedAt || null});
+    const [snapshot, inbox, meta, undo, claimIds, shareIdx] = await Promise.all([getJSON(env, 'snapshot', null), getJSON(env, 'inbox', []), getJSON(env, 'meta', {}), getJSON(env, 'undo', []), getJSON(env, 'claims', []), getJSON(env, 'shareIndex', [])]);
+    const claims = [];
+    for (const id of claimIds.slice(-60)) { const c = await getJSON(env, 'claim:' + id, null); if (c && c.status === 'pending') claims.push({id: c.id, at: c.at, amount: c.amount, note: c.note, label: c.label, hasPhoto: c.hasPhoto, token: c.token}); }
+    const views = {};
+    for (const t of shareIdx) { const vw = await getJSON(env, 'views:' + t, null); if (vw) views[t] = {count: vw.count, first: vw.first, last: vw.last}; }
+    return json({snapshot, inbox, undo, claims, views, updatedAt: meta.updatedAt || null});
   }
   if (req.method === 'PUT') {
     const body = await req.json().catch(() => null);
@@ -173,6 +179,21 @@ async function api(req, env, ctx, url) {
     const updatedAt = new Date().toISOString();
     await putJSON(env, 'meta', {updatedAt});
     return json({ok: true, updatedAt, pending: inbox.length});
+  }
+  return json({error: 'method'}, 405);
+}
+
+async function apiClaim(req, url, env) {
+  if (!authed(req, url, env)) return json({error: 'unauthorized'}, 401);
+  const rest = url.pathname.slice('/api/claim/'.length).split('/');
+  const id = (rest[0] || '').replace(/[^A-Za-z0-9]/g, '');
+  if (rest[1] === 'photo' && req.method === 'GET') {
+    const ph = await env.BB.get('cphoto:' + id);
+    return ph ? json({data: ph}) : json({error: 'not found'}, 404);
+  }
+  if (req.method === 'POST') {
+    const body = await req.json().catch(() => ({}));
+    return json(await claimDecide(env, id, body.decision === 'ok'));
   }
   return json({error: 'method'}, 405);
 }
@@ -217,6 +238,8 @@ const HELP =
   '• 📎 foto do PIX com a legenda <code>recebi 50 do Vini</code> (vai como comprovante)\n\n' +
   'Tudo entra no BarnaBank na próxima vez que você abrir o app.\n\n' +
   '/cobrar Fulano: mensagem de cobrança pronta para encaminhar\n' +
+  '🎙️ Pode mandar <b>áudio</b> também.\n' +
+  '❓ Perguntas: <code>quanto gastei com ifood esse mês?</code>, <code>quem me deve mais?</code>, <code>quanto o Vini já me pagou?</code>\n\n' +
   '/resumo · /atrasados · /semana · /semanal · /saldo · /pendentes · /lembretes';
 
 async function telegram(req, env, url) {
@@ -239,7 +262,8 @@ async function onUpdate(env, up) {
   if (!msg || !msg.chat) return;
   const photo = (msg.photo && msg.photo.length) ? pickPhoto(msg.photo)
     : (msg.document && /^image\//.test(msg.document.mime_type || '') ? msg.document : null);
-  if (typeof msg.text !== 'string' && !photo) return;
+  const voice = msg.voice || (msg.audio && /audio/.test(msg.audio.mime_type || 'audio') ? msg.audio : null);
+  if (typeof msg.text !== 'string' && !photo && !voice) return;
   const chat = String(msg.chat.id);
   let owner = await env.BB.get('owner');
   const text = String(msg.text || msg.caption || '').trim();
@@ -251,6 +275,13 @@ async function onUpdate(env, up) {
     return;
   }
   if (chat !== owner) { await say(env, chat, 'Este bot é privado.'); return; }
+  if (voice) {
+    const heard = await transcribe(env, voice);
+    if (heard.error) { await say(env, chat, heard.error); return; }
+    await say(env, chat, '🎙️ Entendi: <i>“' + esc(heard.text) + '”</i>');
+    await handleText(env, chat, heard.text.replace(/[.!]+$/, '').trim(), null);
+    return;
+  }
   await handleText(env, chat, text, photo);
   return;
 }
@@ -259,6 +290,11 @@ async function onCallback(env, cq) {
   const owner = await env.BB.get('owner');
   const chat = cq.message && String(cq.message.chat.id);
   if (!owner || chat !== owner) return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id});
+  const cd = /^claim:(ok|no):(.+)$/.exec(cq.data || '');
+  if (cd) {
+    const r = await claimDecide(env, cd[2], cd[1] === 'ok');
+    return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: r.already ? 'Já estava resolvido' : cd[1] === 'ok' ? 'Confirmado' : 'Marcado como não recebido'});
+  }
   const cb = /^cobrar:(.+)$/.exec(cq.data || '');
   if (cb) {
     await tg(env, 'answerCallbackQuery', {callback_query_id: cq.id});
@@ -315,7 +351,11 @@ async function handleText(env, chat, text, photo) {
     return say(env, chat, inbox.length ? '<b>Esperando o app abrir:</b>\n' + inbox.map(o => '• ' + esc(o.text)).join('\n') : 'Nada pendente: o app já pegou tudo. ✅');
   }
   const op = parseMessage(cmd ? text.replace(/^\/\w+\s*/, cmd + ' ') : text, summary);
-  if (!op) return say(env, chat, 'Não entendi 🤔\n\n' + HELP);
+  if (!op) {
+    const ans = await answerQuestion(env, text, summary);
+    if (ans) return say(env, chat, ans);
+    return say(env, chat, 'Não entendi 🤔\n\n' + HELP);
+  }
   op.id = 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   op.at = new Date().toISOString();
   op.date = todayBR();
@@ -499,6 +539,15 @@ async function dailyReminder(env) {
   const today = todayBR(), tomorrow = addDays(today, 1);
   const items = s.due || [];
   const dueToday = items.filter(i => i.date === today), late = items.filter(i => i.date < today), dueTomorrow = items.filter(i => i.date === tomorrow);
+  // gastos fora do padrão: avisa uma vez por categoria por mês
+  const sentA = await getJSON(env, 'alertsSent', {}), month = today.slice(0, 7);
+  const newAlerts = (s.alerts || []).filter(x => sentA[month + ':' + x.key] !== 1);
+  if (prefs.daily !== false && newAlerts.length) {
+    await say(env, owner, '<b>⚠️ Gasto fora do padrão</b>\n' + newAlerts.map(x => '• ' + esc(x.name) + ': ' + brl(x.cur) + ' este mês (' + esc(x.text) + ')').join('\n'));
+    newAlerts.forEach(x => { sentA[month + ':' + x.key] = 1; });
+    Object.keys(sentA).forEach(k => { if (k.slice(0, 7) < month) delete sentA[k]; });
+    await putJSON(env, 'alertsSent', sentA);
+  }
   if (prefs.daily !== false && (dueToday.length || late.length || dueTomorrow.length)) {
     let out = '<b>☀️ Bom dia!</b>';
     if (dueToday.length) out += '\n\n<b>Vence hoje</b>\n' + dueToday.map(line).join('\n');
@@ -565,13 +614,68 @@ async function saveShares(env, shares) {
 }
 const fmtFull = iso => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(2, 4) : '';
 const STATE = {paga: ['Paga', 'ok'], pago: ['Pagou', 'ok'], atrasada: ['Atrasada', 'late'], atrasado: ['Atrasado', 'late'], parcial: ['Parcial', 'part'], aberta: ['Em aberto', ''], pendente: ['Falta pagar', '']};
-async function sharePage(url, env) {
-  const token = url.pathname.slice(3).replace(/[^A-Za-z0-9]/g, '');
+const BOT_UA = /bot|crawler|spider|preview|whatsapp|facebookexternalhit|telegram|twitter|slack|discord|skype|linkedin|embedly|quora|pinterest|vkshare|w3c_validator/i;
+async function shareRoute(req, url, env, ctx) {
+  const parts = url.pathname.split('/').filter(Boolean); // ['s', token, ...]
+  const token = String(parts[1] || '').replace(/[^A-Za-z0-9]/g, '');
   const v = token ? await getJSON(env, 'share:' + token, null) : null;
+  if (parts[2] === 'pix.json' && req.method === 'GET') {
+    if (!v || !v.pixInfo) return json({error: 'no pix'}, 404);
+    const amt = Math.max(0, Math.min(100000, parseFloat(url.searchParams.get('v')) || 0));
+    const code = pixCode({...v.pixInfo, amount: amt, txid: 'BB' + token.slice(0, 10)});
+    return json({code, svg: qrSvg(code)});
+  }
+  if (parts[2] === 'pago' && req.method === 'POST') return claimCreate(req, env, token, v);
+  if (parts.length > 2) return json({error: 'not found'}, 404);
   if (!v) return page('Link desativado', '<div class="card center"><h1>Link desativado</h1><p class="muted">Este link de cobrança não existe mais. Peça um novo para quem te mandou.</p></div>', '', 404);
+  if (!BOT_UA.test(req.headers.get('User-Agent') || '') && ctx && ctx.waitUntil) ctx.waitUntil(trackView(env, token, v).catch(() => {}));
+  return sharePage(env, token, v);
+}
+async function trackView(env, token, v) {
+  const now = new Date().toISOString();
+  const rec = await getJSON(env, 'views:' + token, {count: 0, first: now, last: now, notified: ''});
+  rec.count++; rec.last = now;
+  const owner = await env.BB.get('owner');
+  if (owner && (!rec.notified || Date.now() - Date.parse(rec.notified) > 6 * 3600000)) {
+    rec.notified = now;
+    const who = v.type === 'group' ? 'Alguém abriu o link do grupo <b>' + esc(v.title) + '</b>' : '<b>' + esc(v.name) + '</b> abriu o link de cobrança';
+    await say(env, owner, '👀 ' + who + (rec.count > 1 ? ' (' + rec.count + 'ª vez)' : '') + '.');
+  }
+  await putJSON(env, 'views:' + token, rec);
+}
+function pixBlock(token, v, amount, owner) {
+  if (!v.pixInfo && !v.pix) return '';
+  if (!v.pixInfo) return '<div class="card pix"><div><span class="muted">PIX de ' + owner + '</span><code id="pix">' + esc(v.pix) + '</code></div><button onclick="copyEl(\'pix\',this)">Copiar</button></div>';
+  const code = pixCode({...v.pixInfo, amount, txid: 'BB' + token.slice(0, 10)});
+  return '<div class="card paybox"><h2>Pagar com PIX</h2>' +
+    (v.type === 'group' ? '<label class="lbl" for="who">Quem está pagando</label><select id="who">' + v.members.map((m, i) => m.remaining > 0 ? '<option value="' + i + '" data-amt="' + m.remaining.toFixed(2) + '">' + esc(m.name) + ' · ' + brl(m.remaining) + '</option>' : '').join('') + '</select>' : '') +
+    '<label class="lbl" for="amt">Valor</label><div class="amt"><span>R$</span><input id="amt" inputmode="decimal" autocomplete="off" value="' + amount.toFixed(2).replace('.', ',') + '"></div>' +
+    '<div class="qr"><img id="qr" alt="QR Code do PIX" src="data:image/svg+xml;base64,' + btoa(qrSvg(code)) + '"></div>' +
+    '<div class="cc"><code id="cc">' + esc(code) + '</code></div>' +
+    '<button class="wide" onclick="copyEl(\'cc\',this)">Copiar código PIX</button>' +
+    '<p class="muted small center-t">No app do banco: PIX → <b>Copia e cola</b> (ou leia o QR). Vai pra ' + owner + ', chave ' + esc(v.pix) + '.</p></div>';
+}
+function paidBlock(v, claims) {
+  const list = claims.map(c => '<div class="row slim"><span class="cl ' + c.status + '">' + (c.status === 'ok' ? '✓' : c.status === 'no' ? '✕' : '⏳') + '</span><div class="grow"><b>' + brl(c.amount) + (c.whoName && v.type === 'group' ? ' · ' + esc(c.whoName) : '') + '</b><span class="muted">informado em ' + fmtFull(c.at.slice(0, 10)) +
+    (c.status === 'ok' ? ' · confirmado' : c.status === 'no' ? ' · não encontrado, fale com quem te mandou' : ' · aguardando confirmação') + '</span></div></div>').join('');
+  return '<div class="card"><h2>Já pagou?</h2><p class="muted small">Avise aqui e mande o comprovante. O pagamento entra quando for confirmado.</p>' +
+    (list ? '<div class="claims">' + list + '</div>' : '') +
+    '<button class="wide ghost" id="paidOpen" onclick="document.getElementById(\'paidForm\').hidden=false;this.hidden=true">Já paguei · mandar comprovante</button>' +
+    '<form id="paidForm" hidden onsubmit="return sendPaid(event)">' +
+    (v.type === 'group' ? '<label class="lbl" for="pwho">Quem pagou</label><select id="pwho">' + v.members.map((m, i) => m.remaining > 0 ? '<option value="' + i + '" data-amt="' + m.remaining.toFixed(2) + '">' + esc(m.name) + '</option>' : '').join('') + '</select>' : '') +
+    '<label class="lbl" for="pamt">Quanto pagou</label><div class="amt"><span>R$</span><input id="pamt" inputmode="decimal" autocomplete="off" required></div>' +
+    '<label class="lbl" for="pfile">Comprovante (foto ou print)</label><input id="pfile" type="file" accept="image/*">' +
+    '<label class="lbl" for="pnote">Mensagem (opcional)</label><input id="pnote" maxlength="140" placeholder="Ex: paguei a parcela de outubro">' +
+    '<button class="wide" id="psend" type="submit">Enviar</button><p class="muted small" id="pmsg"></p></form></div>';
+}
+async function sharePage(env, token, v) {
   const owner = v.owner ? esc(v.owner) : 'quem te mandou';
-  const pix = v.pix ? '<div class="card pix"><div><span class="muted">PIX de ' + owner + '</span><code id="pix">' + esc(v.pix) + '</code></div><button onclick="copyPix()">Copiar</button></div>' : '';
+  const claims = await claimsFor(env, token);
   const upd = '<p class="foot">Atualizado em ' + fmtFull((v.updatedAt || '').slice(0, 10)) + ' · BarnaBank</p>';
+  const open = v.type === 'group' ? v.remaining > 0 : v.remaining > 0;
+  const suggest = v.type === 'group' ? ((v.members.find(m => m.remaining > 0) || {}).remaining || 0) : (v.suggest || v.remaining || 0);
+  const pay = open ? pixBlock(token, v, suggest, owner) + paidBlock(v, claims) : (claims.length ? paidBlock(v, claims) : '');
+  const script = '<script>var TK=' + JSON.stringify(token) + ';' + PAGE_JS + '</script>';
   if (v.type === 'group') {
     const pct = v.owed > 0 ? Math.min(100, Math.round(v.paid / v.owed * 100)) : 0;
     const done = v.members.filter(m => m.state === 'pago').length;
@@ -586,7 +690,7 @@ async function sharePage(url, env) {
       '<div class="big"><b>' + brl(v.paid) + '</b> <span class="muted">de ' + brl(v.owed) + ' já pago</span><span class="pct">' + pct + '%</span></div>' +
       '<div class="bar">' + segs + '</div>' +
       '<p class="muted small">' + done + ' de ' + v.members.length + ' já pagaram' + (v.myShare > 0 ? ' · conta total ' + brl(v.total) + ', a parte de ' + owner + ' é ' + brl(v.myShare) : '') + '</p></div>' +
-      '<div class="card">' + rows + '</div>' + pix + upd;
+      '<div class="card">' + rows + '</div>' + pay + upd + script;
     return page(v.title, body, 'Faltam ' + brl(v.remaining) + ' · ' + done + ' de ' + v.members.length + ' já pagaram');
   }
   const debts = (v.debts || []).map(d => {
@@ -606,7 +710,106 @@ async function sharePage(url, env) {
       ? '<h1>' + brl(v.remaining) + '</h1><p class="muted">em aberto com ' + owner + (v.late > 0 ? ' · <span class="latec">' + brl(v.late) + ' atrasado</span>' : '') + '</p>'
       : '<h1>Tudo quitado 🎉</h1><p class="muted">Você não deve nada para ' + owner + '. Valeu!</p>') +
     (v.doneCount ? '<p class="muted small">' + v.doneCount + ' dívida(s) já quitada(s), ' + brl(v.donePaid) + ' pagos.</p>' : '') + '</div>';
-  return page('Resumo para ' + v.name, hero + (v.remaining > 0 ? pix : '') + debts + upd, v.remaining > 0 ? brl(v.remaining) + ' em aberto' : 'Tudo quitado');
+  return page('Resumo para ' + v.name, hero + pay + debts + upd + script, v.remaining > 0 ? brl(v.remaining) + ' em aberto' : 'Tudo quitado');
+}
+const PAGE_JS = `
+function copyEl(id,b){var t=document.getElementById(id).textContent;var done=function(){b.textContent="Copiado ✓";setTimeout(function(){b.textContent=b.getAttribute("data-l")||"Copiar"},2500)};b.setAttribute("data-l",b.getAttribute("data-l")||b.textContent);(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(done,function(){var r=document.createRange();r.selectNode(document.getElementById(id));getSelection().removeAllRanges();getSelection().addRange(r);b.textContent="Selecionado: copie"})}
+function num(s){s=String(s||"").replace(/[^0-9,\\.]/g,"");if(s.indexOf(",")>=0)s=s.replace(/\\./g,"").replace(",",".");var v=parseFloat(s);return isNaN(v)?0:v}
+var amt=document.getElementById("amt"),tm;
+function upd(){clearTimeout(tm);tm=setTimeout(function(){fetch("/s/"+TK+"/pix.json?v="+num(amt.value)).then(function(r){return r.json()}).then(function(j){if(!j.code)return;document.getElementById("cc").textContent=j.code;document.getElementById("qr").src="data:image/svg+xml;base64,"+btoa(j.svg)})},350)}
+if(amt)amt.addEventListener("input",upd);
+var who=document.getElementById("who");if(who)who.addEventListener("change",function(){amt.value=who.options[who.selectedIndex].getAttribute("data-amt").replace(".",",");upd()});
+var pwho=document.getElementById("pwho"),pamt=document.getElementById("pamt");
+function syncP(){if(pwho&&pamt)pamt.value=pwho.options[pwho.selectedIndex].getAttribute("data-amt").replace(".",",")}
+if(pwho){pwho.addEventListener("change",syncP);syncP()}else if(pamt&&amt){pamt.value=amt.value}
+function shrink(f){return new Promise(function(res){if(!f)return res("");var u=URL.createObjectURL(f),i=new Image();i.onload=function(){var k=Math.min(1,1400/Math.max(i.naturalWidth,i.naturalHeight)),c=document.createElement("canvas");c.width=Math.round(i.naturalWidth*k);c.height=Math.round(i.naturalHeight*k);var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL("image/jpeg",0.72))};i.onerror=function(){res("")};i.src=u})}
+function sendPaid(e){e.preventDefault();var b=document.getElementById("psend"),m=document.getElementById("pmsg"),v=num(pamt.value);if(!(v>0)){m.textContent="Informe o valor.";return false}b.disabled=true;b.textContent="Enviando…";
+shrink(document.getElementById("pfile").files[0]).then(function(photo){return fetch("/s/"+TK+"/pago",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount:v,note:document.getElementById("pnote").value,who:pwho?+pwho.value:null,photo:photo})})}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j}})}).then(function(x){if(x.ok){document.getElementById("paidForm").innerHTML='<p class="okmsg">✓ Enviado! Assim que for confirmado, aparece aqui.</p>';setTimeout(function(){location.reload()},2500)}else{m.textContent=x.j.error||"Não deu certo, tente de novo.";b.disabled=false;b.textContent="Enviar"}}).catch(function(){m.textContent="Sem conexão, tente de novo.";b.disabled=false;b.textContent="Enviar"});return false}
+`;
+
+// ---------------------------------------------------------------- "Já paguei" (pedidos de confirmação)
+async function claimsFor(env, token) {
+  const ids = await getJSON(env, 'claims', []);
+  const out = [];
+  for (const id of ids.slice(-60).reverse()) {
+    const c = await getJSON(env, 'claim:' + id, null);
+    if (c && c.token === token && (c.status === 'pending' || Date.now() - Date.parse(c.at) < 15 * 86400000)) out.push(c);
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+async function claimCreate(req, env, token, v) {
+  if (!v) return json({error: 'Link desativado.'}, 404);
+  const rate = await getJSON(env, 'crate:' + token, {n: 0, t: 0});
+  if (Date.now() - rate.t > 3600000) { rate.n = 0; rate.t = Date.now(); }
+  if (rate.n >= 5) return json({error: 'Muitos envios seguidos. Tente de novo em uma hora.'}, 429);
+  const body = await req.json().catch(() => null);
+  if (!body) return json({error: 'Envio inválido.'}, 400);
+  const amount = Math.round((+body.amount || 0) * 100) / 100;
+  if (!(amount > 0 && amount <= 100000)) return json({error: 'Valor inválido.'}, 400);
+  let who = null, whoName = '';
+  if (v.type === 'group') {
+    who = +body.who;
+    if (!(who >= 0 && who < v.members.length)) return json({error: 'Escolha quem pagou.'}, 400);
+    whoName = v.members[who].name;
+  }
+  const photo = typeof body.photo === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(body.photo) && body.photo.length < 4.5 * 1024 * 1024 ? body.photo : '';
+  rate.n++; await putJSON(env, 'crate:' + token, rate);
+  const id = 'cl' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const claim = {id, token, at: new Date().toISOString(), amount, note: String(body.note || '').slice(0, 140), who, whoName, status: 'pending', hasPhoto: !!photo,
+    label: v.type === 'group' ? whoName + ' · ' + v.title : v.name, linkName: v.type === 'group' ? v.title : v.name};
+  if (photo) await env.BB.put('cphoto:' + id, photo, {expirationTtl: 60 * 60 * 24 * 45});
+  const ids = await getJSON(env, 'claims', []);
+  ids.push(id);
+  await putJSON(env, 'claims', ids.slice(-200));
+  const owner = await env.BB.get('owner');
+  if (owner) {
+    const text = '💸 <b>' + esc(claim.label) + '</b> diz que pagou <b>' + brl(amount) + '</b>' + (claim.note ? '\n“' + esc(claim.note) + '”' : '') + (photo ? '' : '\n<i>(sem comprovante)</i>') + '\n\nConfere no banco e confirma:';
+    const kb = {inline_keyboard: [[{text: '✅ Recebi', callback_data: 'claim:ok:' + id}, {text: '❌ Não recebi', callback_data: 'claim:no:' + id}]]};
+    let r;
+    if (photo) {
+      const b64 = photo.split(',')[1], bin = atob(b64), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const fd = new FormData();
+      fd.append('chat_id', owner); fd.append('caption', text); fd.append('parse_mode', 'HTML'); fd.append('reply_markup', JSON.stringify(kb));
+      fd.append('photo', new Blob([bytes], {type: 'image/jpeg'}), 'comprovante.jpg');
+      try { r = await (await fetch('https://api.telegram.org/bot' + TOKEN(env) + '/sendPhoto', {method: 'POST', body: fd})).json(); } catch (e) { r = {ok: false}; }
+    } else r = await say(env, owner, text, {reply_markup: kb});
+    if (r && r.ok && r.result) { claim.tg = {chat: owner, msg: r.result.message_id, photo: !!photo}; }
+  }
+  await putJSON(env, 'claim:' + id, claim);
+  return json({ok: true});
+}
+// confirmar ou recusar (pelo Telegram ou pelo app)
+async function claimDecide(env, id, ok) {
+  const c = await getJSON(env, 'claim:' + id, null);
+  if (!c) return {error: 'não encontrado'};
+  if (c.status !== 'pending') return {already: c.status};
+  const v = await getJSON(env, 'share:' + c.token, null);
+  c.status = ok ? 'ok' : 'no';
+  c.decidedAt = new Date().toISOString();
+  if (ok) {
+    const ref = (v && v._ref) || {};
+    const op = {type: 'pay', kind: 'receivable', amount: c.amount, date: todayBR(), at: c.decidedAt, text: 'pagamento informado pelo link (' + c.label + ')',
+      id: 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), viaLink: true};
+    if (ref.type === 'group' && ref.members && ref.members[c.who]) { op.debtId = ref.members[c.who].debtId; op.name = ref.members[c.who].name; }
+    else if (ref.debtId) { op.debtId = ref.debtId; op.name = ref.name; }
+    else op.name = ref.name || c.linkName;
+    if (c.hasPhoto) {
+      const ph = await env.BB.get('cphoto:' + id);
+      if (ph) { await env.BB.put('photo:' + op.id, ph, {expirationTtl: 60 * 60 * 24 * 60}); op.photo = true; }
+    }
+    const inbox = await getJSON(env, 'inbox', []);
+    inbox.push(op);
+    await putJSON(env, 'inbox', inbox.slice(-200));
+    c.opId = op.id;
+  }
+  await putJSON(env, 'claim:' + id, c);
+  if (c.tg) {
+    const note = ok ? '✅ <b>Confirmado</b>: ' + esc(c.label) + ' pagou ' + brl(c.amount) + '. Entra no app na próxima vez que você abrir.' : '❌ Marcado como não recebido (' + esc(c.label) + ', ' + brl(c.amount) + '). A pessoa vê isso no link.';
+    await tg(env, c.tg.photo ? 'editMessageCaption' : 'editMessageText', {chat_id: c.tg.chat, message_id: c.tg.msg, parse_mode: 'HTML', ...(c.tg.photo ? {caption: note} : {text: note})});
+  }
+  return {ok: true, status: c.status};
 }
 function initials(n) { const p = String(n || '?').replace(/\./g, '').trim().split(/\s+/); return ((p[0] || '?')[0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase(); }
 function page(title, body, desc, status) {
@@ -615,7 +818,7 @@ function page(title, body, desc, status) {
     '<title>' + esc(title) + ' · BarnaBank</title><meta property="og:title" content="' + esc(title) + '"><meta property="og:description" content="' + esc(desc || 'BarnaBank') + '">' +
     '<meta name="theme-color" content="#10152a"><style>' + CSS + '</style></head><body><main>' +
     '<div class="brand"><span class="mark">B</span>BarnaBank</div>' + body + '</main>' +
-    '<script>function copyPix(){var t=document.getElementById("pix").textContent;var b=event.target;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){b.textContent="Copiado ✓"},function(){var r=document.createRange();r.selectNode(document.getElementById("pix"));getSelection().removeAllRanges();getSelection().addRange(r);b.textContent="Selecionado"})}</script></body></html>';
+    '</body></html>';
   return new Response(html, {status: status || 200, headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }
 const CSS = `
@@ -633,5 +836,120 @@ main{max-width:560px;margin:0 auto;padding:20px 16px 40px}.brand{display:flex;al
 .n{width:30px;color:#8d94b8;font-weight:700}.dh{display:flex;justify-content:space-between;gap:12px}.right{text-align:right}.right b{font-size:18px}
 .prog{height:7px;background:#161c38;border-radius:4px;overflow:hidden;margin-top:12px}.prog i{display:block;height:100%;background:#57b98a}
 .okc{color:#57b98a}.latec{color:#e2665c}.pix{display:flex;align-items:center;gap:12px;border-color:rgba(201,162,74,.45)}.pix div{flex:1;min-width:0}.pix code{display:block;font-size:15px;color:#e8cd8a;overflow-wrap:anywhere;margin-top:2px}
-button{background:linear-gradient(155deg,#e8cd8a,#c9a24a);color:#1b1404;border:none;border-radius:12px;padding:10px 16px;font-weight:700;font-size:14px;cursor:pointer}.foot{text-align:center;color:#5d6390;font-size:12px;margin-top:18px}
+button{background:linear-gradient(155deg,#e8cd8a,#c9a24a);color:#1b1404;border:none;border-radius:12px;padding:10px 16px;font-weight:700;font-size:14px;cursor:pointer}button:disabled{opacity:.6}
+.wide{width:100%;margin-top:10px;padding:13px}.ghost{background:#161c38;color:#e8cd8a;border:1px solid rgba(201,162,74,.45)}
+.lbl{display:block;font-size:12.5px;color:#8d94b8;margin:12px 0 5px}.amt{display:flex;align-items:center;gap:8px;background:#161c38;border:1px solid #2c3560;border-radius:12px;padding:4px 12px}.amt span{color:#8d94b8;font-weight:700}
+input,select{width:100%;background:#161c38;border:1px solid #2c3560;border-radius:12px;color:#eee9da;font:inherit;padding:11px 12px}.amt input{border:none;padding:8px 0;font-size:20px;font-weight:700;background:transparent}.amt input:focus{outline:none}.amt:focus-within{border-color:#c9a24a}input:focus,select:focus{outline:none;border-color:#c9a24a}
+input[type=file]{padding:9px}.qr{background:#fff;border-radius:16px;padding:10px;margin:14px auto 10px;width:230px;max-width:80%}.qr img{display:block;width:100%;height:auto}
+.cc code{display:block;font-size:11px;color:#8d94b8;background:#161c38;border-radius:10px;padding:9px 10px;overflow-wrap:anywhere;max-height:62px;overflow:hidden}.center-t{text-align:center}
+.cl{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:#161c38;color:#e8cd8a;flex-shrink:0}.cl.ok{color:#57b98a}.cl.no{color:#e2665c}.claims{margin-top:6px}.okmsg{color:#57b98a;font-weight:700;text-align:center;padding:10px 0}.foot{text-align:center;color:#5d6390;font-size:12px;margin-top:18px}
 `;
+
+// ---------------------------------------------------------------- áudio (Workers AI / Whisper)
+async function transcribe(env, voice) {
+  if (!env.AI) return {error: '🎙️ Para eu entender áudio, o Workers AI precisa estar ligado na sua Cloudflare. Veja "Áudio e perguntas" no README do bot.'};
+  if ((voice.duration || 0) > 90) return {error: 'Áudio muito longo. Manda um de até 1 minuto, tipo “gastei 30 no mercado”.'};
+  try {
+    const f = await tg(env, 'getFile', {file_id: voice.file_id});
+    if (!f.ok) return {error: 'Não consegui baixar o áudio.'};
+    const r = await fetch('https://api.telegram.org/file/bot' + TOKEN(env) + '/' + f.result.file_path);
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    const out = await env.AI.run('@cf/openai/whisper', {audio: [...bytes]});
+    const text = String(out && out.text || '').trim();
+    if (!text) return {error: 'Não consegui entender o áudio. Tenta de novo falando mais perto.'};
+    return {text: text.replace(/^\s*r\$\s*/i, '')};
+  } catch (e) {
+    await putJSON(env, 'lastError', {at: new Date().toISOString(), error: 'áudio: ' + String(e && e.message || e)});
+    return {error: 'Não consegui entender o áudio agora. Tenta escrever, que eu entendo do mesmo jeito.'};
+  }
+}
+
+// ---------------------------------------------------------------- perguntas em português
+function findIn(list, q, key) {
+  q = norm(q).replace(/^(o|a|os|as)\s+/, '');
+  if (!q) return null;
+  return list.find(x => norm(x[key]) === q) || list.find(x => norm(x[key]).split(' ')[0] === q) || list.find(x => norm(x[key]).includes(q)) || list.find(x => q.includes(norm(x[key]))) || null;
+}
+function periodOf(t) {
+  if (/mes passado|ultimo mes/.test(t)) return ['prev', 'no mês passado'];
+  if (/semana/.test(t)) return ['week', 'nos últimos 7 dias'];
+  if (/hoje/.test(t)) return ['today', 'hoje'];
+  return ['month', 'este mês'];
+}
+async function answerQuestion(env, raw, s) {
+  const t = norm(raw).replace(/[?!.]+/g, '').replace(/\s+/g, ' ').trim();
+  const asks = /^(quanto|quantos|quem|qual|quais|como|onde|quando|cade|me (diz|fala)|tenho|devo)\b/.test(t);
+  if (!asks && !(/\?/.test(raw) && /(gast|dev|pag|sald|receb|entr|orcament|meta|dinheiro|divid|conta|cartao|fatura|previs)/.test(t))) return null;
+  if (!s) return 'Ainda não tenho os dados. Abra o app uma vez com a nuvem ligada.';
+  const st = s.stats || {}, people = s.people || [];
+  let m;
+  // gastos por categoria
+  if ((m = /quanto (?:eu )?(?:gastei|gasto|torrei|paguei)(?: (?:com|de|em|no|na|nos|nas|pro|pra))? (.+?)(?: (?:esse|este|neste|nesse|no) mes| (?:no )?mes passado| (?:nessa|esta|essa|na) semana| hoje)?$/.exec(t)) && !/^(esse|este|no|neste) mes$/.test(m[1])) {
+    const [p, label] = periodOf(t);
+    const cats = (st.cats && st.cats[p]) || {};
+    const names = Object.keys(cats);
+    const hit = names.filter(n => norm(n).includes(norm(m[1])) || norm(m[1]).includes(norm(n)));
+    if (!hit.length) {
+      const top = names.sort((a, b) => cats[b] - cats[a]).slice(0, 5).map(n => esc(n) + ' ' + brl(cats[n])).join(', ');
+      return 'Não achei gastos com “' + esc(m[1]) + '” ' + label + '.' + (top ? '\nOnde você mais gastou: ' + top + '.' : '');
+    }
+    const sum = hit.reduce((a, n) => a + cats[n], 0);
+    return '💸 Com <b>' + esc(hit.join(', ')) + '</b> você gastou <b>' + brl(sum) + '</b> ' + label + '.' + (p === 'month' && st.cats && st.cats.prev ? (() => { const prev = hit.reduce((a, n) => a + (st.cats.prev[n] || 0), 0); return prev > 0 ? '\nMês passado: ' + brl(prev) + '.' : ''; })() : '');
+  }
+  if (/quanto (?:eu )?(?:gastei|gasto)/.test(t)) {
+    const [p, label] = periodOf(t);
+    const tot = st.out && st.out[p] != null ? st.out[p] : null;
+    if (tot == null) return null;
+    const cats = (st.cats && st.cats[p]) || {};
+    const top = Object.keys(cats).sort((a, b) => cats[b] - cats[a]).slice(0, 3).map(n => esc(n) + ' ' + brl(cats[n])).join(', ');
+    return '💸 Você gastou <b>' + brl(tot) + '</b> ' + label + '.' + (top ? '\nMais em: ' + top + '.' : '');
+  }
+  if (/quanto (?:eu )?(?:ganhei|recebi|entrou)/.test(t) && !/(do|da|de) [a-z]/.test(t.replace(/(esse|este|no|neste) mes|mes passado/, ''))) {
+    const [p, label] = periodOf(t);
+    return st.in && st.in[p] != null ? '⬇️ Entrou <b>' + brl(st.in[p]) + '</b> ' + label + '.' : null;
+  }
+  // pessoas
+  if (/quem (?:mais )?(?:me )?deve mais|quem (?:mais )?me deve/.test(t)) {
+    const list = people.filter(p => p.rec > 0).sort((a, b) => b.rec - a.rec).slice(0, 5);
+    return list.length ? '🤝 <b>Quem mais te deve</b>\n' + list.map((p, i) => (i + 1) + '. ' + esc(p.name) + ': ' + brl(p.rec) + (p.late > 0 ? ' (' + brl(p.late) + ' atrasado)' : '')).join('\n') : 'Ninguém te deve nada agora. 🎉';
+  }
+  if (/quem (?:ta|esta|tá|está) atrasad|quem atras/.test(t)) return atrasadosText(s);
+  if ((m = /quanto (?:o |a )?(.+?) (?:ja )?(?:me )?pagou/.exec(t))) {
+    const p = findIn(people, m[1], 'name');
+    if (!p) return 'Não achei “' + esc(m[1]) + '” nas suas dívidas.';
+    return '✅ <b>' + esc(p.name) + '</b> já te pagou <b>' + brl(p.paid || 0) + '</b>' + (p.paidMonth ? ' (' + brl(p.paidMonth) + ' este mês)' : '') + '.' + (p.rec > 0 ? '\nAinda falta ' + brl(p.rec) + '.' : '');
+  }
+  if ((m = /quanto (?:o |a )?(.+?) (?:ainda )?me deve/.exec(t))) {
+    const p = findIn(people, m[1], 'name');
+    if (!p) return 'Não achei “' + esc(m[1]) + '” nas suas dívidas.';
+    return p.rec > 0 ? '🤝 <b>' + esc(p.name) + '</b> te deve <b>' + brl(p.rec) + '</b>' + (p.late > 0 ? ', ' + brl(p.late) + ' atrasado' : '') + '.' : '<b>' + esc(p.name) + '</b> não te deve nada. 🎉';
+  }
+  if ((m = /quanto (?:eu )?devo(?: (?:pro|pra|para|ao|a|à) (.+))?/.exec(t))) {
+    if (m[1]) { const p = findIn(people, m[1], 'name'); return p ? 'Você deve <b>' + brl(p.pay) + '</b> a ' + esc(p.name) + '.' : 'Não achei “' + esc(m[1]) + '”.'; }
+    const list = people.filter(p => p.pay > 0);
+    return list.length ? '💸 Você deve <b>' + brl(list.reduce((a, p) => a + p.pay, 0)) + '</b>:\n' + list.map(p => '• ' + esc(p.name) + ': ' + brl(p.pay)).join('\n') : 'Você não deve nada pra ninguém. 🎉';
+  }
+  if (/saldo|quanto (?:eu )?tenho|dinheiro (?:eu )?tenho/.test(t)) return saldoText(s);
+  if (/previsao|vou terminar|fim do mes|sobra(r)? no fim/.test(t) && s.forecast != null) return '🔮 Se tudo correr como combinado, você termina o mês com <b>' + brl(s.forecast) + '</b>.';
+  if (/orcamento|limite/.test(t)) {
+    const b = s.budgets || [];
+    return b.length ? '<b>Orçamento do mês</b>\n' + b.map(x => '• ' + esc(x.name) + ': ' + brl(x.spent) + ' de ' + brl(x.limit) + (x.spent > x.limit ? ' ⚠️' : '')).join('\n') : 'Você ainda não definiu orçamento no app.';
+  }
+  if (/meta/.test(t)) {
+    const g = s.goals || [];
+    return g.length ? '<b>🎯 Metas</b>\n' + g.map(x => '• ' + esc(x.name) + ': ' + brl(x.saved) + ' de ' + brl(x.target)).join('\n') : 'Nenhuma meta criada ainda.';
+  }
+  // fallback: IA (se ligada), só com os seus dados
+  if (env.AI) {
+    try {
+      const ctx = JSON.stringify({hoje: s.today, saldo: s.balance, carteiras: s.wallets, pessoas: people.map(p => ({nome: p.name, me_deve: p.rec, atrasado: p.late, ja_pagou: p.paid, eu_devo: p.pay})),
+        gastos: st.cats, entradas: st.in, saidas: st.out, orcamento: s.budgets, metas: s.goals, vencimentos: (s.due || []).slice(0, 15), previsao_fim_do_mes: s.forecast}).slice(0, 12000);
+      const r = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {max_tokens: 220, messages: [
+        {role: 'system', content: 'Você é o assistente do app de finanças BarnaBank. Responda em português do Brasil, em no máximo 3 frases curtas, usando SOMENTE os dados JSON do usuário. Valores em reais no formato R$ 1.234,56. Se a resposta não estiver nos dados, diga que não sabe. Não invente números.'},
+        {role: 'user', content: 'Dados: ' + ctx + '\n\nPergunta: ' + raw}]});
+      const a = String(r && (r.response || r.result) || '').trim();
+      if (a) return '🤖 ' + esc(a) + '\n<i>(resposta da IA, confira no app)</i>';
+    } catch (e) {}
+  }
+  return 'Não sei responder isso ainda 🤔 Tenta:\n• <code>quanto gastei com ifood esse mês?</code>\n• <code>quem me deve mais?</code>\n• <code>quanto o Vini já me pagou?</code>\n• <code>quanto eu devo?</code>\n• <code>qual meu saldo?</code>';
+}

@@ -56,7 +56,12 @@ jobs:
         working-directory: bot
         run: |
           set -o pipefail
-          npx -y wrangler@3 deploy 2>&1 | tee deploy.log
+          if ! npx -y wrangler@3 deploy 2>&1 | tee deploy.log; then
+            echo "::warning::Não consegui publicar com o Workers AI (áudio e perguntas livres). Publicando sem ele."
+            sed -i '/^\[ai\]/,/^binding/d' wrangler.toml
+            npx -y wrangler@3 deploy 2>&1 | tee deploy.log
+            echo "AI_OFF=1" >> "$GITHUB_ENV"
+          fi
           printf '%s' "$TELEGRAM_TOKEN" | npx -y wrangler@3 secret put TELEGRAM_TOKEN
           printf '%s' "$SYNC_KEY" | npx -y wrangler@3 secret put SYNC_KEY
           URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' deploy.log | head -n1)
@@ -92,6 +97,7 @@ jobs:
               echo
             fi
             [ -n "$BOT" ] && echo "Seu bot: **$BOT**" && echo
+            if [ -n "$AI_OFF" ]; then echo "⚠️ Áudio e perguntas livres desligados: o token da Cloudflare não tem permissão de **Workers AI**. Veja o README do bot." && echo; fi
             echo "Endereço para colar no app (Configurações > Nuvem e bot do Telegram):"
             echo
             echo "\`$URL\`"

@@ -26,6 +26,22 @@ Lembretes: todo dia às 9h o bot avisa o que vence hoje, o que vence amanhã e o
 ### Links de cobrança
 Na página de uma pessoa (**Link de cobrança**) ou num grupo (**Link do grupo**), o app cria uma página só de leitura no seu bot: a pessoa vê só o que deve a você (ou o grupo vê quem já pagou), com o seu PIX. Também dá pra gerar o link de **uma dívida só** (botão **Link** dentro da dívida). Os links não expiram: ficam no ar até você desativar, e atualizam sozinhos.
 
+Na página do link a pessoa tem:
+- **PIX com o valor certo**: QR Code e "copia e cola" já com o valor (dá pra mudar o valor). Para isso, preencha em Configurações a chave PIX, o tipo da chave, seu nome e sua cidade.
+- **Já paguei**: ela informa o valor e manda o print do comprovante. Você recebe no Telegram com os botões **Recebi** / **Não recebi** (ou confirma no app, no aviso do Início). Ao confirmar, o pagamento entra no app com o comprovante. Para evitar spam, cada link aceita até 5 envios por hora.
+
+Você também fica sabendo quando a pessoa abre o link (o bot avisa, no máximo de 6 em 6 horas, e a janela do link no app mostra quantas vezes foi aberto). Pré-visualização do WhatsApp/Telegram não conta.
+
+### Perguntas e áudio
+- Pergunte do seu jeito: `quanto gastei com ifood esse mês?`, `quem me deve mais?`, `quanto o Vini já me pagou?`, `quanto eu devo?`, `qual meu saldo?`, `como tá meu orçamento?`.
+- Mande **áudio** ("gastei 30 no mercado") e o bot transcreve e lança.
+- Perguntas que o bot não reconhece vão para uma IA que responde só com os seus dados (marcada com 🤖; confira no app).
+
+Áudio e IA usam o **Workers AI** da Cloudflare (tem uma cota grátis por dia). Se o resumo da publicação disser que ficou desligado, crie de novo o token da Cloudflare incluindo a permissão **Account → Workers AI → Edit** e rode a publicação de novo.
+
+### Gastos fora do padrão
+Se uma categoria passar muito da sua média dos últimos meses (ex.: Lazer 3x maior), aparece um aviso no Início e o bot avisa uma vez no mês.
+
 As mensagens ficam numa fila e entram no BarnaBank quando você abre o app.
 O app também guarda uma cópia dos dados na nuvem, então dá para usar em outro aparelho.
 
