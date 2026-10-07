@@ -1181,6 +1181,11 @@
     .cd-n{font-size:12px;}
     .rel-actions .btn span{display:none;}
   }
+
+  /* v7: links de cobrança */
+  .share-url input{width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:var(--gold-soft);background:var(--ink-2);border:1px solid var(--stroke);border-radius:10px;padding:10px 12px;margin:0 0 10px;}
+  .share-acts{margin-bottom:0;}
+  .live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px rgba(87,185,138,0.2);margin-left:2px;}
 </style>
 </head>
 <body>
@@ -1920,6 +1925,7 @@
     backupReminder: true,
     defaultRate: 0,
     pixKey: '',
+    ownerName: '',
     defaultWalletId: ''
   };
   function loadSettings(){
@@ -2125,7 +2131,7 @@
     var fin = migrateFinance(parsed);
     return {debts: debts, contacts: contacts, wallets: wallets, transactions: transactions, groups: groups,
       bills: fin.bills, cards: fin.cards, cardPurchases: fin.cardPurchases, cardPayments: fin.cardPayments,
-      budgets: fin.budgets, goals: fin.goals, nudges: fin.nudges, recurring: fin.recurring};
+      budgets: fin.budgets, goals: fin.goals, nudges: fin.nudges, recurring: fin.recurring, shares: fin.shares};
   }
   // contas fixas e cartões: só aceita registros com o mínimo necessário
   function migrateFinance(p){
@@ -2173,7 +2179,14 @@
       if(typeof r.category !== 'string') r.category = '';
       return r;
     });
-    return {bills: bills, cards: cards, cardPurchases: cardPurchases, cardPayments: cardPayments, budgets: budgets, goals: goals, nudges: nudges, recurring: recurring};
+    var shares = {};
+    if(p.shares && typeof p.shares === 'object' && !Array.isArray(p.shares)){
+      Object.keys(p.shares).forEach(function(t){
+        var sh = p.shares[t];
+        if(/^[A-Za-z0-9]{16,40}$/.test(t) && sh && (sh.type === 'person' || sh.type === 'group') && typeof sh.ref === 'string') shares[t] = sh;
+      });
+    }
+    return {bills: bills, cards: cards, cardPurchases: cardPurchases, cardPayments: cardPayments, budgets: budgets, goals: goals, nudges: nudges, recurring: recurring, shares: shares};
   }
   // ---------- grupos (vaquinha / conta dividida) ----------
   function migrateGroups(arr){
@@ -2219,7 +2232,7 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         debts: state.debts, contacts: state.contacts, wallets: state.wallets, transactions: state.transactions, groups: state.groups,
         bills: state.bills, cards: state.cards, cardPurchases: state.cardPurchases, cardPayments: state.cardPayments,
-        budgets: state.budgets, goals: state.goals, nudges: state.nudges, recurring: state.recurring
+        budgets: state.budgets, goals: state.goals, nudges: state.nudges, recurring: state.recurring, shares: state.shares
       }));
       saveFailedWarned = false;
       if(typeof cloudSchedule === 'function') cloudSchedule();
@@ -2233,7 +2246,7 @@
       wallets: state.wallets, transactions: state.transactions,
       groups: state.groups,
       bills: state.bills, cards: state.cards, cardPurchases: state.cardPurchases, cardPayments: state.cardPayments,
-      budgets: state.budgets, goals: state.goals, nudges: state.nudges, recurring: state.recurring,
+      budgets: state.budgets, goals: state.goals, nudges: state.nudges, recurring: state.recurring, shares: state.shares,
       receipts: typeof receiptsForBackup === 'function' ? receiptsForBackup() : {},
       settings: settings
     };
@@ -2256,6 +2269,7 @@
     goals: loaded.goals || [],
     nudges: loaded.nudges || {},
     recurring: loaded.recurring || [],
+    shares: loaded.shares || {},
     openId: null,
     openGroupId: null,
     openGroups: {},
@@ -2531,6 +2545,8 @@
       msg = 'Oi ' + d.name + ', tudo bem? Sua próxima parcela é de ' + money.format(amountDueNow(d)) + (due ? (', vencimento em ' + fmtDate(toISO(due))) : '') + '. Qualquer coisa me avisa 🙂';
     }
     if(settings.pixKey) msg += '\nPIX: ' + settings.pixKey;
+    var slink = shareLinkFor('person', nameKey(d.name));
+    if(slink) msg += '\nDetalhes: ' + slink;
     return msg;
   }
 
@@ -3636,6 +3652,7 @@
       '</div>' +
       '<div class="person-actions">' +
         (wLink ? '<a class="btn btn-whats btn-sm" target="_blank" rel="noopener" href="' + escapeHtml(wLink) + '">' + ic('message-circle') + ' Cobrar no WhatsApp</a>' : '') +
+        (rec.length ? '<button type="button" class="btn btn-ghost btn-sm" id="personShare">' + ic('share-2') + ' Link de cobrança' + (shareFor('person', key) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>' : '') +
         '<button type="button" class="btn btn-primary btn-sm" id="personNewDebt">' + ic('plus') + ' Nova dívida com ' + escapeHtml(firstName(name)) + '</button>' +
       '</div>' +
       personExtraHtml(key) +
@@ -3652,6 +3669,8 @@
       return (x ? x.getTime() : Infinity) - (y ? y.getTime() : Infinity);
     }).forEach(function(d){ listBox.appendChild(buildCard(d, {inPerson: true})); });
     document.getElementById('personTagsEdit').addEventListener('click', function(){ personTagsDialog(key, name); });
+    var psh = document.getElementById('personShare');
+    if(psh) psh.addEventListener('click', function(){ openShareDialog('person', key, name); });
     document.getElementById('personNewDebt').addEventListener('click', function(){
       openModal(null);
       setFormKind(rec.length || !pay.length ? 'receivable' : 'payable');
@@ -4065,6 +4084,7 @@
         (g.notes ? '<div class="notes-block" style="margin-top:10px;"><b>Anotações</b> ' + escapeHtml(g.notes) + '</div>' : '') +
         '<div class="card-actions g-actions">' +
           (!isPayable && st.remaining > EPS ? '<button type="button" class="btn btn-whats btn-sm" data-gact="charge">' + ic('message-circle') + ' Cobrar pendentes</button>' : '') +
+          (n && !isPayable ? '<button type="button" class="btn btn-ghost btn-sm" data-gact="share">' + ic('share-2') + ' Link do grupo' + (shareFor('group', g.id) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>' : '') +
           (n ? '<button type="button" class="btn btn-ghost btn-sm" data-gact="image">' + ic('image') + ' Imagem resumo</button>' : '') +
           '<button type="button" class="btn btn-ghost btn-sm" data-gact="edit">' + ic('pencil') + ' Editar grupo</button>' +
           '<div class="spacer"></div>' +
@@ -4084,6 +4104,7 @@
       var a = act.getAttribute('data-gact');
       if(a === 'charge') openCharge(g);
       else if(a === 'image') shareGroupImage(g);
+      else if(a === 'share') openShareDialog('group', g.id, g.title);
       else if(a === 'edit') openGroupModal(g);
       else if(a === 'delete') openGroupDelete(g);
     });
@@ -4391,6 +4412,8 @@
     if(paid.length) lines.push('', 'Já pagaram: ' + paid.map(function(d){ return firstName(d.name); }).join(', ') + ' ✓');
     if(g.dueDate) lines.push('', 'Prazo: ' + fmtDate(g.dueDate));
     if(settings.pixKey) lines.push('PIX: ' + settings.pixKey);
+    var glink = shareLinkFor('group', g.id);
+    if(glink) lines.push('Quem já pagou: ' + glink);
     lines.push('', 'Valeu! 🙂');
     return {text: lines.join('\n'), pend: pend};
   }
@@ -5048,6 +5071,7 @@
         if(fin && Array.isArray(data.goals)) state.goals = fin.goals;
         if(fin && data.nudges && typeof data.nudges === 'object') state.nudges = fin.nudges;
         if(fin && Array.isArray(data.recurring)) state.recurring = fin.recurring;
+        if(fin && data.shares && typeof data.shares === 'object') state.shares = fin.shares;
         if(data && data.receipts) importReceipts(data.receipts);
         state.openGroupId = null;
         if(data && !Array.isArray(data) && data.contacts && typeof data.contacts === 'object') state.contacts = data.contacts;
@@ -5964,6 +5988,8 @@
     var msg = 'Oi ' + firstName(p.name) + ', tudo bem? Passando pra lembrar do que ficou em aberto comigo:\n' + lines.join('\n') +
       '\nTotal: ' + money.format(p.overdue) + '. Consegue acertar? Pode ser uma parte também 🙂';
     if(settings.pixKey) msg += '\nPIX: ' + settings.pixKey;
+    var slink = shareLinkFor('person', p.key);
+    if(slink) msg += '\nDetalhes: ' + slink;
     return msg;
   }
   function nudgeSub(p){
@@ -7327,6 +7353,7 @@
       budgets: budgetStatus(ymOf(today)).map(function(b){ return {name: b.name, spent: b.spent, limit: b.limit}; }),
       goals: state.goals.map(function(g){ var gi = goalInfo(g); return {name: g.name, saved: gi.saved, target: g.target}; }),
       forecast: state.wallets.length ? monthForecast().end : null,
+      charges: chargeList(),
       pix: settings.pixKey || ''
     };
   }
@@ -7404,7 +7431,7 @@
   function cloudPush(ack){
     if(!cloudOn()) return Promise.resolve();
     cloudDirty = false;
-    return cloudFetch('PUT', {snapshot: cloudSnapshot(), summary: cloudSummary(), ack: ack || []}).then(function(r){
+    return cloudFetch('PUT', {snapshot: cloudSnapshot(), summary: cloudSummary(), shares: shareViews(), ack: ack || []}).then(function(r){
       cloudCfg.last = new Date().toISOString(); cloudCfg.err = ''; cloudSaveCfg(); renderCloudStatus();
       return r;
     }).catch(function(e){ cloudCfg.err = e.message; cloudSaveCfg(); renderCloudStatus(); cloudDirty = true; });
@@ -7445,7 +7472,7 @@
     state.transactions = Array.isArray(snap.transactions) ? snap.transactions : [];
     var fin = migrateFinance(JSON.parse(JSON.stringify(snap)));
     state.bills = fin.bills; state.cards = fin.cards; state.cardPurchases = fin.cardPurchases; state.cardPayments = fin.cardPayments;
-    state.budgets = fin.budgets; state.goals = fin.goals; state.nudges = fin.nudges; state.recurring = fin.recurring;
+    state.budgets = fin.budgets; state.goals = fin.goals; state.nudges = fin.nudges; state.recurring = fin.recurring; state.shares = fin.shares;
     if(snap.settings && typeof snap.settings === 'object'){
       Object.keys(DEFAULT_SETTINGS).forEach(function(k){ if(snap.settings[k] !== undefined) settings[k] = snap.settings[k]; });
       saveSettings(); rebuildMoneyFormatter();
@@ -7565,6 +7592,145 @@
   rcptLoadAll();
   if(runRecurring()) saveData();
   if(cloudOn()) setTimeout(function(){ cloudSync(); }, 400);
+
+  // =====================================================================
+  // v7: links de cobrança (pessoa e grupo) e /cobrar no bot
+  // =====================================================================
+  var SHARE_CHARS = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  function newShareToken(){
+    var a = new Uint8Array(22);
+    crypto.getRandomValues(a);
+    return Array.prototype.map.call(a, function(b){ return SHARE_CHARS[b % SHARE_CHARS.length]; }).join('');
+  }
+  function shareFor(type, ref){
+    var ts = Object.keys(state.shares || {});
+    for(var i = 0; i < ts.length; i++){ var sh = state.shares[ts[i]]; if(sh.type === type && sh.ref === ref) return ts[i]; }
+    return null;
+  }
+  function shareUrl(token){ return cloudCfg && cloudCfg.url ? cloudCfg.url.replace(/\/+$/, '') + '/s/' + token : ''; }
+  function shareLinkFor(type, ref){
+    if(typeof cloudOn !== 'function' || !cloudOn() || !state.shares) return '';
+    var t = shareFor(type, ref);
+    return t ? shareUrl(t) : '';
+  }
+  function shortName(n){
+    var p = String(n || '').trim().split(/\s+/);
+    return p.length > 1 ? p[0] + ' ' + p[p.length - 1][0].toUpperCase() + '.' : p[0];
+  }
+  function sortedPays(d){ return (d.payments || []).slice().sort(function(a, b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; }).map(function(p){ return {date: p.date, amount: round2(p.amount)}; }); }
+  function personShareView(key){
+    var ds = state.debts.filter(function(d){ return nameKey(d.name) === key && d.kind === 'receivable'; });
+    if(!ds.length) return null;
+    var open = ds.filter(function(d){ return !isPaid(d); }), done = ds.filter(isPaid);
+    var sum = function(arr, fn){ return round2(arr.reduce(function(s, d){ return s + fn(d); }, 0)); };
+    return {
+      type: 'person', name: firstName(ds[0].name), owner: settings.ownerName || '', pix: settings.pixKey || '', updatedAt: new Date().toISOString(),
+      remaining: sum(open, remaining), late: sum(open, overdueAmount), doneCount: done.length, donePaid: sum(done, paidAmount),
+      debts: open.sort(function(a, b){ return a.date < b.date ? -1 : 1; }).map(function(d){
+        var s = debtSchedule(d), g = groupOf(d), n = installments(d);
+        return {
+          title: g ? g.title : (n > 1 ? 'Empréstimo em ' + n + 'x' : 'Empréstimo'), date: d.date,
+          total: round2(effectiveTotal(d)), paid: round2(Math.min(paidAmount(d), effectiveTotal(d))), remaining: round2(remaining(d)), late: round2(s.overdue),
+          due: n === 1 && s.insts[0] ? s.insts[0].dueISO : '',
+          insts: n > 1 ? s.insts.map(function(it){ return {n: it.i + 1, due: it.dueISO, value: round2(it.value + it.pen + it.penPaid), open: round2(it.open), state: it.state}; }) : [],
+          payments: sortedPays(d)
+        };
+      })
+    };
+  }
+  function groupShareView(g){
+    var st = groupStats(g);
+    if(!st.members.length) return null;
+    return {
+      type: 'group', title: g.title, date: g.date, dueDate: g.dueDate || '', total: round2(g.total), owed: round2(st.owed), paid: round2(st.paid), remaining: round2(st.remaining),
+      myShare: g.includeMe ? round2(g.myShare) : 0, owner: settings.ownerName || '', pix: settings.pixKey || '', updatedAt: new Date().toISOString(),
+      members: st.members.map(function(d){
+        var et = effectiveTotal(d);
+        return {name: shortName(d.name), total: round2(et), paid: round2(Math.min(paidAmount(d), et)), remaining: round2(remaining(d)), state: memberState(d)};
+      })
+    };
+  }
+  function shareViews(){
+    var out = {};
+    Object.keys(state.shares || {}).forEach(function(t){
+      var sh = state.shares[t];
+      var v = sh.type === 'group' ? (groupById(sh.ref) ? groupShareView(groupById(sh.ref)) : null) : personShareView(sh.ref);
+      if(v) out[t] = v;
+    });
+    return out;
+  }
+  // lista para o /cobrar do bot: todo mundo que te deve, com a mensagem pronta
+  function chargeList(){
+    var by = {}, out = [], late = {};
+    lateReceivables().forEach(function(p){ late[p.key] = p; });
+    state.debts.forEach(function(d){
+      if(d.kind !== 'receivable' || isPaid(d)) return;
+      var k = nameKey(d.name);
+      (by[k] || (by[k] = {key: k, name: d.name, debts: []})).debts.push(d);
+    });
+    Object.keys(by).forEach(function(k){
+      var p = by[k];
+      var soon = p.debts.slice().sort(function(a, b){ var x = nextDueDate(a), y = nextDueDate(b); return (x ? x.getTime() : 0) - (y ? y.getTime() : 0); })[0];
+      out.push({key: k, name: p.name, remaining: round2(p.debts.reduce(function(s, d){ return s + remaining(d); }, 0)), late: late[k] ? late[k].overdue : 0,
+        text: late[k] ? nudgeText(late[k]) : whatsappMessage(soon), phone: whatsPhone(p.name), link: shareLinkFor('person', k)});
+    });
+    return out.sort(function(a, b){ return (b.late - a.late) || (b.remaining - a.remaining); });
+  }
+  function openShareDialog(type, ref, label){
+    if(!cloudOn()){
+      appAlert('Precisa da nuvem', '<p class="warn">O link fica hospedado no seu bot, na sua conta da Cloudflare. Ligue em <b>Configurações → Nuvem e bot do Telegram</b> e tente de novo.</p>', 'cloud');
+      return;
+    }
+    var token = shareFor(type, ref);
+    function show(){
+      var url = shareUrl(token);
+      var phone = type === 'person' ? whatsPhone(label) : '';
+      var waText = type === 'group'
+        ? 'Pessoal, aqui dá pra ver quem já pagou o *' + label + '* e quanto falta pra cada um: ' + url
+        : 'Oi ' + firstName(label) + '! Aqui tá o resumo do que ficou em aberto comigo, com as parcelas e o PIX: ' + url;
+      openDialog({
+        title: type === 'group' ? 'Link do grupo' : 'Link de cobrança · ' + firstName(label), icon: 'share-2', alert: true, okText: 'Fechar',
+        html: '<p class="warn">' + (type === 'group'
+            ? 'Quem abrir vê o <b>' + escapeHtml(label) + '</b>: quanto cada um já pagou e quanto falta, e o seu PIX.'
+            : 'Quem abrir vê só as dívidas de <b>' + escapeHtml(firstName(label)) + '</b> com você: parcelas, pagamentos e o seu PIX. Nada do resto do app.') +
+          ' Atualiza sozinho quando você mexe no app.</p>' +
+          '<div class="share-url"><input id="shUrl" type="text" readonly value="' + escapeHtml(url) + '"></div>' +
+          '<div class="card-actions share-acts"><button type="button" class="btn btn-primary btn-sm" id="shCopy">' + ic('copy') + ' Copiar</button>' +
+            '<a class="btn btn-whats btn-sm" id="shWa" target="_blank" rel="noopener" href="' + escapeHtml('https://wa.me/' + phone + '?text=' + encodeURIComponent(waText)) + '">' + ic('message-circle') + ' WhatsApp</a>' +
+            '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="' + escapeHtml(url) + '">' + ic('arrow-up-right') + ' Abrir</a></div>' +
+          '<div class="field" style="margin-top:12px;"><label for="shOwner">Seu nome (aparece no link)</label><input id="shOwner" type="text" maxlength="40" placeholder="Ex: João" value="' + escapeHtml(settings.ownerName || '') + '"></div>' +
+          '<button type="button" class="btn btn-danger btn-sm" id="shOff">' + ic('x') + ' Desativar link</button>'
+      });
+      document.getElementById('shCopy').addEventListener('click', function(){
+        copyText(url).then(function(ok){ showToast(ok ? 'Link copiado' : 'Não consegui copiar', ok ? 'copy' : 'triangle-alert'); });
+      });
+      document.getElementById('shUrl').addEventListener('click', function(e){ e.target.select(); });
+      document.getElementById('shCopy').focus();
+      var ow = document.getElementById('shOwner');
+      ow.addEventListener('change', function(){ settings.ownerName = ow.value.trim(); saveSettings(); cloudSchedule(); });
+      document.getElementById('shOff').addEventListener('click', function(){
+        closeDialog(false);
+        var sh = state.shares[token];
+        delete state.shares[token];
+        render(); saveData(); cloudPush();
+        showUndo('Link desativado: quem tiver o link não vê mais nada', function(){ state.shares[token] = sh; render(); saveData(); cloudPush(); }, 'Link reativado', 'share-2');
+      });
+    }
+    if(token){ show(); return; }
+    token = newShareToken();
+    state.shares[token] = {type: type, ref: ref, created: todayISO()};
+    saveData();
+    showToast('Criando o link…', 'share-2');
+    cloudPush().then(function(){
+      if(cloudCfg.err){
+        delete state.shares[token]; saveData();
+        appAlert('Não consegui criar o link', '<p class="warn">' + escapeHtml(cloudCfg.err) + '. Teste a conexão em Configurações → Nuvem e bot do Telegram.</p>', 'cloud');
+        return;
+      }
+      render();
+      show();
+    });
+  }
 
   render();
   renderDashboard();
