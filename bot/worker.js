@@ -127,6 +127,7 @@ async function registerWebhook(env, origin) {
     {command: 'cobrar', description: 'Mensagem de cobrança pronta (ex.: /cobrar Vini)'},
     {command: 'semanal', description: 'Resumo da semana'},
     {command: 'lembretes', description: 'Ligar ou desligar os lembretes'},
+    {command: 'ultimos', description: 'Últimos lançamentos (para apagar ou corrigir)'},
     {command: 'pendentes', description: 'Mensagens esperando o app abrir'},
     {command: 'ajuda', description: 'Como escrever as mensagens'}
   ]});
@@ -353,7 +354,11 @@ const HELP =
   '• <code>gastei 35 mercado</code>  (ou <code>gastei 35 mercado no nubank</code>)\n' +
   '• <code>ganhei 150 freela</code>\n' +
   '• 📎 foto do PIX com a legenda <code>recebi 50 do Vini</code> (vai como comprovante)\n' +
-  '• 🧾 foto do cupom fiscal, ou o link do QR Code da nota (vira gasto com loja, valor e data)\n\n' +
+  '• 🧾 foto do cupom fiscal, ou o link do QR Code da nota (vira gasto com loja, valor e data)\n' +
+  '• 🏦 encaminhe a notificação do banco (<i>Compra aprovada R$ 45,90 em…</i>)\n' +
+  '• 👥 <code>racha 120 do churrasco com Bia e Caio</code> (cria o grupo e o link)\n' +
+  '• 🎯 <code>guardei 100 na viagem</code>\n' +
+  '• ✏️ <code>na verdade foi 45</code> corrige o último · /ultimos pra apagar\n\n' +
   'Entra no BarnaBank na hora (o app pega quando abrir).\n\n' +
   '/cobrar Fulano: mensagem de cobrança pronta para encaminhar\n' +
   '🎙️ Pode mandar <b>áudio</b> também.\n' +
@@ -440,9 +445,10 @@ async function onCallback(env, cq) {
     await tg(env, 'answerCallbackQuery', {callback_query_id: cq.id});
     return cobrar(env, chat, await getJSON(env, 'summary', null), cb[1], true);
   }
-  const m = /^undo:(.+)$/.exec(cq.data || '');
+  const m = /^undo:([^:]+)(:l)?$/.exec(cq.data || '');
   if (m) {
-    const id = m[1];
+    const id = m[1], fromList = !!m[2];
+    await dropRecent(env, id);
     const inbox = await getJSON(env, 'inbox', []);
     const i = inbox.findIndex(op => op.id === id);
     if (i !== -1) {
@@ -461,6 +467,7 @@ async function onCallback(env, cq) {
       const done = inCloud && await cloudApply(env, e => e.undo([{id}]));
       note = done ? '↩️ Desfeito. Já saiu do app.' : '↩️ Desfeito. Sai do app na próxima vez que você abrir.';
     }
+    if (fromList) { await say(env, chat, note.replace('↩️ Desfeito.', '↩️ Apagado.')); return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: 'Apagado'}); }
     const old = (cq.message && cq.message.text) || '';
     await tg(env, 'editMessageText', {chat_id: chat, message_id: cq.message.message_id, text: '<s>' + esc(old.split('\n')[0].replace(/^✅\s*/, '')) + '</s>\n' + note, parse_mode: 'HTML'});
     return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: 'Desfeito'});
@@ -501,6 +508,18 @@ async function handleText(env, chat, text, photo) {
   }
   if (cmd === 'saldo') return say(env, chat, saldoText(summary));
   if (cmd === 'cobrar' || /^cobrar\b/i.test(text)) return cobrar(env, chat, summary, text.replace(/^\/?cobrar(@\w+)?\s*/i, ''));
+  if (cmd === 'ultimos' || cmd === 'últimos') return ultimos(env, chat);
+  const special = parseSpecial(text, summary);
+  if (special) {
+    if (special.error) return say(env, chat, special.error);
+    if (special.type === 'edit') {
+      const rec = (await getJSON(env, 'recent', [])).filter(r => r.kind !== 'edit');
+      const last = rec[rec.length - 1];
+      if (!last) return say(env, chat, 'Não achei nada lançado pelo bot pra corrigir. Veja /ultimos.');
+      special.target = last.id;
+    }
+    return launchOp(env, chat, special, text);
+  }
   if (cmd === 'pendentes') {
     const waiting = await pendingOps(env);
     return say(env, chat, waiting.length ? '<b>Esperando o app abrir:</b>\n' + waiting.map(o => '• ' + esc(o.text)).join('\n') : 'Nada pendente: tudo já está nos seus dados. ✅');
@@ -525,6 +544,7 @@ async function handleText(env, chat, text, photo) {
   const inbox = await getJSON(env, 'inbox', []);
   inbox.push(op);
   await putJSON(env, 'inbox', inbox.slice(-200));
+  await pushRecent(env, op, describe(op));
   // responde primeiro (a mensagem já está salva na fila) e depois lança nos dados da nuvem
   const sent = await say(env, chat, '✅ ' + describe(op) + photoNote, {
     reply_markup: {inline_keyboard: [[{text: 'Desfazer', callback_data: 'undo:' + op.id}]]}
@@ -721,6 +741,19 @@ async function dailyReminder(env) {
     Object.keys(sentA).forEach(k => { if (k.slice(0, 7) < month) delete sentA[k]; });
     await putJSON(env, 'alertsSent', sentA);
   }
+  // assinatura que subiu de preço (uma vez por valor) e meta ficando pra trás (dia 20, uma vez no mês)
+  const raised = (s.subs || []).filter(x => x.raised && sentA[month + ':sub:' + x.key + ':' + x.last] !== 1);
+  const behind = new Date(Date.parse(today + 'T12:00:00Z')).getUTCDate() === 20 ? (s.goals || []).filter(g => g.behind > 0 && !g.done && sentA[month + ':goal:' + g.name] !== 1) : [];
+  if (prefs.daily !== false && (raised.length || behind.length)) {
+    let out = '';
+    if (raised.length) out += '<b>📈 Ficou mais caro</b>\n' + raised.map(x => '• ' + esc(x.name) + ': ' + brl(x.prev) + ' → <b>' + brl(x.last) + '</b> (+' + brl((x.last - x.prev) * 12) + ' por ano)').join('\n');
+    if (behind.length) out += (out ? '\n\n' : '') + '<b>🎯 Meta ficando pra trás</b>\n' + behind.map(g => '• ' + esc(g.name) + ': ' + brl(g.behind) + ' abaixo do ritmo · guarde ' + brl(g.perMonth) + '/mês' + (g.deadline ? ' até ' + fmtDate(g.deadline) : '')).join('\n') +
+      (behind.some(g => !g.wallet) ? '\nResponda <code>guardei 100 na ' + esc(behind.find(g => !g.wallet).name.toLowerCase()) + '</code> quando guardar.' : '');
+    await say(env, owner, out);
+    raised.forEach(x => { sentA[month + ':sub:' + x.key + ':' + x.last] = 1; });
+    behind.forEach(g => { sentA[month + ':goal:' + g.name] = 1; });
+    await putJSON(env, 'alertsSent', sentA);
+  }
   if (prefs.daily !== false && (dueToday.length || late.length || dueTomorrow.length)) {
     let out = '<b>☀️ Bom dia!</b>';
     if (dueToday.length) out += '\n\n<b>Vence hoje</b>\n' + dueToday.map(line).join('\n');
@@ -777,6 +810,160 @@ async function cobrar(env, chat, summary, who, fromButton) {
     '\n<i>Encaminhe a mensagem abaixo ou use o botão.</i>' + stale(summary));
   // a mensagem vai sem formatação, pronta para encaminhar
   return tg(env, 'sendMessage', {chat_id: chat, text: c.text, disable_web_page_preview: true, reply_markup: {inline_keyboard: buttons}});
+}
+
+// ---------------------------------------------------------------- frases especiais: notificação do banco, racha, metas, correção
+const BANKS = [['nubank', 'Nubank'], ['nu pagamentos', 'Nubank'], ['inter', 'Inter'], ['itau', 'Itaú'], ['bradesco', 'Bradesco'], ['santander', 'Santander'], ['caixa', 'Caixa'],
+  ['c6', 'C6'], ['picpay', 'PicPay'], ['mercado pago', 'Mercado Pago'], ['banco do brasil', 'Banco do Brasil'], ['neon', 'Neon'], ['next', 'Next'], ['pagbank', 'PagBank'], ['sicoob', 'Sicoob'], ['sicredi', 'Sicredi'], ['will', 'Will Bank']];
+const WEEKDAYS = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+function parseDue(t) {
+  const today = todayBR(), n = norm(t);
+  let m = /(?:ate|pra|para)\s+(?:o\s+)?dia\s+(\d{1,2})\b/.exec(n);
+  if (m) {
+    const d = +m[1]; if (d < 1 || d > 31) return '';
+    let iso = today.slice(0, 8) + String(d).padStart(2, '0');
+    if (iso <= today) { const nx = new Date(Date.parse(today.slice(0, 8) + '01T12:00:00Z') + 32 * 86400000).toISOString(); iso = nx.slice(0, 8) + String(d).padStart(2, '0'); }
+    return iso;
+  }
+  m = /(?:ate|pra|para)\s+(?:o\s+dia\s+)?(\d{1,2})\/(\d{1,2})\b/.exec(n);
+  if (m) { let iso = today.slice(0, 4) + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0'); if (iso <= today) iso = (+today.slice(0, 4) + 1) + iso.slice(4); return iso; }
+  m = /(?:ate|pra|para)\s+(?:a\s+|o\s+)?(domingo|segunda|terca|quarta|quinta|sexta|sabado)/.exec(n);
+  if (m) { const want = WEEKDAYS.indexOf(m[1]), cur = new Date(Date.parse(today + 'T12:00:00Z')).getUTCDay(); return addDays(today, ((want - cur + 7) % 7) || 7); }
+  return '';
+}
+function parseSpecial(raw, summary) {
+  const t = raw.trim().replace(/\s+/g, ' ');
+  let m;
+  // correção do último lançamento: "na verdade foi 45", "corrige pra lazer"
+  if ((m = /^(?:na verdade|corrig(?:e|ir|i)|errei|ops)[,!.]?\s*(?:foi|era|é|e|pra|para|o valor (?:foi|era|é))?\s*(.*)$/i.exec(t))) {
+    const rest = m[1].trim();
+    const v = new RegExp('^' + NUM + '\\b\\s*(?:(?:de|em|no|na|com)\\s+)?(.*)$', 'i').exec(rest);
+    const amount = v ? money(v[1]) : 0, category = (v ? v[2] : rest).replace(/^(?:de|em|no|na|com)\s+/i, '').trim();
+    if (!(amount > 0) && !category) return {error: 'Diga o valor ou a categoria certa, tipo: <code>na verdade foi 45</code> ou <code>na verdade foi lazer</code>.'};
+    return {type: 'edit', amount, category: amount > 0 ? category : category, text: t.slice(0, 200)};
+  }
+  // racha: "racha 120 do churrasco com Bia e Caio até sexta"
+  if ((m = new RegExp('^(?:racha|rachar|rachei|rachamos|divide|dividi|dividir|dividimos)\\s+(?:a\\s+conta\\s+(?:de\\s+|do\\s+|da\\s+)?)?' + NUM + '\\s*(.*)$', 'i').exec(t))) {
+    const amount = money(m[1]);
+    let rest = m[2];
+    const includeMe = !/\bsem\s+(?:mim|eu)\b|\beu\s+n[aã]o\b/i.test(rest);
+    const dueDate = parseDue(rest);
+    rest = rest.replace(/\bsem\s+(?:mim|eu)\b|\beu\s+n[aã]o\b/ig, ' ').replace(/\b(?:at[eé]|pra|para)\s+(?:o\s+dia\s+|dia\s+|a\s+|o\s+)?(?:\d{1,2}(?:\/\d{1,2})?|domingo|segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado)\b.*$/i, ' ').trim();
+    const w = /^(?:(?:do|da|de|no|na|com\s+o|com\s+a)\s+(.+?)\s+)?com\s+(.+)$/i.exec(rest);
+    if (!w) return {error: 'Diga com quem, tipo: <code>racha 120 do churrasco com Bia e Caio</code>'};
+    const names = w[2].split(/\s*,\s*|\s+e\s+/i).map(x => cleanName(x)).filter(x => x && !/^(eu|mim)$/i.test(x));
+    if (!names.length) return {error: 'Diga com quem, tipo: <code>racha 120 com Bia e Caio</code>'};
+    const title = w[1] ? w[1].trim().replace(/^\w/, c => c.toUpperCase()) : '';
+    return {type: 'group', amount, names, includeMe, dueDate, title, text: t.slice(0, 200)};
+  }
+  // metas: "guardei 100 na viagem"
+  if ((m = new RegExp('^(?:guardei|separei|juntei|poupei|coloquei|depositei)\\s+' + NUM + '\\s+(?:na|no|pra|para|em|pro)\\s+(?:a\\s+|o\\s+)?(?:meta\\s+(?:da\\s+|do\\s+|de\\s+)?)?(.+)$', 'i').exec(t))) {
+    const name = m[2].trim();
+    const goals = (summary && summary.goals) || [];
+    if (goals.length && !goals.some(g => norm(g.name) === norm(name) || norm(g.name).startsWith(norm(name)) || norm(name).startsWith(norm(g.name))))
+      return {error: 'Não achei a meta "' + esc(name) + '". Suas metas: ' + goals.map(g => esc(g.name)).join(', ') + '.'};
+    return {type: 'goal', amount: money(m[1]), name, text: t.slice(0, 200)};
+  }
+  return parseBankNotice(t, summary);
+}
+// notificação do banco encaminhada: "Compra aprovada R$ 45,90 em MERCADO X", "Pix recebido de Fulano R$ 100,00"
+function parseBankNotice(t, summary) {
+  if (/^(gastei|recebi|paguei|ganhei|emprestei|devo|comprei)\b/i.test(t)) return null;
+  const vm = /R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2}|\d+(?:,\d{2})?)/i.exec(t);
+  if (!vm) return null;
+  const n = norm(t);
+  if (!/(compra|aprovad|cartao|final \d{4}|pix|transferencia|recebeu|recebid|debitad|debito|credito|pagamento|boleto|\bted\b|deposito)/.test(n)) return null;
+  const amount = parseBRL(vm[1]);
+  const bank = (BANKS.find(b => new RegExp('\\b' + b[0] + '\\b').test(n)) || [])[1] || '';
+  const incoming = /(recebeu|recebid|chegou|deposito|caiu na|credito em conta|te enviou|enviou para voce|voce recebeu)/.test(n);
+  const isPix = /\bpix\b|transferencia|\bted\b/.test(n);
+  const card = !incoming && /compra/.test(n) && !/debito/.test(n) && /(credito|cartao|final \d{4})/.test(n);
+  const inst = /\bem\s+(\d{1,2})\s*x\b|(\d{1,2})\s+parcelas/.exec(n);
+  const wallets = (summary && summary.wallets || []).map(w => w.name);
+  const wallet = bank ? (wallets.find(w => norm(w).includes(norm(bank)) || norm(bank).includes(norm(w))) || '') : '';
+  // pessoa (pix/transferência)
+  const pm = /(?:\bde|\bpara|\bpor|\bda|\bdo)\s+([A-ZÀ-Ú][A-Za-zÀ-ú]+(?:\s+(?:d[aeo]s?\s+)?[A-ZÀ-Ú][A-Za-zÀ-ú]+){0,3})/.exec(t.replace(/R\$\s*[\d.,]+/g, ''));
+  const person = pm && !BANKS.some(b => norm(pm[1]).startsWith(b[0])) ? pm[1].trim() : '';
+  const base = {text: t.slice(0, 200), bank, wallet, viaBank: true};
+  if (isPix && person) {
+    if (incoming && isKnownPerson(summary, person, 'rec')) return {...base, type: 'pay', kind: 'receivable', name: cleanName(person), amount};
+    if (!incoming && isKnownPerson(summary, person, 'pay')) return {...base, type: 'pay', kind: 'payable', name: cleanName(person), amount};
+  }
+  if (incoming) return {...base, type: 'tx', kind: 'entrada', amount, category: isPix ? 'Pix recebido' : 'Entrada', note: person ? 'de ' + person : ''};
+  // estabelecimento
+  let store = '';
+  const sm = /\bem\s+(?!\d{1,2}\/|\d{1,2}x)([A-Z0-9*][A-Z0-9 *&'.\-\/]{1,40}?)(?=\s+(?:para|no\s+cart|com\s+o|valor|no\s+valor|às|as\s+\d|em\s+\d|foi|aprovad|dia\s+\d)|[.,;!]|$)/.exec(t)
+    || /-\s*([A-Z0-9*][A-Z0-9 *&'.\/]{1,40}?)\s+valor/i.exec(t) || /estabelecimento:?\s+(.+?)(?=[.,;]|$)/i.exec(t);
+  if (sm) store = sm[1].replace(/\*/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!store && isPix && person) store = person;
+  return {...base, type: 'tx', kind: 'gasto', amount, store: titleCase(store), note: titleCase(store) || (isPix ? 'Pix enviado' : ''), card, cardHint: bank,
+    installments: inst ? +(inst[1] || inst[2]) : 1, category: isPix && !store ? 'Transferências' : ''};
+}
+// lança uma operação especial: grava, aplica na nuvem e responde com o resultado
+async function launchOp(env, chat, op, text) {
+  op.id = 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  op.at = new Date().toISOString();
+  op.date = op.date || todayBR();
+  op.text = (op.text || text || '').slice(0, 200);
+  const inbox = await getJSON(env, 'inbox', []);
+  inbox.push(op);
+  await putJSON(env, 'inbox', inbox.slice(-200));
+  const res = await cloudApply(env, e => withReceipts(e, e.applyOps([op])));
+  const r = res && res[0];
+  if (r && !r.ok) {
+    await putJSON(env, 'inbox', (await getJSON(env, 'inbox', [])).filter(o => o.id !== op.id));
+    return say(env, chat, '⚠️ Não lancei: ' + esc(r.msg) + '.');
+  }
+  if (res) await sendReceipts(env, res);
+  const undoBtn = [{text: 'Desfazer', callback_data: 'undo:' + op.id}];
+  const later = r ? '' : '\n<i>Entra no app na próxima vez que você abrir.</i>';
+  if (op.type === 'edit') {
+    await pushRecent(env, op, 'correção', 'edit');
+    return say(env, chat, '✏️ ' + esc(r ? r.msg : 'Correção anotada') + later, {reply_markup: {inline_keyboard: [undoBtn]}});
+  }
+  if (op.type === 'group') {
+    const g = r && r.group;
+    await pushRecent(env, op, 'Racha ' + brl(op.amount));
+    if (!g) return say(env, chat, '👥 Racha de ' + brl(op.amount) + ' com ' + esc(op.names.join(', ')) + ' anotado.' + later, {reply_markup: {inline_keyboard: [undoBtn]}});
+    const origin = await env.BB.get('origin');
+    const link = origin ? origin + '/s/' + g.token : '';
+    const each = g.parts.map(p => '• ' + esc(p.name) + ': <b>' + brl(p.amount) + '</b>').join('\n');
+    const wa = 'Pessoal, ' + g.title + ' deu ' + brl(op.amount).replace(/ /g, ' ') + '. Aqui dá pra ver quanto cada um paga e o PIX: ' + link;
+    const kb = [];
+    if (link) kb.push([{text: '💬 Mandar no WhatsApp', url: 'https://wa.me/?text=' + encodeURIComponent(wa)}], [{text: '🔗 Abrir o link do grupo', url: link}]);
+    kb.push(undoBtn);
+    return say(env, chat, '👥 <b>' + esc(g.title) + '</b> · ' + brl(op.amount) + (g.myShare ? ' (sua parte: ' + brl(g.myShare) + ')' : '') + '\n' + each + '\nPagar até ' + fmtDate(g.due) + '.', {reply_markup: {inline_keyboard: kb}});
+  }
+  if (op.type === 'goal') {
+    const gl = r && r.goal;
+    await pushRecent(env, op, 'Meta ' + esc(op.name) + ' +' + brl(op.amount));
+    if (!gl) return say(env, chat, '🎯 Guardado ' + brl(op.amount) + ' na meta ' + esc(op.name) + '.' + later, {reply_markup: {inline_keyboard: [undoBtn]}});
+    let extra = '';
+    if (gl.deadline && gl.pct < 100) extra = '\nPra chegar até ' + fmtDate(gl.deadline) + ': ' + brl(gl.perMonth) + '/mês' + (gl.behind ? ' · ainda ' + brl(gl.behind) + ' abaixo do ritmo' : ' · no ritmo ✅');
+    return say(env, chat, '🎯 <b>' + esc(gl.name) + '</b>: ' + brl(gl.saved) + ' de ' + brl(gl.target) + ' (' + gl.pct + '%)' + (gl.pct >= 100 ? ' 🎉 Meta batida!' : '') + extra, {reply_markup: {inline_keyboard: [undoBtn]}});
+  }
+  // notificação do banco
+  const head = '🏦 ' + (op.bank ? esc(op.bank) + ' · ' : '') + (op.type === 'pay' ? 'pagamento' : op.card ? 'compra no cartão' : op.kind === 'entrada' ? 'entrada' : 'gasto');
+  await pushRecent(env, op, r ? esc(r.msg) : describe(op));
+  return say(env, chat, head + '\n✅ ' + (r ? esc(r.msg) : describe(op)) + later, {reply_markup: {inline_keyboard: [undoBtn]}});
+}
+// últimos lançamentos feitos pelo bot (para apagar ou corrigir)
+async function pushRecent(env, op, label, kind) {
+  const rec = await getJSON(env, 'recent', []);
+  rec.push({id: op.id, label: String(label || op.text || '').replace(/<[^>]+>/g, '').slice(0, 90), at: op.at || new Date().toISOString(), kind: kind || op.type});
+  await putJSON(env, 'recent', rec.slice(-15));
+}
+async function dropRecent(env, id) {
+  const rec = await getJSON(env, 'recent', []);
+  if (rec.some(r => r.id === id)) await putJSON(env, 'recent', rec.filter(r => r.id !== id));
+}
+async function ultimos(env, chat) {
+  const rec = (await getJSON(env, 'recent', [])).filter(r => r.kind !== 'edit').slice(-5).reverse();
+  if (!rec.length) return say(env, chat, 'Nada lançado pelo bot ainda.');
+  const lines = rec.map((r, i) => (i + 1) + '. ' + esc(r.label) + ' <i>(' + fmtDate(new Date(Date.parse(r.at) - 3 * 3600000).toISOString().slice(0, 10)) + ')</i>');
+  return say(env, chat, '<b>Últimos lançamentos</b>\n' + lines.join('\n') + '\n\nToque no número pra apagar. Pra corrigir o último: <code>na verdade foi 45</code>.', {
+    reply_markup: {inline_keyboard: [rec.map((r, i) => ({text: '🗑 ' + (i + 1), callback_data: ('undo:' + r.id + ':l').slice(0, 64)}))]}
+  });
 }
 
 // ---------------------------------------------------------------- recibos de quitação (PDF feito pelo motor)
@@ -857,6 +1044,7 @@ async function launchPurchase(env, chat, p, footer) {
   const inbox = await getJSON(env, 'inbox', []);
   inbox.push(op);
   await putJSON(env, 'inbox', inbox.slice(-200));
+  await pushRecent(env, op, 'Gasto de ' + brl(op.amount) + (store ? ' · ' + esc(store) : ''));
   const res = await cloudApply(env, e => e.applyOps([op]));
   const r = res && res[0];
   const cat = r && r.ok && r.category ? r.category : '';

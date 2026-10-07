@@ -1316,3 +1316,14 @@
   .trust-hint.bad .i{color:var(--red);}
   .trust-hint b{color:var(--text);}
   .claim-row.prazo .cr-info b{color:var(--gold-soft);}
+
+  /* v11: assinaturas */
+  .subs-total{font-size:13.5px;color:var(--muted);margin-bottom:10px;}
+  .subs-total b{color:var(--text);}
+  .sub-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--stroke);}
+  .sub-n{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;}
+  .sub-n b{font-size:14px;}
+  .sub-n span{font-size:12.5px;color:var(--muted);}
+  .sub-row.up .sub-n span{color:var(--red);}
+  .sub-v{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+  .sub-v span{font-size:12px;color:var(--muted);}
