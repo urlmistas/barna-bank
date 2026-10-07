@@ -11,3 +11,7 @@ id = "__KV_ID__"
 # lembrete diário no Telegram às 9h (horário de Brasília = 12h UTC)
 [triggers]
 crons = ["0 12 * * *"]
+
+# Workers AI: entender áudio e responder perguntas livres (opcional; se não der, o bot funciona sem)
+[ai]
+binding = "AI"
