@@ -64,6 +64,7 @@ http.createServer(async (req, res) => {
   if (req.url === '/__sent') { res.end(JSON.stringify(sent)); return; }
   if (req.url === '/__ai') { res.end(JSON.stringify(aiCalls)); return; }
   if (req.url === '/__kv') { res.end(JSON.stringify(Object.fromEntries(store))); return; }
+  if (req.url.startsWith('/__now=')) { const t = Date.parse(decodeURIComponent(req.url.slice(7))); const real = Date.now.__real || Date.now; const off = t - real(); Date.now = Object.assign(() => real() + off, {__real: real}); res.end('ok'); return; }
   if (req.url === '/__vision') { vision.reply = body.toString(); res.end('ok'); return; }
   if (req.url === '/__kvset') { const o = JSON.parse(body.toString() || '{}'); for (const k of Object.keys(o)) { if (o[k] === null) store.delete(k); else store.set(k, o[k]); } res.end('ok'); return; }
   if (req.url === '/__tg') { res.end(JSON.stringify(tgState)); return; }

@@ -709,6 +709,16 @@
       <label>Juros padrão ao criar dívida (% ao mês)</label>
       <input type="number" id="setDefaultRate" step="0.01" min="0" placeholder="0">
     </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="setDefaultLateFee">Multa padrão por atraso (%)</label>
+        <input type="number" id="setDefaultLateFee" step="0.01" min="0" placeholder="0 = sem multa">
+      </div>
+      <div class="field">
+        <label for="setDefaultLateInterest">Mora padrão (% ao mês)</label>
+        <input type="number" id="setDefaultLateInterest" step="0.01" min="0" placeholder="0 = sem mora">
+      </div>
+    </div>
     <div class="field">
       <label for="setPixKey">Chave PIX (vai junto nas cobranças e gera o QR nos links)</label>
       <input type="text" id="setPixKey" maxlength="120" placeholder="E-mail, celular, CPF ou chave aleatória" autocomplete="off">
@@ -804,7 +814,7 @@
 {"contacts": {}, "debts": [], "wallets": [], "transactions": []}
 </script>
 
-<script src="app.js?v=1d65bc8f" data-app-js></script>
+<script src="app.js?v=f5228adb" data-app-js></script>
 
 </body>
 </html>
