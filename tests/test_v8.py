@@ -195,6 +195,7 @@ with sync_playwright() as p:
     t = N(page.inner_text('#spTotals'))
     check('Eu R$ 52,80' in t and 'Ana Souza R$ 52,80' in t and 'Bia Lima R$ 8,80' in t and 'R$ 114,40' in t, 'divisão por item + 10%%: %s' % t)
     page.screenshot(path=SP + '/v8_split.png')
+    page.route('https://cdn.jsdelivr.net/**', lambda r: r.abort())  # simula sem internet (no GitHub tem)
     with page.expect_file_chooser() as fc:
         page.click('#spScan')
     fc.value.set_files(os.path.join(HERE, 'botsim', 'photo.jpg')); page.wait_for_timeout(2500)
