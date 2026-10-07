@@ -51,7 +51,13 @@ FONT_FILES = {'baloo2': FD + 'baloo2/Baloo2[wght].ttf', 'inter': FD + 'inter/Int
 FONT_CSS = ("@font-face{font-family:'Baloo 2';src:url(https://fonts.gstatic.com/local/baloo2.ttf);font-weight:400 800}"
             "@font-face{font-family:'Inter';src:url(https://fonts.gstatic.com/local/inter.ttf);font-weight:100 900}"
             "@font-face{font-family:'Nunito';src:url(https://fonts.gstatic.com/local/nunito.ttf);font-weight:200 1000}")
-def route_fonts(ctx):
+# Os testes antigos abrem um cartão e depois mexem em outros: no celular a dívida aberta
+# ocupa a tela toda, então aqui ela volta a abrir no lugar (o test_v12 testa a tela cheia).
+INLINE_CARDS_CSS = (".card[data-debt-id].open{position:relative !important;inset:auto !important;z-index:auto !important;border-radius:18px !important;overflow:visible !important;padding-bottom:0 !important;background:var(--card) !important;border:1px solid var(--stroke) !important}"
+    ".card[data-debt-id].open > .card-head{position:static !important}body.sheet-open{overflow:auto !important}body.sheet-open .fab{display:inline-flex !important}")
+def route_fonts(ctx, sheet=False):
+    if not sheet:
+        ctx.add_init_script("document.addEventListener('DOMContentLoaded',function(){var s=document.createElement('style');s.textContent=%s;document.head.appendChild(s);});" % json.dumps(INLINE_CARDS_CSS))
     # sem as fontes locais: não depende da internet (o visual não importa nos testes)
     if FD == '/' or not os.path.isdir(FD):
         ctx.route('https://fonts.googleapis.com/**', lambda r: r.fulfill(status=200, content_type='text/css', body=''))

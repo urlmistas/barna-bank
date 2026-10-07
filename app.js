@@ -673,6 +673,7 @@
     renderAll();
     saveData();
     if(typeof checkNewlyPaid === 'function') checkNewlyPaid();
+    if(typeof syncSheet === 'function') syncSheet();
   }
 
   // ---------- smart dashboard cards ----------
@@ -931,11 +932,13 @@
       else if(state.filter === 'pagos') empty.textContent = 'O Arquivo está vazio. Dívidas quitadas aparecem aqui.';
       else empty.textContent = 'Nenhuma dívida encontrada com esse filtro.';
       if(!(hasGroups && state.filter !== 'todos' && pool.length)) listEl.appendChild(empty);
+      placeOpenDetail();
       return;
     }
 
     if(!state.grouped){
       items.forEach(function(d){ listEl.appendChild(buildCard(d)); });
+      placeOpenDetail();
       return;
     }
 
@@ -981,6 +984,7 @@
 
       listEl.appendChild(g);
     });
+    placeOpenDetail();
   }
 
   // ---------- card da dívida (abas Resumo / Parcelas / Histórico) ----------
@@ -1087,9 +1091,8 @@
       '<div class="who">' +
         '<div class="name">' + escapeHtml(d.name) + ' <span class="kind-pill ' + (isPayable?'payable':'receivable') + '">' + (isPayable?'A pagar':'A receber') + '</span>' +
           (grp ? '<button type="button" class="grp-pill" title="Ver o grupo">' + ic('users') + '<span>' + escapeHtml(grp.title) + '</span></button>' : '') + '</div>' +
-        '<div class="sub">' + (isPayable ? 'dívida desde ' : 'emprestado em ') + fmtDate(d.date) + '</div>' +
+        '<div class="sub"><span class="badge ' + status + '">' + statusLabel(d) + '</span><span class="sub-since"> · ' + (isPayable ? 'desde ' : 'emprestado em ') + fmtDate(d.date) + '</span></div>' +
       '</div>' +
-      '<div class="badge ' + status + '">' + statusLabel(d) + '</div>' +
       '<div class="head-amount">' + money.format(headVal) + '<br><span style="font-size:10px;color:var(--muted);font-weight:400;">' + headLbl + '</span></div>' +
       (q ? '<button type="button" class="quick-pay" title="Registrar ' + escapeHtml(money.format(q.amount)) + (isPayable ? ' pago' : ' recebido') + ' hoje" aria-label="Registrar ' + escapeHtml(money.format(q.amount)) + (isPayable ? ' pago a ' : ' recebido de ') + escapeHtml(d.name) + ' hoje">' + ic('check') + '<span>' + (isPayable ? 'Paguei' : 'Recebi') + '</span></button>' : '') +
       '<div class="chev">' + ic('chevron-down') + '</div>';
@@ -1188,16 +1191,21 @@
 
     var tab = (state.cardTab && state.cardTab[d.id]) || 'resumo';
     function tabBtn(id, label){ return '<button type="button" class="ct-btn' + (tab === id ? ' active' : '') + '" role="tab" aria-selected="' + (tab === id) + '" data-tab="' + id + '">' + label + '</button>'; }
-    inner.innerHTML =
+    var totalDue = effectiveTotal(d), remain = remaining(d);
+    var odHead = '<div class="od-head">' +
+      '<div class="od-top"><span class="od-name">' + escapeHtml(d.name) + (grp ? ' <span class="od-grp">· ' + escapeHtml(grp.title) + '</span>' : '') + '</span><span class="od-status ' + status + '">' + statusLabel(d) + '</span></div>' +
+      '<div class="od-amt"><b>' + money.format(paid ? paidAmount(d) : remain) + '</b><span>' + (paid ? (isPayable ? 'pago no total' : 'recebido no total') : 'falta de ' + money.format(totalDue)) + '</span></div>' +
+      '<div class="od-bar"><i style="width:' + progressPct(d).toFixed(1) + '%"></i></div>' +
+      '<div class="od-meta">' + (isPayable ? 'Dívida de ' : 'Emprestado em ') + fmtDate(d.date) + ' · ' + (n > 1 ? n + 'x de ' + money.format(installmentValue(d)) : 'parcela única') + (d.rate > 0 ? ' · juros ' + String(d.rate).replace('.', ',') + '% a.m.' : ' · sem juros') + '</div>' +
+    '</div>';
+    inner.innerHTML = odHead +
       '<div class="card-tabs" role="tablist">' +
         tabBtn('resumo', 'Resumo') +
         tabBtn('parcelas', 'Parcelas <span class="ct-n">' + installmentsCovered(d) + '/' + n + '</span>') +
         tabBtn('historico', 'Histórico <span class="ct-n">' + sortedPayments.length + '</span>') +
       '</div>' +
       '<div class="card-panel" data-panel="resumo"' + (tab === 'resumo' ? '' : ' hidden') + '>' +
-        '<div class="progress-wrap"><div class="progress-top"><span>Quitado</span><b>' + progressPct(d).toFixed(0) + '%</b></div>' +
-        '<div class="progress-track"><div class="progress-fill" style="width:' + progressPct(d).toFixed(1) + '%;"></div></div></div>' +
-        '<div class="detail-grid">' + detailItems + '</div>' +
+        '<details class="od-details"><summary>Detalhes: valor original, juros, lucro, vencimentos</summary><div class="detail-grid">' + detailItems + '</div></details>' +
         (d.notes ? '<div class="notes-block"><b>Anotações</b>' + escapeHtml(d.notes) + '</div>' : '') +
         payFormHtml +
         '<div class="card-actions">' +
@@ -1713,11 +1721,14 @@
     if(!PAGE_IDS[page]) page = 'dashboard';
     if(page !== state.page && state.page !== 'pessoa') state.prevPage = state.page;
     state.page = page;
+    // celular: sair de Pessoas fecha a dívida aberta (ela ocupa a tela toda)
+    if(page !== 'pessoas' && page !== 'pessoa' && typeof wideMQ !== 'undefined' && !wideMQ.matches) state.openId = null;
     var tabPage = PAGE_TAB[page] || page;
     document.querySelectorAll('#pageTabs button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-page') === tabPage); });
     Object.keys(PAGE_IDS).forEach(function(p){ var el = document.getElementById(PAGE_IDS[p]); if(el) el.style.display = p === page ? '' : 'none'; });
     if(page === 'pessoas' || page === 'pessoa') render(); else renderAll();
     if(!(opts && opts.keepScroll)) window.scrollTo(0, 0);
+    if(typeof syncSheet === 'function') syncSheet();
   }
 
   // ---------- página da pessoa ----------
@@ -1807,6 +1818,37 @@
     });
   }
 
+  // ---------- dívida aberta: painel ao lado no PC, tela cheia no celular ----------
+  var wideMQ = window.matchMedia ? window.matchMedia('(min-width:1024px)') : {matches: false, addEventListener: function(){}};
+  function placeOpenDetail(){
+    var pane = document.getElementById('psDetail');
+    if(!pane) return;
+    pane.innerHTML = '';
+    var card = listEl.querySelector('.card[data-debt-id].open');
+    if(wideMQ.matches && card){
+      var body = card.querySelector('.card-body');
+      if(body){
+        body.style.maxHeight = 'none';
+        var close = document.createElement('button');
+        close.type = 'button'; close.className = 'btn btn-ghost btn-sm btn-icon od-close'; close.setAttribute('aria-label', 'Fechar');
+        close.innerHTML = ic('x');
+        close.addEventListener('click', function(){ state.openId = null; render(); });
+        pane.appendChild(close);
+        pane.appendChild(body);
+        pane.classList.add('has');
+        return;
+      }
+    }
+    pane.classList.remove('has');
+    if(wideMQ.matches) pane.innerHTML = '<div class="ps-empty">' + ic('hand-coins') + '<b>Escolha alguém na lista</b><span>A dívida abre aqui do lado, com as parcelas, o histórico e o botão de registrar pagamento.</span></div>';
+  }
+  function syncSheet(){
+    var host = state.page === 'pessoas' ? listEl : state.page === 'pessoa' ? document.getElementById('personContent') : null;
+    var open = !wideMQ.matches && !!(host && host.querySelector('.card[data-debt-id].open'));
+    document.body.classList.toggle('sheet-open', open);
+  }
+  if(wideMQ.addEventListener) wideMQ.addEventListener('change', function(){ render(); });
+
   // ---------- "Esta semana" no Início ----------
   // cada fonte devolve itens {date, title, sub, amount, dir:'in'|'out', late, icon, open(), act:{label, run()}}
   var weekSources = [];
@@ -1860,7 +1902,16 @@
       return;
     }
     box.innerHTML = '';
-    items.slice(0, 12).forEach(function(it){
+    var shown = items.slice(0, 12), hasLate = shown.some(function(it){ return it.late; }), lastGroup = null;
+    shown.forEach(function(it){
+      var grpName = it.late ? 'Precisa de você' : 'Esta semana';
+      if(hasLate && grpName !== lastGroup){
+        var gh = document.createElement('div');
+        gh.className = 'wk-group' + (it.late ? ' late' : '');
+        gh.textContent = grpName;
+        box.appendChild(gh);
+        lastGroup = grpName;
+      }
       var row = document.createElement('div');
       row.className = 'wk-row' + (it.late ? ' late' : '');
       row.innerHTML =
@@ -3556,7 +3607,7 @@
   function renderAll(){
     if(state.page === 'carteiras'){ renderWalletsPage(); renderRecurring(); renderGoals(); }
     if(state.page === 'dashboard') renderDashboard();
-    if(state.page === 'relatorios'){ renderRelatorios(); if(typeof renderSubs === 'function') renderSubs(); }
+    if(state.page === 'relatorios'){ renderRelatorios(); renderEvoChart(); if(typeof renderSubs === 'function') renderSubs(); }
     if(state.page === 'pessoa') renderPersonPage();
     if(state.page === 'contas' && typeof renderContasPage === 'function'){ renderContasPage(); renderCalendar(); }
   }
@@ -3681,8 +3732,11 @@
     netEl.textContent = money.format(net);
     netEl.style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
 
-    // evolução do saldo em carteiras
+    renderHomeSide();
+  }
+  function renderEvoChart(){
     var holder = document.getElementById('dashChartHolder');
+    if(!holder) return;
     var sub = document.getElementById('dashChartSub');
     var events = [];
     state.wallets.forEach(function(w){
@@ -3697,49 +3751,6 @@
       var points = events.map(function(e){ cum += e.amount; return {date: e.date, total: cum}; });
       sub.textContent = 'Saldo atual: ' + money.format(cum);
       holder.innerHTML = buildEvoChartSVG(points, 'areaGradDash');
-    }
-
-    // empréstimos (todas as pessoas, receivable + payable)
-    var pending = state.debts.filter(function(d){ return !isPaid(d); });
-    var withDue = pending.map(function(d){ return {d:d, due: nextDueDate(d)}; }).filter(function(x){ return x.due; });
-    withDue.sort(function(a,b){ return a.due - b.due; });
-    var dashNextDue = document.getElementById('dashNextDue');
-    if(withDue.length){
-      var item = withDue[0];
-      var diff = daysUntilDue(item.d);
-      var whenStr = diff < 0 ? Math.abs(diff) + 'd atrasado' : diff === 0 ? 'Hoje' : diff === 1 ? 'Amanhã' : 'em ' + diff + 'd';
-      var kindTag = item.d.kind === 'payable' ? ' (eu devo)' : '';
-      dashNextDue.textContent = item.d.name + kindTag + ' · ' + whenStr;
-    } else {
-      dashNextDue.innerHTML = 'Nada pendente ' + ic('party-popper', 'i-ok');
-    }
-    var lateDebtsD = pending.filter(function(d){ return statusOf(d) === 'atrasado'; });
-    var lateCount = lateDebtsD.length;
-    document.getElementById('dashLate').textContent = lateCount > 0 ? (lateCount + (lateCount===1?' dívida':' dívidas')) : '0';
-
-    var monthDebt = 0;
-    pending.forEach(function(d){
-      monthDebt += (d.kind === 'payable' ? -1 : 1) * openInMonth(d, y, m);
-    });
-    var dashDebtMonth = document.getElementById('dashDebtMonth');
-    dashDebtMonth.textContent = money.format(monthDebt);
-    dashDebtMonth.style.color = monthDebt >= 0 ? 'var(--gold-soft)' : 'var(--red)';
-
-    var byKey = {};
-    state.debts.filter(function(d){ return d.kind === 'receivable'; }).forEach(function(d){
-      var key = nameKey(d.name);
-      if(!byKey[key]) byKey[key] = {name: d.name, late: 0, received: 0};
-      byKey[key].late += (statusOf(d) === 'atrasado' ? 1 : 0);
-      byKey[key].received += paidAmount(d);
-    });
-    var people = Object.keys(byKey).map(function(k){ return byKey[k]; });
-    var dashBest = document.getElementById('dashBest');
-    if(!people.length){
-      dashBest.textContent = '—';
-    } else {
-      people.sort(function(a,b){ if(a.late !== b.late) return a.late - b.late; return b.received - a.received; });
-      var best = people[0];
-      dashBest.innerHTML = escapeHtml(best.name) + (best.late === 0 ? ' ' + ic('badge-check', 'i-ok') : ' (' + best.late + ' atraso' + (best.late>1?'s':'') + ')');
     }
   }
 
@@ -5235,13 +5246,73 @@
     if(!el) return;
     if(!state.wallets.length){ el.innerHTML = ''; return; }
     var f = monthForecast();
-    el.innerHTML = '<section class="chart-card fc-card"><div class="chart-head"><div class="title section-title">' + ic('calendar-range') + ' Previsão de ' + f.month + '</div>' +
+    el.innerHTML = '<div class="fc-mini"><div class="fc-end ' + (f.end < 0 ? 'neg' : '') + '"><span>Previsão de ' + f.month + ': deve terminar o mês com</span><b>' + money.format(f.end) + '</b></div>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-fits>' + ic('scale') + ' Cabe no mês?</button></div>' +
-      '<div class="fc-end ' + (f.end < 0 ? 'neg' : '') + '"><span>Você deve terminar o mês com</span><b>' + money.format(f.end) + '</b></div>' +
-      '<div class="fc-rows"><div class="fc-row"><span>' + ic('wallet') + 'Saldo agora</span><b>' + money.format(f.start) + '</b></div>' +
+      '<details class="fc-more"><summary>Como chegamos nisso</summary><div class="fc-rows"><div class="fc-row"><span>' + ic('wallet') + 'Saldo agora</span><b>' + money.format(f.start) + '</b></div>' +
       f.rows.map(function(r){ return '<div class="fc-row"><span>' + ic(r.icon) + escapeHtml(r.label) + '</span><b class="' + (r.value < 0 ? 'neg' : 'pos') + '">' + (r.value < 0 ? '−' : '+') + money.format(Math.abs(r.value)) + '</b></div>'; }).join('') +
-      '</div></section>';
+      '</div></details>';
   }
+
+  // =====================================================================
+  // Início novo: saldo + agenda à esquerda; a receber, mês, orçamento e metas à direita
+  // =====================================================================
+  var CAT_COLORS = ['#5b9cf0', '#c9a24a', '#8b7cf6', '#57b98a', '#e2665c', '#5a6072'];
+  function renderHomeSide(){
+    var today = todayISO(), ym = ymOf(today);
+    // resumo embaixo do saldo
+    var rec = 0, pay = 0;
+    state.debts.forEach(function(d){ if(isPaid(d)) return; if(d.kind === 'payable') pay += remaining(d); else rec += remaining(d); });
+    var sm = document.getElementById('dashSummary');
+    if(sm){
+      var fEnd = state.wallets.length ? monthForecast().end : null;
+      sm.innerHTML = '<span>A receber <b class="pos">' + money.format(rec) + '</b></span>' + (pay > EPS ? '<span>Eu devo <b>' + money.format(pay) + '</b></span>' : '') +
+        (fEnd !== null ? '<span>Fim do mês <b>≈ ' + money.format(fEnd) + '</b></span>' : '');
+    }
+    var mt = document.getElementById('dashMonthTitle');
+    if(mt) mt.textContent = MONTH_NAMES[+ym.slice(5, 7) - 1];
+    // a receber: pessoas e grupos, atrasados primeiro
+    var box = document.getElementById('dashReceive');
+    if(box){
+      var by = {}, list = [];
+      state.debts.forEach(function(d){
+        if(d.kind !== 'receivable' || isPaid(d)) return;
+        var g = groupOf(d), k = g ? 'g:' + g.id : 'p:' + nameKey(d.name);
+        var it = by[k];
+        if(!it){ it = by[k] = {name: g ? g.title : d.name, group: g, open: 0, total: 0, paid: 0, late: 0, n: 0, debt: d}; list.push(it); }
+        it.open += remaining(d); it.total += effectiveTotal(d); it.paid += Math.min(paidAmount(d), effectiveTotal(d)); it.late += overdueAmount(d); it.n++;
+      });
+      list.sort(function(a, b){ return (b.late > EPS) - (a.late > EPS) || b.open - a.open; });
+      if(!list.length){ box.innerHTML = '<div class="sc-head"><span class="section-title">A receber</span></div><div class="wk-empty">' + ic('party-popper', 'i-ok') + ' Ninguém te deve nada.</div>'; }
+      else {
+        box.innerHTML = '<div class="sc-head"><span class="section-title">A receber</span><b class="pos">' + money.format(rec) + '</b></div>' +
+          list.slice(0, 5).map(function(it, i){
+            var pct = it.total > 0 ? Math.min(100, it.paid / it.total * 100) : 0;
+            return '<button type="button" class="rc-row' + (it.late > EPS ? ' late' : '') + '" data-rc="' + i + '"><span class="rc-top"><span class="rc-n">' + escapeHtml(it.name) + '</span><span class="rc-v">' + money.format(it.open) +
+              (it.late > EPS ? ' · atrasado' : it.group ? ' · faltam ' + it.n : '') + '</span></span><span class="rc-bar"><i style="width:' + pct.toFixed(1) + '%"></i></span></button>';
+          }).join('') +
+          '<button type="button" class="link-btn" data-go="pessoas">Ver todas as pessoas →</button>';
+        box.querySelectorAll('[data-rc]').forEach(function(b){
+          b.addEventListener('click', function(){ var it = list[+b.getAttribute('data-rc')]; if(it.group) focusGroup(it.group.id); else openPerson(it.debt.name); });
+        });
+      }
+    }
+    // gastos do mês por categoria, numa barra só
+    var cb = document.getElementById('dashCatBar');
+    if(cb){
+      var sp = monthSpending(ym), cats = Object.keys(sp.byCat).map(function(k){ return sp.byCat[k]; }).filter(function(c){ return c.amount > EPS; }).sort(function(a, b){ return b.amount - a.amount; });
+      if(!cats.length){ cb.innerHTML = ''; }
+      else {
+        var top = cats.slice(0, 4), rest = cats.slice(4).reduce(function(s, c){ return s + c.amount; }, 0);
+        if(rest > EPS) top.push({name: 'Outros', amount: rest});
+        cb.innerHTML = '<div class="cat-bar">' + top.map(function(c, i){ return '<i style="flex:' + c.amount.toFixed(2) + ';background:' + CAT_COLORS[i % CAT_COLORS.length] + '" title="' + escapeHtml(c.name) + '"></i>'; }).join('') + '</div>' +
+          '<div class="cat-leg">' + top.map(function(c, i){ return '<span><i style="background:' + CAT_COLORS[i % CAT_COLORS.length] + '"></i>' + escapeHtml(c.name) + ' ' + money.format(c.amount) + '</span>'; }).join('') + '</div>';
+      }
+    }
+  }
+  document.getElementById('pageDashboard').addEventListener('click', function(e){
+    var g = e.target.closest('[data-go]');
+    if(g && !e.target.closest('#dashPlan')) showPage(g.getAttribute('data-go'));
+  });
 
   // ---------- calendário (página Contas) ----------
   var calState = {sel: null};

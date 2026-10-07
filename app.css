@@ -1327,3 +1327,146 @@
   .sub-row.up .sub-n span{color:var(--red);}
   .sub-v{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
   .sub-v span{font-size:12px;color:var(--muted);}
+
+  /* =====================================================================
+     Layout novo: topo único, Início em duas colunas, painel da dívida
+     ===================================================================== */
+  .wrap{max-width:1160px;}
+  header.topbar{display:flex;align-items:center;flex-wrap:nowrap;gap:22px;margin-bottom:26px;padding-bottom:16px;border-bottom:1px solid #161a22;}
+  header.topbar .tagline{display:none;}
+  header.topbar .brand-text{min-height:0;}
+  header.topbar h1{font-size:24px;padding-top:2px;}
+  header.topbar .mark{width:38px;height:38px;font-size:17px;border-radius:10px;}
+  header.topbar .header-actions{margin-left:auto;flex-shrink:0;}
+  @media (min-width:641px){
+    header.topbar .page-tabs{margin:0;background:transparent;border:none;padding:0;gap:2px;width:auto;}
+    header.topbar .page-tabs button{color:var(--muted);font-weight:600;padding:8px 13px;}
+    header.topbar .page-tabs button.active{background:transparent;color:var(--text);}
+    header.topbar .page-tabs .seg-ind{background:var(--card-2);box-shadow:none;border-radius:10px;}
+    header.topbar .page-tabs button .i{width:16px;height:16px;}
+  }
+  @media (min-width:641px) and (max-width:1080px){
+    header.topbar{flex-wrap:wrap;row-gap:12px;}
+    header.topbar .page-tabs{order:3;width:100%;}
+  }
+
+  /* Início */
+  .home{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:20px;align-items:start;}
+  .home-main,.home-side{display:flex;flex-direction:column;gap:16px;min-width:0;}
+  .home .balance-card{margin:0;}
+  .home .week-card{margin:0;}
+  .home #startCard:empty,.home #dashAlerts:empty,.home #todayBanner:empty,.home #claimsDash:empty{display:none;}
+  .home .remind-banner,.home .claim-box{margin:0 0 8px;}
+  .bc-summary{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:13px;color:var(--muted);margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);}
+  .bc-summary b{color:var(--text);font-weight:600;}
+  .bc-summary b.pos{color:var(--green);}
+  .bc-summary:empty{display:none;}
+  .wk-group{font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);padding:12px 6px 4px;}
+  .wk-group.late{color:var(--red);padding-top:4px;}
+  .wk-group + .wk-row{border-top:none;}
+  .side-card{background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);padding:16px 18px;display:flex;flex-direction:column;gap:12px;}
+  .sc-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+  .sc-head .section-title{font-family:'Baloo 2',sans-serif;font-weight:600;font-size:16px;}
+  .sc-head b.pos{color:var(--green);font-size:14px;}
+  .link-btn{background:none;border:none;color:var(--gold-soft);font:600 13px 'Inter',sans-serif;padding:2px 0;cursor:pointer;align-self:flex-start;}
+  .link-btn:hover{color:#f5e2ab;}
+  .rc-row{display:flex;flex-direction:column;gap:6px;width:100%;background:none;border:none;color:var(--text);text-align:left;padding:2px 0;cursor:pointer;font-family:'Inter',sans-serif;}
+  .rc-top{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;}
+  .rc-n{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .rc-v{color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .rc-row.late .rc-v{color:var(--red);}
+  .rc-bar{height:6px;border-radius:99px;background:#1f2430;overflow:hidden;}
+  .rc-bar i{display:block;height:100%;background:var(--green);border-radius:99px;}
+  .rc-row.late .rc-bar i{background:var(--red);}
+  .mc-figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+  .mc-figs div{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  .mc-figs span{font-size:12px;color:var(--muted);}
+  .mc-figs b{font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mc-figs b.pos{color:var(--green);} .mc-figs b.neg{color:var(--red);}
+  .cat-bar{display:flex;height:10px;border-radius:99px;overflow:hidden;gap:2px;}
+  .cat-bar i{display:block;}
+  .cat-leg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-top:8px;}
+  .cat-leg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;}
+  .fc-mini{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-top:1px solid var(--stroke);padding-top:12px;}
+  .fc-mini .fc-end{display:flex;flex-direction:column;align-items:flex-start;gap:2px;background:none;padding:0;margin:0;}
+  .fc-mini .fc-end span{font-size:12px;}
+  .fc-mini .fc-end b{font-size:19px;}
+  .fc-more summary{font-size:12.5px;color:var(--muted);cursor:pointer;margin-top:6px;}
+  .fc-more .fc-rows{margin-top:8px;}
+  .home .dash-plan{grid-template-columns:1fr;gap:16px;margin:0;}
+  .home .dash-plan > .chart-card{padding:16px 18px;}
+
+  /* "Seus dados" mais discreto */
+  .data-panel{background:transparent;padding:12px 16px;}
+  .data-panel .dp-icon,.data-panel .dp-s{display:none;}
+  .data-panel .dp-h{font-size:14px;color:var(--muted);font-family:'Inter',sans-serif;font-weight:600;}
+
+  @media (max-width:900px){
+    .home{grid-template-columns:minmax(0,1fr);}
+  }
+  .rc-top{display:flex;width:100%;}
+  .rc-bar{display:block;width:100%;}
+  .rc-row{align-items:stretch;}
+
+  /* Pessoas: linhas enxutas */
+  #pagePessoas .card .kind-pill,#pagePessoa .card .kind-pill{display:none;}
+  .who .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .who .sub .badge{background:none !important;padding:0;border-radius:0;font-size:12.5px;font-weight:600;font-family:'Inter',sans-serif;}
+  .who .sub .badge.emdia,.who .sub .badge.pendente{color:var(--muted);font-weight:500;}
+  .sub-since{color:var(--muted);}
+  .who .sub .badge.atrasado + .sub-since{display:none;}
+  @media (max-width:640px){
+    .card[data-debt-id] > .card-head{grid-template-columns:auto minmax(0,1fr) auto auto auto;grid-template-areas:"av who amt qp ch";row-gap:0;}
+    .card[data-debt-id] > .card-head > .head-amount{display:block;grid-area:amt;min-width:0;font-size:14px;}
+    .card[data-debt-id] > .card-head > .head-amount br,.card[data-debt-id] > .card-head > .head-amount span{display:none;}
+  }
+
+  /* dívida aberta: topo com quanto falta */
+  .od-head{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+  .od-top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-right:44px;}
+  .od-name{font-family:'Baloo 2',sans-serif;font-weight:600;font-size:22px;line-height:1.15;}
+  .od-grp{color:var(--muted);font:500 14px 'Inter',sans-serif;}
+  .od-status{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;white-space:nowrap;background:var(--green-soft);color:var(--green);}
+  .od-status.atrasado{background:var(--red-soft);color:var(--red);}
+  .od-status.hoje,.od-status.pendente{background:rgba(201,162,74,0.16);color:var(--gold-soft);}
+  .od-status.embreve{background:var(--blue-soft);color:var(--blue);}
+  .od-amt{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  .od-amt b{font-family:'Baloo 2',sans-serif;font-weight:700;font-size:34px;line-height:1;font-variant-numeric:tabular-nums;}
+  .od-amt span{font-size:13px;color:var(--muted);}
+  .od-bar{height:8px;border-radius:99px;background:#1f2430;overflow:hidden;}
+  .od-bar i{display:block;height:100%;background:var(--green);border-radius:99px;}
+  .od-meta{font-size:12.5px;color:var(--muted);}
+  .od-details{margin-bottom:12px;}
+  .od-details summary{font-size:12.5px;color:var(--muted);cursor:pointer;padding:4px 0 8px;}
+  .od-details[open] summary{margin-bottom:6px;}
+
+  /* PC: lista à esquerda, dívida aberta à direita */
+  @media (min-width:1024px){
+    .pessoas-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);gap:20px;align-items:start;}
+    .ps-detail{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);padding:20px 22px;}
+    .ps-detail .card-body{max-height:none !important;overflow:visible;border:none;transition:none;}
+    .ps-detail .card-body-inner{padding:0;}
+    .od-close{position:absolute;top:14px;right:14px;}
+    .ps-list .card[data-debt-id].open{border-color:rgba(201,162,74,0.5);background:var(--card-2);}
+    .ps-list .card[data-debt-id].open .chev{transform:rotate(-90deg);}
+    .ps-list .card .card-head{padding:12px 14px;gap:12px;}
+    .ps-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:48px 20px;color:var(--muted);font-size:13.5px;}
+    .ps-empty .i{width:28px;height:28px;color:var(--gold-soft);}
+    .ps-empty b{color:var(--text);font-size:15px;}
+  }
+  @media (max-width:1023px){
+    .ps-detail{display:none;}
+    /* celular: a dívida aberta vira uma tela própria */
+    body.sheet-open{overflow:hidden;}
+    body.sheet-open .fab{display:none;}
+    .card[data-debt-id].open{position:fixed;inset:0;z-index:43;margin:0;border-radius:0;border:none;overflow-y:auto;background:var(--ink);
+      padding-bottom:calc(100px + env(safe-area-inset-bottom, 0px));}
+    .card[data-debt-id].open > .card-head{position:sticky;top:0;z-index:2;background:rgba(10,12,17,0.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--stroke);}
+    .card[data-debt-id].open > .card-body{max-height:none !important;border-top:none;}
+    .card[data-debt-id].open .chev{transform:rotate(90deg);}
+    .card[data-debt-id].open .od-top{display:none;}
+  }
+  @media (max-width:640px){
+    .card[data-debt-id].open > .card-head{grid-template-columns:auto auto minmax(0,1fr) auto;grid-template-areas:"ch av who qp";}
+    .card[data-debt-id].open > .card-head > .head-amount{display:none;}
+  }

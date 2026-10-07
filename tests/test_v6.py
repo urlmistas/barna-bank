@@ -137,6 +137,7 @@ with sync_playwright() as p:
     check('faltam' in N(page.inner_text('#undoStack')), 'aviso mostra quanto falta')
 
     # ---------------- 9. previsão
+    page.click('#dashForecast .fc-more summary'); page.wait_for_timeout(150)
     fc = N(page.inner_text('#dashForecast'))
     check('Previsão de' in fc and 'terminar o mês' in fc and 'Saldo agora' in fc, 'previsão do mês no Início')
 
