@@ -22,6 +22,7 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, {headers: CORS});
     try {
       if (url.pathname === '/api/state') return await api(req, env, ctx, url);
+      if (url.pathname.startsWith('/api/photo/')) return await apiPhoto(req, url, env);
       if (url.pathname === '/setup') return await setup(req, url, env);
       if (url.pathname === '/status') return await status(req, url, env);
       if (url.pathname.startsWith('/tg/')) return await telegram(req, env, url);
@@ -97,6 +98,8 @@ async function registerWebhook(env, origin) {
     {command: 'semana', description: 'O que vence nos próximos 7 dias'},
     {command: 'saldo', description: 'Saldo das carteiras'},
     {command: 'cobrar', description: 'Mensagem de cobrança pronta (ex.: /cobrar Vini)'},
+    {command: 'semanal', description: 'Resumo da semana'},
+    {command: 'lembretes', description: 'Ligar ou desligar os lembretes'},
     {command: 'pendentes', description: 'Mensagens esperando o app abrir'},
     {command: 'ajuda', description: 'Como escrever as mensagens'}
   ]});
@@ -146,8 +149,8 @@ async function api(req, env, ctx, url) {
   // aproveita a visita do app para garantir que o bot está ligado
   if (ctx && ctx.waitUntil) ctx.waitUntil(ensureWebhook(env, url.origin, false).catch(() => {}));
   if (req.method === 'GET') {
-    const [snapshot, inbox, meta] = await Promise.all([getJSON(env, 'snapshot', null), getJSON(env, 'inbox', []), getJSON(env, 'meta', {})]);
-    return json({snapshot, inbox, updatedAt: meta.updatedAt || null});
+    const [snapshot, inbox, meta, undo] = await Promise.all([getJSON(env, 'snapshot', null), getJSON(env, 'inbox', []), getJSON(env, 'meta', {}), getJSON(env, 'undo', [])]);
+    return json({snapshot, inbox, undo, updatedAt: meta.updatedAt || null});
   }
   if (req.method === 'PUT') {
     const body = await req.json().catch(() => null);
@@ -160,12 +163,25 @@ async function api(req, env, ctx, url) {
     if (ack.length) {
       inbox = inbox.filter(op => !ack.includes(op.id));
       await putJSON(env, 'inbox', inbox);
+      if (env.BB.delete) for (const id of ack) await env.BB.delete('photo:' + id);
+    }
+    const undoAck = Array.isArray(body.undoAck) ? body.undoAck : [];
+    if (undoAck.length) {
+      const undo = await getJSON(env, 'undo', []);
+      await putJSON(env, 'undo', undo.filter(u => !undoAck.includes(u.id)));
     }
     const updatedAt = new Date().toISOString();
     await putJSON(env, 'meta', {updatedAt});
     return json({ok: true, updatedAt, pending: inbox.length});
   }
   return json({error: 'method'}, 405);
+}
+
+async function apiPhoto(req, url, env) {
+  if (!authed(req, url, env)) return json({error: 'unauthorized'}, 401);
+  const id = url.pathname.slice('/api/photo/'.length).replace(/[^A-Za-z0-9]/g, '');
+  const data = id ? await env.BB.get('photo:' + id) : null;
+  return data ? json({data}) : json({error: 'not found'}, 404);
 }
 
 async function setup(req, url, env) {
@@ -197,10 +213,11 @@ const HELP =
   '• <code>recebi 20 do Vini</code>  /  <code>Vini pagou 20</code>\n' +
   '• <code>paguei 40 pro Carlos</code>\n' +
   '• <code>gastei 35 mercado</code>  (ou <code>gastei 35 mercado no nubank</code>)\n' +
-  '• <code>ganhei 150 freela</code>\n\n' +
+  '• <code>ganhei 150 freela</code>\n' +
+  '• 📎 foto do PIX com a legenda <code>recebi 50 do Vini</code> (vai como comprovante)\n\n' +
   'Tudo entra no BarnaBank na próxima vez que você abrir o app.\n\n' +
   '/cobrar Fulano: mensagem de cobrança pronta para encaminhar\n' +
-  '/resumo · /atrasados · /semana · /saldo · /pendentes';
+  '/resumo · /atrasados · /semana · /semanal · /saldo · /pendentes · /lembretes';
 
 async function telegram(req, env, url) {
   const secret = await hookSecret(env);
@@ -219,10 +236,13 @@ async function onUpdate(env, up) {
   if (!up) return;
   if (up.callback_query) { await onCallback(env, up.callback_query); return; }
   const msg = up.message;
-  if (!msg || !msg.chat || typeof msg.text !== 'string') return;
+  if (!msg || !msg.chat) return;
+  const photo = (msg.photo && msg.photo.length) ? pickPhoto(msg.photo)
+    : (msg.document && /^image\//.test(msg.document.mime_type || '') ? msg.document : null);
+  if (typeof msg.text !== 'string' && !photo) return;
   const chat = String(msg.chat.id);
   let owner = await env.BB.get('owner');
-  const text = msg.text.trim();
+  const text = String(msg.text || msg.caption || '').trim();
   if (!owner) {
     if (/^\/start/.test(text)) {
       await env.BB.put('owner', chat);
@@ -231,7 +251,7 @@ async function onUpdate(env, up) {
     return;
   }
   if (chat !== owner) { await say(env, chat, 'Este bot é privado.'); return; }
-  await handleText(env, chat, text);
+  await handleText(env, chat, text, photo);
   return;
 }
 
@@ -246,26 +266,48 @@ async function onCallback(env, cq) {
   }
   const m = /^undo:(.+)$/.exec(cq.data || '');
   if (m) {
+    const id = m[1];
     const inbox = await getJSON(env, 'inbox', []);
-    const i = inbox.findIndex(op => op.id === m[1]);
+    const i = inbox.findIndex(op => op.id === id);
+    let note;
     if (i !== -1) {
       inbox.splice(i, 1);
       await putJSON(env, 'inbox', inbox);
-      await tg(env, 'editMessageText', {chat_id: chat, message_id: cq.message.message_id, text: '↩️ Cancelado.'});
-      return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: 'Cancelado'});
+      if (env.BB.delete) await env.BB.delete('photo:' + id);
+      note = '↩️ Desfeito. Não vai entrar no app.';
+    } else {
+      // já entrou no app: o app desfaz na próxima vez que abrir
+      const undo = await getJSON(env, 'undo', []);
+      if (!undo.some(u => u.id === id)) undo.push({id, at: new Date().toISOString()});
+      await putJSON(env, 'undo', undo.slice(-100));
+      note = '↩️ Desfeito. Sai do app na próxima vez que você abrir.';
     }
-    return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: 'Já entrou no app; desfaça por lá.', show_alert: true});
+    const old = (cq.message && cq.message.text) || '';
+    await tg(env, 'editMessageText', {chat_id: chat, message_id: cq.message.message_id, text: '<s>' + esc(old.split('\n')[0].replace(/^✅\s*/, '')) + '</s>\n' + note, parse_mode: 'HTML'});
+    return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: 'Desfeito'});
   }
   return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id});
 }
 
-async function handleText(env, chat, text) {
+async function handleText(env, chat, text, photo) {
+  if (photo && !text) return say(env, chat, '📎 Manda a foto com uma <b>legenda</b> dizendo o que é, tipo:\n<code>recebi 50 do Vini</code>\n\nA foto vai junto como comprovante do pagamento.');
   const cmd = (/^\/(\w+)/.exec(text) || [])[1];
   const summary = await getJSON(env, 'summary', null);
   if (cmd === 'start' || cmd === 'ajuda' || cmd === 'help') return say(env, chat, HELP);
   if (cmd === 'resumo') return say(env, chat, await resumoText(env, summary));
   if (cmd === 'atrasados') return say(env, chat, atrasadosText(summary));
   if (cmd === 'semana') return say(env, chat, semanaText(summary, 7));
+  if (cmd === 'semanal') return say(env, chat, weekText(summary));
+  if (cmd === 'lembretes') {
+    const prefs = await getJSON(env, 'prefs', {daily: true, weekly: true});
+    const arg = norm(text.replace(/^\/lembretes(@\w+)?\s*/i, ''));
+    if (/^(desliga|off|parar|nao)/.test(arg)) { prefs.daily = false; prefs.weekly = false; }
+    else if (/^(liga|on|sim)/.test(arg)) { prefs.daily = true; prefs.weekly = true; }
+    else if (/^diario/.test(arg)) prefs.daily = !prefs.daily;
+    else if (/^semanal/.test(arg)) prefs.weekly = !prefs.weekly;
+    await putJSON(env, 'prefs', prefs);
+    return say(env, chat, '<b>Lembretes</b>\n☀️ Diário às 9h (hoje, amanhã e atrasados): <b>' + (prefs.daily !== false ? 'ligado' : 'desligado') + '</b>\n📆 Resumo de domingo: <b>' + (prefs.weekly !== false ? 'ligado' : 'desligado') + '</b>\n\n<code>/lembretes diario</code> ou <code>/lembretes semanal</code> liga/desliga cada um. <code>/lembretes desligar</code> desliga tudo.');
+  }
   if (cmd === 'saldo') return say(env, chat, saldoText(summary));
   if (cmd === 'cobrar' || /^cobrar\b/i.test(text)) return cobrar(env, chat, summary, text.replace(/^\/?cobrar(@\w+)?\s*/i, ''));
   if (cmd === 'pendentes') {
@@ -278,12 +320,43 @@ async function handleText(env, chat, text) {
   op.at = new Date().toISOString();
   op.date = todayBR();
   op.text = text.slice(0, 200);
+  let photoNote = '';
+  if (photo) {
+    if (op.type === 'pay') {
+      op.photo = await savePhoto(env, op.id, photo);
+      photoNote = op.photo ? '\n📎 Comprovante anexado.' : '\n⚠️ Não consegui baixar a foto; o pagamento entra sem comprovante.';
+    } else photoNote = '\n<i>(A foto só vai junto em pagamentos, tipo "recebi 50 do Vini".)</i>';
+  }
   const inbox = await getJSON(env, 'inbox', []);
   inbox.push(op);
   await putJSON(env, 'inbox', inbox.slice(-200));
-  return say(env, chat, '✅ ' + describe(op) + '\n<i>Entra no app na próxima vez que você abrir.</i>', {
-    reply_markup: {inline_keyboard: [[{text: '↩️ Desfazer', callback_data: 'undo:' + op.id}]]}
+  return say(env, chat, '✅ ' + describe(op) + photoNote + '\n<i>Entra no app na próxima vez que você abrir.</i>', {
+    reply_markup: {inline_keyboard: [[{text: 'Desfazer', callback_data: 'undo:' + op.id}]]}
   });
+}
+
+// ---------------------------------------------------------------- fotos de comprovante
+function pickPhoto(sizes) {
+  const ok = sizes.filter(p => Math.max(p.width || 0, p.height || 0) <= 1600);
+  return (ok.length ? ok : sizes)[(ok.length ? ok : sizes).length - 1];
+}
+async function savePhoto(env, id, ph) {
+  try {
+    if (ph.file_size && ph.file_size > 8 * 1024 * 1024) return false;
+    const f = await tg(env, 'getFile', {file_id: ph.file_id});
+    if (!f.ok || !f.result || !f.result.file_path) return false;
+    const r = await fetch('https://api.telegram.org/file/bot' + TOKEN(env) + '/' + f.result.file_path);
+    if (!r.ok) return false;
+    const buf = new Uint8Array(await r.arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+    const mime = ph.mime_type || (/\.png$/i.test(f.result.file_path) ? 'image/png' : 'image/jpeg');
+    await env.BB.put('photo:' + id, 'data:' + mime + ';base64,' + btoa(bin), {expirationTtl: 60 * 60 * 24 * 60});
+    return true;
+  } catch (e) {
+    await putJSON(env, 'lastError', {at: new Date().toISOString(), error: 'foto: ' + String(e && e.message || e)});
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------- leitura das mensagens
@@ -416,21 +489,40 @@ function saldoText(s) {
 }
 
 // ---------------------------------------------------------------- lembrete diário
+function addDays(iso, n) { return new Date(Date.parse(iso + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10); }
+const line = i => '• ' + esc(i.title) + ': ' + (i.dir === 'in' ? '+' : '−') + brl(i.amount);
 async function dailyReminder(env) {
   const owner = await env.BB.get('owner');
   const s = await getJSON(env, 'summary', null);
   if (!owner || !s) return;
-  const today = todayBR();
-  const items = (s.due || []).filter(i => i.date <= today);
-  if (!items.length) return;
-  const dueToday = items.filter(i => i.date === today), late = items.filter(i => i.date < today);
-  let out = '<b>☀️ Bom dia!</b>';
-  if (dueToday.length) out += '\n\n<b>Vence hoje</b>\n' + dueToday.map(i => '• ' + esc(i.title) + ': ' + (i.dir === 'in' ? '+' : '−') + brl(i.amount)).join('\n');
-  if (late.length) out += '\n\n<b>Atrasado</b>\n' + late.map(i => '• ' + esc(i.title) + ' (desde ' + fmtDate(i.date) + '): ' + brl(i.amount)).join('\n');
-  out += '\n\nResponda <code>recebi 20 do Fulano</code> quando alguém pagar.';
-  await say(env, owner, out);
+  const prefs = await getJSON(env, 'prefs', {daily: true, weekly: true});
+  const today = todayBR(), tomorrow = addDays(today, 1);
+  const items = s.due || [];
+  const dueToday = items.filter(i => i.date === today), late = items.filter(i => i.date < today), dueTomorrow = items.filter(i => i.date === tomorrow);
+  if (prefs.daily !== false && (dueToday.length || late.length || dueTomorrow.length)) {
+    let out = '<b>☀️ Bom dia!</b>';
+    if (dueToday.length) out += '\n\n<b>Vence hoje</b>\n' + dueToday.map(line).join('\n');
+    if (dueTomorrow.length) out += '\n\n<b>Vence amanhã</b>\n' + dueTomorrow.map(line).join('\n');
+    if (late.length) out += '\n\n<b>Atrasado</b>\n' + late.map(i => '• ' + esc(i.title) + ' (desde ' + fmtDate(i.date) + '): ' + brl(i.amount)).join('\n');
+    out += '\n\nResponda <code>recebi 20 do Fulano</code> quando alguém pagar' + (late.some(i => i.dir === 'in') ? ', ou /cobrar para mandar a cobrança' : '') + '.';
+    await say(env, owner, out + stale(s));
+  }
+  // domingo: resumo da semana
+  if (prefs.weekly !== false && new Date(Date.parse(today + 'T12:00:00Z')).getUTCDay() === 0) await say(env, owner, weekText(s));
 }
-
+function weekText(s) {
+  const w = s.week;
+  if (!w) return '<b>📆 Resumo da semana</b>\nAbra o app para eu montar o resumo.';
+  let out = '<b>📆 Sua semana</b> (' + fmtDate(w.from) + ' a ' + fmtDate(w.to) + ')\n' +
+    '\n⬇️ Entrou: <b>' + brl(w.in) + '</b>\n⬆️ Saiu: <b>' + brl(w.out) + '</b>' +
+    '\n' + (w.in - w.out >= 0 ? '🟢 Sobrou ' : '🔴 Faltou ') + '<b>' + brl(Math.abs(w.in - w.out)) + '</b>';
+  if ((w.topCats || []).length) out += '\n\n<b>Onde mais gastou</b>\n' + w.topCats.map(c => '• ' + esc(c.name) + ': ' + brl(c.amount)).join('\n');
+  if ((w.received || []).length) out += '\n\n<b>Quem te pagou</b>\n' + w.received.map(r => '• ' + esc(r.name) + ': ' + brl(r.amount)).join('\n');
+  if ((w.late || []).length) out += '\n\n<b>Ainda atrasados</b>\n' + w.late.map(r => '• ' + esc(r.name) + ': ' + brl(r.amount)).join('\n');
+  if (w.next && w.next.count) out += '\n\n<b>Próximos 7 dias</b>: ' + w.next.count + ' vencimento(s)' + (w.next.in ? ', entra ' + brl(w.next.in) : '') + (w.next.out ? ', sai ' + brl(w.next.out) : '');
+  if ((w.goals || []).length) out += '\n\n🎯 ' + w.goals.map(g => esc(g.name) + ' ' + g.pct + '%').join(' · ');
+  return out + stale(s);
+}
 
 // ---------------------------------------------------------------- /cobrar
 function findCharge(summary, q) {
