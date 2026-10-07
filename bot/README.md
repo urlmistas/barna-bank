@@ -12,8 +12,19 @@ Com o bot, você manda mensagens como estas e elas entram no app:
 | `gastei 35 mercado no nubank` | gasto de R$ 35 em Mercado, na carteira Nubank |
 | `ganhei 150 freela` | entrada de R$ 150 |
 
-Comandos: `/resumo`, `/atrasados`, `/semana`, `/saldo`, `/pendentes`, `/ajuda`.
-Todo dia às 9h o bot avisa o que vence no dia e o que está atrasado.
+| 📎 foto do PIX com a legenda `recebi 50 do Vini` | pagamento com o comprovante anexado |
+
+Toda confirmação tem o botão **Desfazer**: se a mensagem ainda não entrou no app, ela some da fila; se já entrou, sai do app na próxima vez que você abrir.
+
+Comandos:
+- `/cobrar` (ou `cobrar Larissa`): mensagem de cobrança pronta para encaminhar, com botão do WhatsApp e o link de cobrança
+- `/resumo`, `/atrasados`, `/semana` (próximos 7 dias), `/semanal` (resumo da semana), `/saldo`, `/pendentes`, `/ajuda`
+- `/lembretes`: liga ou desliga os avisos
+
+Lembretes: todo dia às 9h o bot avisa o que vence hoje, o que vence amanhã e o que está atrasado. No domingo manda também o resumo da semana (quanto entrou e saiu, onde mais gastou, quem pagou).
+
+### Links de cobrança
+Na página de uma pessoa (**Link de cobrança**) ou num grupo (**Link do grupo**), o app cria uma página só de leitura no seu bot: a pessoa vê só o que deve a você (ou o grupo vê quem já pagou), com o seu PIX. Atualiza sozinha e dá pra desativar quando quiser.
 
 As mensagens ficam numa fila e entram no BarnaBank quando você abre o app.
 O app também guarda uma cópia dos dados na nuvem, então dá para usar em outro aparelho.
