@@ -39,6 +39,8 @@ def main():
     if subprocess.run(['node', os.path.join(ROOT, 'bot', 'build-engine.mjs')]).returncode: sys.exit(1)
     env = dict(os.environ)
     env.setdefault('BB_URL', 'http://localhost:8765/index.html')
+    # o bot conta o dia no horário de Brasília; o app e os testes também precisam (senão, depois das 21h, o "hoje" muda)
+    env.setdefault('TZ', 'America/Sao_Paulo')
     web = subprocess.Popen([sys.executable, '-m', 'http.server', '8765', '-d', ROOT], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if not wait('http://localhost:8765/index.html'):
         print('não consegui subir o servidor do app'); sys.exit(2)

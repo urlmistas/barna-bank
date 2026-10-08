@@ -1058,10 +1058,17 @@
     var idx = d.payments.indexOf(p);
     if(idx === -1) return;
     d.payments.splice(idx, 1);
+    // pagamentos depois deste que tinham ido para uma parcela adiantada voltam a cobrir a mais antiga em aberto
+    // (senão, apagar a parcela 3 deixa a 5 paga e a 3 atrasada)
+    var retarget = [];
+    d.payments.forEach(function(x){
+      if(x.mode === 'target' && x.date >= p.date){ retarget.push({x: x, target: x.target, pendingPart: x.pendingPart}); x.mode = 'fifo'; delete x.target; delete x.pendingPart; }
+    });
     invalidateSchedules();
     render();
     showUndo(label || 'Pagamento removido', function(){
       d.payments.splice(Math.min(idx, d.payments.length), 0, p);
+      retarget.forEach(function(r){ r.x.mode = 'target'; r.x.target = r.target; if(r.pendingPart !== undefined) r.x.pendingPart = r.pendingPart; });
       invalidateSchedules();
       render();
     }, 'Pagamento restaurado', 'trash');
