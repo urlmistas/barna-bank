@@ -644,20 +644,18 @@
     var wg = groupOf(d);
     if(wg && installments(d) === 1){
       msg = st === 'atrasado'
-        ? 'Oi ' + d.name + ', tudo bem? Sobre o *' + wg.title + '*: sua parte de ' + money.format(remaining(d)) + ' ficou em aberto (era até ' + fmtDate(toISO(due)) + '). Consegue acertar comigo? 🙂'
-        : 'Oi ' + d.name + ', tudo bem? Sobre o *' + wg.title + '*: sua parte ficou ' + money.format(remaining(d)) + (due ? ', pra pagar até ' + fmtDate(toISO(due)) : '') + '. Qualquer coisa me avisa 🙂';
+        ? 'Oi ' + greetName(d.name) + ', tudo bem? Sobre o *' + wg.title + '*: sua parte de *' + money.format(remaining(d)) + '* ficou em aberto (era até ' + fmtDate(toISO(due)) + '). Consegue acertar comigo? 🙂'
+        : 'Oi ' + greetName(d.name) + ', tudo bem? Sobre o *' + wg.title + '*: sua parte ficou *' + money.format(remaining(d)) + '*' + (due ? ', pra pagar até ' + fmtDate(toISO(due)) : '') + '. Qualquer coisa me avisa 🙂';
     } else if(st === 'atrasado'){
-      msg = 'Oi ' + d.name + ', tudo bem? Passando pra lembrar que ' +
+      msg = 'Oi ' + greetName(d.name) + ', tudo bem? Passando pra lembrar que ' +
         (sch.overdueCount > 1 ? 'tem ' + sch.overdueCount + ' parcelas em aberto, somando ' : 'ficou em aberto ') +
-        money.format(sch.overdue) + ' (vencimento em ' + fmtDate(toISO(due)) + '). Consegue acertar comigo? Pode ser uma parte também 🙂';
+        '*' + money.format(sch.overdue) + '* (vencimento em ' + fmtDate(toISO(due)) + '). Consegue acertar comigo? Pode ser uma parte também 🙂';
     } else if(st === 'hoje'){
-      msg = 'Oi ' + d.name + ', tudo bem? Só passando pra lembrar que sua parcela de ' + money.format(amountDueNow(d)) + ' vence hoje. Consegue enviar? 🙂';
+      msg = 'Oi ' + greetName(d.name) + ', tudo bem? Só passando pra lembrar que sua parcela de *' + money.format(amountDueNow(d)) + '* vence hoje. Consegue enviar? 🙂';
     } else {
-      msg = 'Oi ' + d.name + ', tudo bem? Sua próxima parcela é de ' + money.format(amountDueNow(d)) + (due ? (', vencimento em ' + fmtDate(toISO(due))) : '') + '. Qualquer coisa me avisa 🙂';
+      msg = 'Oi ' + greetName(d.name) + ', tudo bem? Sua próxima parcela é de *' + money.format(amountDueNow(d)) + '*' + (due ? (', vencimento em ' + fmtDate(toISO(due))) : '') + '. Qualquer coisa me avisa 😉';
     }
-    if(settings.pixKey) msg += '\nPIX: ' + settings.pixKey;
-    var slink = shareLinkFor('debt', d.id) || shareLinkFor('person', nameKey(d.name));
-    if(slink) msg += '\nDetalhes: ' + slink;
+    msg += chargeFooter(shareLinkFor('debt', d.id) || shareLinkFor('person', nameKey(d.name)));
     return msg;
   }
 
@@ -2124,6 +2122,15 @@
   function parseMoney(v){ return parseMoneyBR(v); }
   function addDaysISO(iso, days){ var dt = new Date(iso + 'T00:00:00'); dt.setDate(dt.getDate() + days); return toISO(dt); }
   function firstName(name){ return String(name).trim().split(/\s+/)[0] || name; }
+  // "Pedro (PC)" → "Pedro": nome para cumprimentar nas mensagens
+  function greetName(name){ return firstName(String(name).replace(/\([^)]*\)/g, ' ')) || name; }
+  // rodapé das mensagens de cobrança (negrito do WhatsApp com *)
+  function chargeFooter(link){
+    var out = [];
+    if(settings.pixKey) out.push('*Pix:* ' + settings.pixKey);
+    if(link) out.push('*Detalhes:* ' + link);
+    return out.length ? '\n\n' + out.join('\n') : '';
+  }
   function setViewKind(kind){
     state.viewKind = kind === 'payable' ? 'payable' : 'receivable';
     document.querySelectorAll('#kindToggle button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-k') === state.viewKind); });
@@ -2604,9 +2611,9 @@
     pend.forEach(function(d){ lines.push('• ' + d.name + ': ' + money.format(remaining(d)) + (memberState(d) === 'atrasado' ? ' (atrasado)' : '')); });
     if(paid.length) lines.push('', 'Já pagaram: ' + paid.map(function(d){ return firstName(d.name); }).join(', ') + ' ✓');
     if(g.dueDate) lines.push('', 'Prazo: ' + fmtDate(g.dueDate));
-    if(settings.pixKey) lines.push('PIX: ' + settings.pixKey);
+    if(settings.pixKey) lines.push('*Pix:* ' + settings.pixKey);
     var glink = shareLinkFor('group', g.id);
-    if(glink) lines.push('Quem já pagou: ' + glink);
+    if(glink) lines.push('*Quem já pagou:* ' + glink);
     lines.push('', 'Valeu! 🙂');
     return {text: lines.join('\n'), pend: pend};
   }
@@ -4149,12 +4156,9 @@
       var g = groupOf(d);
       return '• ' + (g ? g.title : 'empréstimo de ' + fmtDate(d.date)) + ': ' + money.format(overdueAmount(d));
     });
-    var msg = 'Oi ' + firstName(p.name) + ', tudo bem? Passando pra lembrar do que ficou em aberto comigo:\n' + lines.join('\n') +
-      '\nTotal: ' + money.format(p.overdue) + '. Consegue acertar? Pode ser uma parte também 🙂';
-    if(settings.pixKey) msg += '\nPIX: ' + settings.pixKey;
-    var slink = shareLinkFor('person', p.key);
-    if(slink) msg += '\nDetalhes: ' + slink;
-    return msg;
+    var msg = 'Oi ' + greetName(p.name) + ', tudo bem? Passando pra lembrar do que ficou em aberto comigo:\n' + lines.join('\n') +
+      '\nTotal: *' + money.format(p.overdue) + '*. Consegue acertar? Pode ser uma parte também 🙂';
+    return msg + chargeFooter(shareLinkFor('person', p.key));
   }
   function nudgeSub(p){
     var days = p.oldest ? daysBetweenISO(toISO(p.oldest), todayISO()) : 0;
@@ -5589,6 +5593,12 @@
       charges: chargeList(),
       week: weekSummary(),
       lastMonth: lastMonthSummary(),
+      openDebts: state.debts.filter(function(d){ return !isPaid(d); }).map(function(d){
+        var g = groupOf(d), n = installments(d);
+        return {id: d.id, name: d.name, kind: d.kind, remaining: round2(remaining(d)), late: overdueAmount(d) > EPS,
+          title: (g ? g.title : (n > 1 ? 'Empréstimo em ' + n + 'x' : 'Empréstimo')) + ' de ' + fmtDate(d.date)};
+      }),
+      defaultWallet: (state.wallets.find(function(w){ return w.id === settings.defaultWalletId; }) || {}).name || '',
       pix: settings.pixKey || '',
       owner: settings.ownerName || ''
     };
@@ -5643,15 +5653,17 @@
       } else if(op.type === 'pay'){
         var kind = op.kind === 'payable' ? 'payable' : 'receivable';
         var byId = op.debtId ? state.debts.filter(function(x){ return x.id === op.debtId && !isPaid(x); }) : [];
-        var ds = (byId.length ? byId : findPeopleDebts(op.name, kind)).sort(function(a, b){ var x = nextDueDate(a), y = nextDueDate(b); return (x ? x.getTime() : 0) - (y ? y.getTime() : 0); });
+        var byDue = function(a, b){ var x = nextDueDate(a), y = nextDueDate(b); return (x ? x.getTime() : 0) - (y ? y.getTime() : 0); };
+        // dívida escolhida primeiro; se sobrar, o resto vai para as outras da mesma pessoa (mais antiga primeiro)
+        var ds = byId.length ? byId.concat(findPeopleDebts(op.name || byId[0].name, kind).filter(function(x){ return x.id !== byId[0].id; }).sort(byDue)) : findPeopleDebts(op.name, kind).sort(byDue);
         if(!ds.length){ res.push({id: op.id, ok: false, msg: 'não achei dívida em aberto de "' + op.name + '"'}); return; }
-        var left = amount, w = op.wallet ? walletByName(op.wallet) : '', made = [], firstPay = null;
+        var left = amount, w = op.noWallet ? '' : op.wallet ? walletByName(op.wallet) : '', made = [], firstPay = null;
         ds.forEach(function(d, i){
           if(left <= EPS) return;
           var part = i === ds.length - 1 ? left : Math.min(left, remaining(d));
           if(part <= EPS) return;
           var p = {id: uid(), date: date, amount: round2(part), mode: 'fifo', note: op.viaLink ? 'informado pelo link' : 'via Telegram'};
-          var wid = w || defaultWalletId(d);
+          var wid = op.noWallet ? '' : (w || defaultWalletId(d));
           if(wid) p.walletId = wid;
           d.payments.push(p);
           made.push({debt: d.id, pay: p.id});

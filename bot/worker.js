@@ -431,6 +431,8 @@ async function onCallback(env, cq) {
     const r = await claimDecide(env, cd[2], cd[1] === 'ok');
     return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: r.already ? 'Já estava resolvido' : cd[1] === 'ok' ? 'Feito' : 'Recusado'});
   }
+  const ak = /^ask:([^:]+):(d|w|x)(?::(\w+))?$/.exec(cq.data || '');
+  if (ak) return onAsk(env, cq, chat, ak[1], ak[2], ak[3]);
   const rc = /^rcpt:(.+)$/.exec(cq.data || '');
   if (rc) {
     const r = await receiptToFriend(env, rc[1]);
@@ -548,14 +550,22 @@ async function handleText(env, chat, text, photo) {
       photoNote = op.photo ? '\n📎 Comprovante anexado.' : '\n⚠️ Não consegui baixar a foto; o pagamento entra sem comprovante.';
     } else photoNote = '\n<i>(A foto só vai junto em pagamentos, tipo "recebi 50 do Vini".)</i>';
   }
+  // pagamento: se a pessoa tem mais de uma dívida (ou você tem mais de uma carteira), pergunta antes
+  if (op.type === 'pay') { const asked = await askDetails(env, chat, op, summary, photoNote); if (asked) return asked; }
+  return finishOp(env, chat, op, photoNote, null);
+}
+async function finishOp(env, chat, op, note, editId) {
   const inbox = await getJSON(env, 'inbox', []);
   inbox.push(op);
   await putJSON(env, 'inbox', inbox.slice(-200));
   await pushRecent(env, op, describe(op));
   // responde primeiro (a mensagem já está salva na fila) e depois lança nos dados da nuvem
-  const sent = await say(env, chat, '✅ ' + describe(op) + photoNote, {
-    reply_markup: {inline_keyboard: [[{text: 'Desfazer', callback_data: 'undo:' + op.id}]]}
-  });
+  const markup = {inline_keyboard: [[{text: 'Desfazer', callback_data: 'undo:' + op.id}]]};
+  let sent;
+  if (editId) {
+    sent = await tg(env, 'editMessageText', {chat_id: chat, message_id: editId, text: '✅ ' + describe(op) + note, parse_mode: 'HTML', reply_markup: markup});
+    if (sent && sent.ok) sent.result = {message_id: editId};
+  } else sent = await say(env, chat, '✅ ' + describe(op) + note, {reply_markup: markup});
   const res = await cloudApply(env, e => withReceipts(e, e.applyOps([op])));
   const r = res && res[0];
   if (res) await sendReceipts(env, res);
@@ -567,6 +577,68 @@ async function handleText(env, chat, text, photo) {
     await putJSON(env, 'inbox', again);
   }
   return sent;
+}
+
+// ---------------------------------------------------------------- "recebi 500 do Vini": de qual dívida? em qual carteira?
+async function askDetails(env, chat, op, s, note) {
+  if (!s || op.debtId) return null;
+  const who = matchPerson(op.name, s, op.kind === 'payable' ? 'pay' : 'rec');
+  if (!who) return null; // pessoa que não deve nada: o motor já avisa na hora
+  const debts = who ? (s.openDebts || []).filter(d => d.name === who && d.kind === op.kind) : [];
+  if (!debts.length) return null;
+  const wallets = (s.wallets || []).map(w => w.name);
+  const needDebt = debts.length > 1;
+  const needWallet = !op.wallet && wallets.length > 1 && !s.defaultWallet;
+  if (!needDebt && !needWallet) return null;
+  if (who) op.name = who;
+  const st = {op, debts: debts.map(d => ({id: d.id, title: d.title, remaining: d.remaining, late: d.late})), wallets, needWallet, note: note || ''};
+  await env.BB.put('ask:' + op.id, JSON.stringify(st), {expirationTtl: 60 * 60 * 24});
+  return askStep(env, chat, st, needDebt ? 'debt' : 'wallet', null);
+}
+function askStep(env, chat, st, step, editId) {
+  const op = st.op, pay = op.kind === 'payable';
+  const head = '💸 ' + (pay ? 'Pago' : 'Recebido') + ' <b>' + brl(op.amount) + '</b>' + (pay ? ' a ' : ' de ') + '<b>' + esc(op.name) + '</b>.';
+  let text, kb;
+  if (step === 'debt') {
+    text = head + '\nFoi de qual dívida?';
+    kb = st.debts.map((d, i) => [{text: d.title + ' · falta ' + brl(d.remaining) + (d.late ? ' (atrasada)' : ''), callback_data: 'ask:' + op.id + ':d:' + i}]);
+    kb.push([{text: 'Mais antiga primeiro', callback_data: 'ask:' + op.id + ':d:a'}]);
+  } else {
+    text = head + (st.choice ? '\n↳ ' + esc(st.choice) : '') + '\n' + (pay ? 'Saiu de qual carteira?' : 'Caiu em qual carteira?');
+    kb = [];
+    st.wallets.forEach((w, i) => { if (i % 2 === 0) kb.push([]); kb[kb.length - 1].push({text: w, callback_data: 'ask:' + op.id + ':w:' + i}); });
+    kb.push([{text: 'Não mexer em carteira', callback_data: 'ask:' + op.id + ':w:n'}]);
+  }
+  kb.push([{text: 'Cancelar', callback_data: 'ask:' + op.id + ':x'}]);
+  if (editId) return tg(env, 'editMessageText', {chat_id: chat, message_id: editId, text, parse_mode: 'HTML', reply_markup: {inline_keyboard: kb}});
+  return say(env, chat, text, {reply_markup: {inline_keyboard: kb}});
+}
+async function onAsk(env, cq, chat, id, kind, val) {
+  const st = await getJSON(env, 'ask:' + id, null);
+  const mid = cq.message && cq.message.message_id;
+  if (!st) return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: 'Esse pedido expirou. Manda de novo.', show_alert: true});
+  if (kind === 'x') {
+    if (env.BB.delete) { await env.BB.delete('ask:' + id); await env.BB.delete('photo:' + id); }
+    await tg(env, 'editMessageText', {chat_id: chat, message_id: mid, text: '<s>' + (st.op.kind === 'payable' ? 'Pago ' : 'Recebido ') + brl(st.op.amount) + '</s>\nCancelado. Não lancei nada.', parse_mode: 'HTML'});
+    return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: 'Cancelado'});
+  }
+  if (kind === 'd') {
+    const d = val !== 'a' ? st.debts[+val] : null;
+    if (d) { st.op.debtId = d.id; st.choice = d.title; } else st.choice = 'mais antiga primeiro';
+    if (st.needWallet) {
+      await putJSON(env, 'ask:' + id, st);
+      await tg(env, 'answerCallbackQuery', {callback_query_id: cq.id});
+      return askStep(env, chat, st, 'wallet', mid);
+    }
+  }
+  if (kind === 'w') {
+    if (val === 'n') { st.op.noWallet = true; st.wchoice = 'sem carteira'; }
+    else { st.op.wallet = st.wallets[+val] || ''; st.wchoice = st.op.wallet; }
+  }
+  if (env.BB.delete) await env.BB.delete('ask:' + id);
+  await tg(env, 'answerCallbackQuery', {callback_query_id: cq.id});
+  const parts = [st.choice, st.wchoice].filter(Boolean).map(esc);
+  return finishOp(env, chat, st.op, (parts.length ? '\n↳ ' + parts.join(' · ') : '') + st.note, mid);
 }
 
 // ---------------------------------------------------------------- fotos de comprovante

@@ -100,6 +100,9 @@ with sync_playwright() as p:
 
     # ---------------- 4. recibo de quitação
     tg('recebi 45 da bia')
+    m_ = [x for x in sent() if 'ask:' in json.dumps(x['body'].get('reply_markup', ''))][-1]['body']['reply_markup']
+    m_ = json.loads(m_) if isinstance(m_, str) else m_
+    tg(cb=m_['inline_keyboard'][0][0]['callback_data'])
     d = docs()
     check(d and 'quitou' in d[-1]['body']['caption'] and d[-1]['body']['document'].startswith('[file'), 'bot manda o recibo em PDF quando a Bia quita')
     kb = json.loads(d[-1]['body'].get('reply_markup', '{}')).get('inline_keyboard', []) if d else []
