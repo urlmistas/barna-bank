@@ -105,11 +105,8 @@ with sync_playwright() as p:
     tg(cb=m_['inline_keyboard'][0][0]['callback_data'])
     d = docs()
     check(d and 'quitou' in d[-1]['body']['caption'] and d[-1]['body']['document'].startswith('[file'), 'bot manda o recibo em PDF quando a Bia quita')
-    kb = json.loads(d[-1]['body'].get('reply_markup', '{}')).get('inline_keyboard', []) if d else []
-    cbd = kb[0][0]['callback_data'] if kb else ''
-    check(cbd.startswith('rcpt:'), 'botão de mandar o recibo pra Bia')
-    tg(cb=cbd)
-    check(docs('777') and 'recibo de quitação' in docs('777')[-1]['body']['caption'], 'Bia recebe o recibo no Telegram')
+    check(docs('777') and 'recibo de quitação' in docs('777')[-1]['body']['caption'], 'Bia recebe o recibo no Telegram sozinha (automático)')
+    check('já foi pro Bia' in d[-1]['body']['caption'], 'dono fica sabendo que o recibo já foi: %s' % d[-1]['body']['caption'][-60:])
     sync()
     toast = N(page.inner_text('#undoStack'))
     check('Bia quitou' in toast and 'Recibo' in toast, 'app avisa que quitou, com botão Recibo: %s' % toast)

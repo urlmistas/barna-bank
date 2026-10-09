@@ -146,7 +146,7 @@ with sync_playwright() as p:
     tg('/resumo', chat=555)
     check('Resumo com' in plain(last('555')) and 'joao@pix.com' in last('555'), 'amiga: /status mostra o que está em aberto e o PIX')
     tg('vou pagar amanhã', chat=555)
-    check('só manda os lembretes' in last('555'), 'amiga: outras mensagens explicam o bot')
+    check('não repassa mensagens' in last('555'), 'amiga: outras mensagens explicam o bot e mostram o menu')
     check(not any(o.get('text') == 'vou pagar amanhã' for o in inbox()), 'mensagem da amiga não vira lançamento')
     sync()
     page.click('#personTg'); page.wait_for_timeout(600)

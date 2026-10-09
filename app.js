@@ -7165,7 +7165,8 @@
       cloudPush();
     }
     var fr = friendOf(key), link = inviteLink(iv);
-    var rules = '<ul class="tg-rules"><li>na véspera e no dia do vencimento</li><li>se atrasar, a cada 3 dias</li><li>sempre às 9h, com o valor, o link de cobrança e o seu PIX</li></ul>';
+    var rules = '<ul class="tg-rules"><li>na véspera e no dia do vencimento</li><li>se atrasar, a cada 3 dias</li><li>sempre às 9h, com o valor, o link de cobrança e o seu PIX</li></ul>' +
+      '<p class="share-views">Pelo bot a pessoa também vê as parcelas e o histórico, pega o PIX com QR Code, avisa que pagou (com comprovante), pede mais prazo, escolhe quando ser avisada e recebe o recibo quando quitar. Os pedidos chegam pra você confirmar.</p>';
     var html;
     if(fr){
       html = '<p class="warn">✅ <b>' + escapeHtml(first) + '</b> recebe os lembretes no Telegram' + (fr.at ? ' desde ' + fmtDate(fr.at.slice(0, 10)) : '') + '. O bot avisa:</p>' + rules +
@@ -7569,6 +7570,23 @@
         var d = state.debts.find(function(x){ return x.id === debtId; });
         if(!d || !isPaid(d)) return null;
         return {name: d.name, key: nameKey(d.name), file: receiptFileName(d), pdf: receiptPdf(d), total: round2(paidAmount(d))};
+      },
+      // tudo que o bot de lembretes mostra pra quem te deve: parcelas, PIX, histórico e dívidas quitadas
+      friendView: function(key){
+        var all = state.debts.filter(function(d){ return nameKey(d.name) === key && d.kind === 'receivable'; });
+        if(!all.length) return null;
+        var v = personShareView(key);
+        decorateShare(v, {type: 'person', ref: key});
+        delete v._ref;
+        var titleOf = function(d){ var g = groupOf(d), n = installments(d); return g ? g.title : (n > 1 ? 'Empréstimo em ' + n + 'x' : 'Empréstimo'); };
+        var hist = [];
+        all.forEach(function(d){ (d.payments || []).forEach(function(p){ hist.push({date: p.date, amount: round2(p.amount), title: titleOf(d), debtDate: d.date}); }); });
+        hist.sort(function(a, b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+        v.history = hist.slice(0, 20);
+        v.paidTotal = round2(hist.reduce(function(s, p){ return s + p.amount; }, 0));
+        v.paidDebts = all.filter(isPaid).sort(function(a, b){ return a.date < b.date ? 1 : -1; }).slice(0, 8)
+          .map(function(d){ return {_id: d.id, title: titleOf(d), date: d.date, total: round2(paidAmount(d))}; });
+        return v;
       },
       snapshot: cloudSnapshot,
       summary: cloudSummary,
