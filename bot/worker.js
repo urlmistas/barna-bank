@@ -1,4 +1,4 @@
-import {pixCode, qrSvg} from './pix.mjs';
+import {pixCode, qrSvg, qrPng} from './pix.mjs';
 import {getEngine} from './engine.js';
 // BarnaBank: bot do Telegram + nuvem para sincronizar o app.
 // Roda como Cloudflare Worker. Precisa de:
@@ -425,12 +425,15 @@ async function onUpdate(env, up) {
 async function onCallback(env, cq) {
   const owner = await env.BB.get('owner');
   const chat = cq.message && String(cq.message.chat.id);
+  if (owner && chat && chat !== owner && /^fr:/.test(cq.data || '')) return friendCallback(env, cq, chat);
   if (!owner || chat !== owner) return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id});
   const cd = /^claim:(ok|no):(.+)$/.exec(cq.data || '');
   if (cd) {
     const r = await claimDecide(env, cd[2], cd[1] === 'ok');
     return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: r.already ? 'Já estava resolvido' : cd[1] === 'ok' ? 'Feito' : 'Recusado'});
   }
+  const ak = /^ask:([^:]+):(d|w|x)(?::(\w+))?$/.exec(cq.data || '');
+  if (ak) return onAsk(env, cq, chat, ak[1], ak[2], ak[3]);
   const rc = /^rcpt:(.+)$/.exec(cq.data || '');
   if (rc) {
     const r = await receiptToFriend(env, rc[1]);
@@ -548,14 +551,22 @@ async function handleText(env, chat, text, photo) {
       photoNote = op.photo ? '\n📎 Comprovante anexado.' : '\n⚠️ Não consegui baixar a foto; o pagamento entra sem comprovante.';
     } else photoNote = '\n<i>(A foto só vai junto em pagamentos, tipo "recebi 50 do Vini".)</i>';
   }
+  // pagamento: se a pessoa tem mais de uma dívida (ou você tem mais de uma carteira), pergunta antes
+  if (op.type === 'pay') { const asked = await askDetails(env, chat, op, summary, photoNote); if (asked) return asked; }
+  return finishOp(env, chat, op, photoNote, null);
+}
+async function finishOp(env, chat, op, note, editId) {
   const inbox = await getJSON(env, 'inbox', []);
   inbox.push(op);
   await putJSON(env, 'inbox', inbox.slice(-200));
   await pushRecent(env, op, describe(op));
   // responde primeiro (a mensagem já está salva na fila) e depois lança nos dados da nuvem
-  const sent = await say(env, chat, '✅ ' + describe(op) + photoNote, {
-    reply_markup: {inline_keyboard: [[{text: 'Desfazer', callback_data: 'undo:' + op.id}]]}
-  });
+  const markup = {inline_keyboard: [[{text: 'Desfazer', callback_data: 'undo:' + op.id}]]};
+  let sent;
+  if (editId) {
+    sent = await tg(env, 'editMessageText', {chat_id: chat, message_id: editId, text: '✅ ' + describe(op) + note, parse_mode: 'HTML', reply_markup: markup});
+    if (sent && sent.ok) sent.result = {message_id: editId};
+  } else sent = await say(env, chat, '✅ ' + describe(op) + note, {reply_markup: markup});
   const res = await cloudApply(env, e => withReceipts(e, e.applyOps([op])));
   const r = res && res[0];
   if (res) await sendReceipts(env, res);
@@ -567,6 +578,68 @@ async function handleText(env, chat, text, photo) {
     await putJSON(env, 'inbox', again);
   }
   return sent;
+}
+
+// ---------------------------------------------------------------- "recebi 500 do Vini": de qual dívida? em qual carteira?
+async function askDetails(env, chat, op, s, note) {
+  if (!s || op.debtId) return null;
+  const who = matchPerson(op.name, s, op.kind === 'payable' ? 'pay' : 'rec');
+  if (!who) return null; // pessoa que não deve nada: o motor já avisa na hora
+  const debts = who ? (s.openDebts || []).filter(d => d.name === who && d.kind === op.kind) : [];
+  if (!debts.length) return null;
+  const wallets = (s.wallets || []).map(w => w.name);
+  const needDebt = debts.length > 1;
+  const needWallet = !op.wallet && wallets.length > 1 && !s.defaultWallet;
+  if (!needDebt && !needWallet) return null;
+  if (who) op.name = who;
+  const st = {op, debts: debts.map(d => ({id: d.id, title: d.title, remaining: d.remaining, late: d.late})), wallets, needWallet, note: note || ''};
+  await env.BB.put('ask:' + op.id, JSON.stringify(st), {expirationTtl: 60 * 60 * 24});
+  return askStep(env, chat, st, needDebt ? 'debt' : 'wallet', null);
+}
+function askStep(env, chat, st, step, editId) {
+  const op = st.op, pay = op.kind === 'payable';
+  const head = '💸 ' + (pay ? 'Pago' : 'Recebido') + ' <b>' + brl(op.amount) + '</b>' + (pay ? ' a ' : ' de ') + '<b>' + esc(op.name) + '</b>.';
+  let text, kb;
+  if (step === 'debt') {
+    text = head + '\nFoi de qual dívida?';
+    kb = st.debts.map((d, i) => [{text: d.title + ' · falta ' + brl(d.remaining) + (d.late ? ' (atrasada)' : ''), callback_data: 'ask:' + op.id + ':d:' + i}]);
+    kb.push([{text: 'Mais antiga primeiro', callback_data: 'ask:' + op.id + ':d:a'}]);
+  } else {
+    text = head + (st.choice ? '\n↳ ' + esc(st.choice) : '') + '\n' + (pay ? 'Saiu de qual carteira?' : 'Caiu em qual carteira?');
+    kb = [];
+    st.wallets.forEach((w, i) => { if (i % 2 === 0) kb.push([]); kb[kb.length - 1].push({text: w, callback_data: 'ask:' + op.id + ':w:' + i}); });
+    kb.push([{text: 'Não mexer em carteira', callback_data: 'ask:' + op.id + ':w:n'}]);
+  }
+  kb.push([{text: 'Cancelar', callback_data: 'ask:' + op.id + ':x'}]);
+  if (editId) return tg(env, 'editMessageText', {chat_id: chat, message_id: editId, text, parse_mode: 'HTML', reply_markup: {inline_keyboard: kb}});
+  return say(env, chat, text, {reply_markup: {inline_keyboard: kb}});
+}
+async function onAsk(env, cq, chat, id, kind, val) {
+  const st = await getJSON(env, 'ask:' + id, null);
+  const mid = cq.message && cq.message.message_id;
+  if (!st) return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: 'Esse pedido expirou. Manda de novo.', show_alert: true});
+  if (kind === 'x') {
+    if (env.BB.delete) { await env.BB.delete('ask:' + id); await env.BB.delete('photo:' + id); }
+    await tg(env, 'editMessageText', {chat_id: chat, message_id: mid, text: '<s>' + (st.op.kind === 'payable' ? 'Pago ' : 'Recebido ') + brl(st.op.amount) + '</s>\nCancelado. Não lancei nada.', parse_mode: 'HTML'});
+    return tg(env, 'answerCallbackQuery', {callback_query_id: cq.id, text: 'Cancelado'});
+  }
+  if (kind === 'd') {
+    const d = val !== 'a' ? st.debts[+val] : null;
+    if (d) { st.op.debtId = d.id; st.choice = d.title; } else st.choice = 'mais antiga primeiro';
+    if (st.needWallet) {
+      await putJSON(env, 'ask:' + id, st);
+      await tg(env, 'answerCallbackQuery', {callback_query_id: cq.id});
+      return askStep(env, chat, st, 'wallet', mid);
+    }
+  }
+  if (kind === 'w') {
+    if (val === 'n') { st.op.noWallet = true; st.wchoice = 'sem carteira'; }
+    else { st.op.wallet = st.wallets[+val] || ''; st.wchoice = st.op.wallet; }
+  }
+  if (env.BB.delete) await env.BB.delete('ask:' + id);
+  await tg(env, 'answerCallbackQuery', {callback_query_id: cq.id});
+  const parts = [st.choice, st.wchoice].filter(Boolean).map(esc);
+  return finishOp(env, chat, st.op, (parts.length ? '\n↳ ' + parts.join(' · ') : '') + st.note, mid);
 }
 
 // ---------------------------------------------------------------- fotos de comprovante
@@ -1029,6 +1102,14 @@ async function sendReceipts(env, res) {
   for (const rc of res.receipts) {
     const fr = await friendFor(env, rc.key);
     const first = firstOf(rc.name);
+    if (fr) {
+      const sm = await getJSON(env, 'summary', null);
+      const r = await sendDoc(env, fr.chat, rc, '🎉 Quitado! Aqui está o recibo de quitação' + (sm && sm.owner ? ' de ' + esc(firstOf(sm.owner)) : '') + ': ' + brl(rc.total) + ', tudo pago. Valeu! 🙌');
+      if (r && r.ok) {
+        await sendDoc(env, owner, rc, '🎉 <b>' + esc(rc.name) + '</b> quitou! ' + brl(rc.total) + ' recebidos no total.\n📨 O recibo já foi pro ' + esc(first) + ' no Telegram.');
+        continue;
+      }
+    }
     await sendDoc(env, owner, rc, '🎉 <b>' + esc(rc.name) + '</b> quitou! ' + brl(rc.total) + ' recebidos no total.\nO recibo de quitação está aqui, pronto pra encaminhar.',
       fr ? {inline_keyboard: [[{text: '📨 Mandar o recibo pro ' + first + ' no Telegram', callback_data: ('rcpt:' + rc.debtId).slice(0, 64)}]]} : null);
   }
@@ -1171,9 +1252,11 @@ async function readNfce(link) {
   return out;
 }
 
-// ---------------------------------------------------------------- lembretes para quem te deve
+// ---------------------------------------------------------------- bot de lembretes para quem te deve
 // O app cria um convite por pessoa (snapshot.invites[chave] = {code, on}). A pessoa abre
-// t.me/<seu bot>?start=<code>, aperta Começar e passa a receber os lembretes. friends[chave] = {chat, code, at, name}
+// t.me/<seu bot>?start=<code>, aperta Começar e passa a receber os lembretes.
+// friends[chave] = {chat, code, at, name, sent, lead (dias de antecedência), pause (até quando)}
+// Ela só enxerga o que é dela: tudo sai da chave ligada ao chat.
 async function friendFor(env, key) {
   const [friends, snap] = await Promise.all([getJSON(env, 'friends', {}), getJSON(env, 'snapshot', null)]);
   const fr = friends[key], iv = snap && snap.invites && snap.invites[key];
@@ -1185,12 +1268,36 @@ async function friendByChat(env, chat) {
   return key ? {key, ...friends[key]} : null;
 }
 const firstOf = n => String(n || '').trim().split(/\s+/)[0] || '';
-function friendText(c, kind, owner) {
+const FR_CMDS = [
+  {command: 'menu', description: 'Tudo que dá pra fazer aqui'},
+  {command: 'status', description: 'Quanto está em aberto'},
+  {command: 'parcelas', description: 'Parcelas e vencimentos'},
+  {command: 'pix', description: 'PIX copia e cola e QR Code'},
+  {command: 'paguei', description: 'Avisar que pagou (com comprovante)'},
+  {command: 'prazo', description: 'Pedir mais prazo'},
+  {command: 'historico', description: 'O que você já pagou'},
+  {command: 'recibo', description: 'Recibo de quitação'},
+  {command: 'lembretes', description: 'Quando ser avisado'},
+  {command: 'pausar', description: 'Pausar os lembretes'},
+  {command: 'parar', description: 'Não receber mais nada'}
+];
+function friendMenu(c) {
+  const rows = c ? [
+    [{text: '📋 Parcelas', callback_data: 'fr:parc'}, {text: '💠 PIX', callback_data: 'fr:pix'}],
+    [{text: '✅ Já paguei', callback_data: 'fr:pago'}, {text: '🗓️ Pedir prazo', callback_data: 'fr:prazo'}],
+    [{text: '📜 Histórico', callback_data: 'fr:hist'}, {text: '⚙️ Lembretes', callback_data: 'fr:cfg'}]
+  ] : [[{text: '📜 Histórico', callback_data: 'fr:hist'}, {text: '🧾 Recibo', callback_data: 'fr:rc'}]];
+  if (c && c.link) rows.push([{text: '🔗 Ver tudo no site', url: c.link}]);
+  return {inline_keyboard: rows};
+}
+const leadLabel = n => n === 0 ? 'só no dia do vencimento' : n === 1 ? 'na véspera e no dia' : n + ' dias antes e no dia';
+function friendText(c, kind, owner, lead) {
   const who = owner ? '<b>' + esc(owner) + '</b>' : 'quem te emprestou';
   let out = '👋 Oi, ' + esc(firstOf(c.name)) + '! ';
   if (kind === 'late') out += 'Lembrete de ' + who + ': tem <b>' + brl(c.late) + '</b> atrasado' + (c.lateSince ? ' desde ' + fmtDate(c.lateSince) : '') + '.';
   else if (kind === 'today') out += 'Lembrete de ' + who + ': <b>hoje</b> vence <b>' + brl(c.next.amount) + '</b>.';
   else if (kind === 'tomorrow') out += 'Lembrete de ' + who + ': <b>amanhã</b> (' + fmtDate(c.next.date) + ') vence <b>' + brl(c.next.amount) + '</b>.';
+  else if (kind === 'soon') out += 'Lembrete de ' + who + ': <b>em ' + lead + ' dias</b> (' + fmtDate(c.next.date) + ') vence <b>' + brl(c.next.amount) + '</b>.';
   else {
     out += 'Resumo com ' + who + ':';
     if (c.late > 0) out += '\n⏰ Atrasado: <b>' + brl(c.late) + '</b>' + (c.lateSince ? ' (desde ' + fmtDate(c.lateSince) + ')' : '');
@@ -1200,12 +1307,10 @@ function friendText(c, kind, owner) {
   return out;
 }
 async function sendFriend(env, fr, c, kind, s) {
-  let text = friendText(c, kind, s.owner);
+  let text = friendText(c, kind, s.owner, fr.lead);
   if (s.pix) text += '\n\nPIX: <code>' + esc(s.pix) + '</code>';
-  text += '\n\n<i>Mensagem automática. Já pagou? Avise ' + (s.owner ? esc(firstOf(s.owner)) : 'quem te mandou') + '. Para não receber mais: /parar</i>';
-  const extra = c.link ? {reply_markup: {inline_keyboard: [[{text: '🔗 Ver detalhes e pagar com PIX', url: c.link}]]}} : {};
-  const r = await tg(env, 'sendMessage', {chat_id: fr.chat, text, parse_mode: 'HTML', disable_web_page_preview: true, ...extra});
-  return r;
+  text += '\n\n<i>Mensagem automática. Já pagou? Toque em ✅ Já paguei. Para não receber mais: /parar</i>';
+  return tg(env, 'sendMessage', {chat_id: fr.chat, text, parse_mode: 'HTML', disable_web_page_preview: true, reply_markup: friendMenu(c)});
 }
 async function remindFriend(env, key, kind) {
   const s = await getJSON(env, 'summary', null);
@@ -1217,26 +1322,299 @@ async function remindFriend(env, key, kind) {
   if (!r.ok) return {ok: false, error: 'O Telegram não entregou (' + (r.description || 'erro') + ').'};
   return {ok: true, name: firstOf(c.name)};
 }
+const friendView = (env, key) => engineRun(env, e => e.friendView ? e.friendView(key) : null);
+const friendToken = (c, fr) => { const m = c && c.link && /\/s\/([A-Za-z0-9]+)/.exec(c.link); return m ? m[1] : 'tg' + fr.code; };
+const getWait = async (env, chat) => getJSON(env, 'fwait:' + chat, null);
+const setWait = (env, chat, w) => w ? env.BB.put('fwait:' + chat, JSON.stringify(w), {expirationTtl: 86400}) : (env.BB.delete ? env.BB.delete('fwait:' + chat) : env.BB.put('fwait:' + chat, 'null'));
+const CANCEL = {text: 'Cancelar', callback_data: 'fr:x'};
+
+function parcelasText(v) {
+  if (!v || !(v.debts || []).length) return 'Nada em aberto agora. 🎉';
+  const out = ['📋 <b>Suas parcelas</b>'];
+  v.debts.forEach(d => {
+    out.push('\n<b>' + esc(d.title) + '</b> · desde ' + fmtFull(d.date));
+    if ((d.insts || []).length) d.insts.forEach(it => {
+      const part = it.open > 0 && it.open < it.value - 0.005 ? ' · falta ' + brl(it.open) : '';
+      const st = it.state === 'paga' ? '✅' : it.state === 'atrasada' ? '⏰' : it.state === 'parcial' ? '◐' : '▫️';
+      out.push(st + ' ' + it.n + 'ª · ' + brl(it.value) + ' · ' + (it.state === 'paga' ? 'paga' : (it.due < todayBR() ? 'venceu ' : 'vence ') + fmtFull(it.due)) + part);
+    });
+    else out.push((d.late > 0 ? '⏰ ' : '▫️ ') + brl(d.remaining) + (d.due ? ' · ' + (d.due < todayBR() ? 'venceu ' : 'vence ') + fmtFull(d.due) : ''));
+    if (d.paid > 0) out.push('<i>Já pago ' + brl(d.paid) + ' de ' + brl(d.total) + '</i>');
+  });
+  out.push('\nEm aberto no total: <b>' + brl(v.remaining) + '</b>' + (v.late > 0 ? ' · <b>' + brl(v.late) + '</b> atrasado' : ''));
+  return out.join('\n');
+}
+function historicoText(v) {
+  if (!v || !(v.history || []).length) return '📜 Ainda não tem nenhum pagamento registrado.';
+  const many = new Set(v.history.map(h => h.title + h.debtDate)).size > 1;
+  return '📜 <b>Seus pagamentos</b>\n\n' + v.history.map(h => '✅ ' + fmtFull(h.date) + ' · <b>' + brl(h.amount) + '</b>' + (many ? ' · ' + esc(h.title) : '')).join('\n') +
+    '\n\nTotal pago: <b>' + brl(v.paidTotal) + '</b>' + (v.remaining > 0 ? ' · falta ' + brl(v.remaining) : ' · tudo quitado 🎉');
+}
+// opções de valor: o que está atrasado, cada dívida, tudo
+function amountChoices(v) {
+  const ch = payChoices(v).map(x => ({value: x.value, amt: x.amt, label: x.label}));
+  if (ch.length) return ch;
+  const out = [];
+  if (v.suggest > 0) out.push({value: 's', amt: v.suggest, label: (v.late > 0 ? 'Atrasado · ' : 'Próxima parcela · ') + brl(v.suggest)});
+  if (v.remaining > 0 && Math.abs(v.remaining - v.suggest) > 0.005) out.push({value: 'all', amt: v.remaining, label: 'Tudo que falta · ' + brl(v.remaining)});
+  return out;
+}
+async function friendPix(env, chat, v, s, value) {
+  if (!v || !(v.remaining > 0)) return say(env, chat, 'Nada em aberto agora. 🎉');
+  if (!v.pixInfo) return say(env, chat, (s && s.owner ? esc(firstOf(s.owner)) : 'Quem te emprestou') + ' ainda não cadastrou a chave PIX. Pede direto pra ' + (s && s.owner ? esc(firstOf(s.owner)) : 'ele(a)') + '.');
+  const ch = amountChoices(v);
+  const pick = ch.find(x => x.value === value) || ch[0] || {amt: v.remaining, value: 'all'};
+  const code = pixCode({...v.pixInfo, amount: pick.amt, txid: 'BBTG' + String(chat).slice(-8)});
+  const owner = s && s.owner ? esc(firstOf(s.owner)) : 'quem te emprestou';
+  const fd = new FormData();
+  fd.append('chat_id', chat); fd.append('parse_mode', 'HTML');
+  fd.append('caption', '💠 PIX de <b>' + brl(pick.amt) + '</b> pra ' + owner + '\nNo app do banco: PIX → ler QR Code, ou copie o código abaixo (Copia e cola).');
+  fd.append('photo', new Blob([qrPng(code)], {type: 'image/png'}), 'pix.png');
+  try { await fetch('https://api.telegram.org/bot' + TOKEN(env) + '/sendPhoto', {method: 'POST', body: fd}); } catch (e) { /* o código abaixo já resolve */ }
+  const others = ch.filter(x => x.value !== pick.value).slice(0, 5).map(x => [{text: 'Outro valor: ' + x.label, callback_data: 'fr:pix:' + x.value}]);
+  return tg(env, 'sendMessage', {chat_id: chat, parse_mode: 'HTML', text: '<code>' + esc(code) + '</code>\n\n<i>Toque no código pra copiar. Depois de pagar, toque em ✅ Já paguei.</i>',
+    reply_markup: {inline_keyboard: [...others, [{text: '✅ Já paguei', callback_data: 'fr:pago'}]]}});
+}
+async function fetchTgPhoto(env, ph) {
+  if (ph.file_size && ph.file_size > 8 * 1024 * 1024) return '';
+  const f = await tg(env, 'getFile', {file_id: ph.file_id});
+  if (!f.ok || !f.result || !f.result.file_path) return '';
+  const r = await fetch('https://api.telegram.org/file/bot' + TOKEN(env) + '/' + f.result.file_path);
+  if (!r.ok) return '';
+  const buf = new Uint8Array(await r.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  const mime = ph.mime_type || (/\.png$/i.test(f.result.file_path) ? 'image/png' : 'image/jpeg');
+  return 'data:' + mime + ';base64,' + btoa(bin);
+}
+async function claimRate(env, token) {
+  const rate = await getJSON(env, 'crate:' + token, {n: 0, t: 0});
+  if (Date.now() - rate.t > 3600000) { rate.n = 0; rate.t = Date.now(); }
+  if (rate.n >= 5) return false;
+  rate.n++; await putJSON(env, 'crate:' + token, rate);
+  return true;
+}
+// "Já paguei": valor → comprovante → (qual dívida) → pedido pro dono confirmar
+async function pagoStep(env, chat, me, fr, c, v, w) {
+  if (!v || !(v.remaining > 0)) { await setWait(env, chat, null); return say(env, chat, 'Nada em aberto agora. 🎉'); }
+  if (!(w.amount > 0)) {
+    await setWait(env, chat, w);
+    const ch = amountChoices(v).slice(0, 4).map(x => [{text: x.label, callback_data: 'fr:pv:' + Math.round(x.amt * 100) + (x.value !== 's' && x.value !== 'all' ? ':' + x.value : '')}]);
+    return say(env, chat, '✅ <b>Avisar que pagou</b>\nQuanto você pagou? Toque numa opção ou mande o valor (ex: <code>150</code>).' + (w.photo ? '' : '\n<i>Se tiver o comprovante, pode mandar a foto com o valor na legenda.</i>'), {reply_markup: {inline_keyboard: [...ch, [CANCEL]]}});
+  }
+  if (!w.photo && !w.nophoto) {
+    await setWait(env, chat, w);
+    return say(env, chat, '📎 Manda a <b>foto ou print do comprovante</b> de ' + brl(w.amount) + '.', {reply_markup: {inline_keyboard: [[{text: 'Enviar sem comprovante', callback_data: 'fr:np'}], [CANCEL]]}});
+  }
+  const ds = v.debts || [];
+  if (ds.length > 1 && w.debt == null) {
+    const hit = payChoices(v).filter(x => Math.abs(x.amt - w.amount) < 0.005);
+    if (hit.length === 1) w.debt = hit[0].value;
+    else {
+      await setWait(env, chat, w);
+      const rows = payChoices(v).slice(0, 6).map(x => [{text: x.label, callback_data: 'fr:pd:' + x.value}]);
+      return say(env, chat, 'Esse pagamento de <b>' + brl(w.amount) + '</b> é de qual?', {reply_markup: {inline_keyboard: [...rows, [CANCEL]]}});
+    }
+  }
+  await setWait(env, chat, null);
+  const token = friendToken(c, fr);
+  if (!await claimRate(env, token)) return say(env, chat, 'Muitos envios seguidos. Tente de novo daqui a uma hora.');
+  const id = 'cl' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  let debtId = null, debtTitle = '';
+  if (/^\d+$/.test(String(w.debt)) && ds[+w.debt]) { debtId = ds[+w.debt]._id || null; debtTitle = ds[+w.debt].title + ' de ' + fmtFull(ds[+w.debt].date); }
+  else if (w.debt === 'late') debtTitle = 'o que está atrasado';
+  const photo = w.photo ? await fetchTgPhoto(env, w.photo) : '';
+  const claim = {id, token, at: new Date().toISOString(), amount: w.amount, note: '', who: null, whoName: '', status: 'pending', hasPhoto: !!photo, debtId, debtTitle,
+    label: c.name + (debtTitle ? ' · ' + debtTitle : ''), linkName: c.name, ref: {name: c.name}, chat, via: 'tg'};
+  if (photo) await env.BB.put('cphoto:' + id, photo, {expirationTtl: 60 * 60 * 24 * 45});
+  const ids = await getJSON(env, 'claims', []);
+  ids.push(id);
+  await putJSON(env, 'claims', ids.slice(-200));
+  const owner = await env.BB.get('owner');
+  if (owner) {
+    const text = '💸 <b>' + esc(claim.label) + '</b> diz que pagou <b>' + brl(w.amount) + '</b> (pelo Telegram)' + (photo ? '' : '\n<i>(sem comprovante)</i>') + '\n\nConfere no banco e confirma:';
+    const kb = {inline_keyboard: [[{text: '✅ Recebi', callback_data: 'claim:ok:' + id}, {text: '❌ Não recebi', callback_data: 'claim:no:' + id}]]};
+    const r = photo ? await tg(env, 'sendPhoto', {chat_id: owner, photo: w.photo.file_id, caption: text, parse_mode: 'HTML', reply_markup: kb}) : await say(env, owner, text, {reply_markup: kb});
+    if (r && r.ok && r.result) claim.tg = {chat: owner, msg: r.result.message_id, photo: !!photo};
+  }
+  await putJSON(env, 'claim:' + id, claim);
+  return say(env, chat, '📨 Pronto! Avisei ' + (v.owner ? esc(firstOf(v.owner)) : 'quem te emprestou') + ' que você pagou <b>' + brl(w.amount) + '</b>' + (debtTitle ? ' (' + esc(debtTitle) + ')' : '') + '. Quando for confirmado, te aviso aqui.');
+}
+// pedir mais prazo
+async function prazoStart(env, chat, fr, c, v, arg) {
+  if (!v || !(v.remaining > 0)) return say(env, chat, 'Nada em aberto agora. 🎉');
+  const token = friendToken(c, fr);
+  if ((await claimsFor(env, token)).some(x => x.kind === 'prazo' && x.status === 'pending')) return say(env, chat, '⏳ Você já tem um pedido de prazo esperando resposta. Assim que responderem, te aviso aqui.');
+  if (arg) return prazoSend(env, chat, fr, c, v, arg);
+  await setWait(env, chat, {kind: 'prazo'});
+  const today = todayBR();
+  const opts = [7, 15, 30].map(n => ({text: fmtDate(addDays(today, n)) + ' (+' + n + ' dias)', callback_data: 'fr:pz:' + addDays(today, n)}));
+  return say(env, chat, '🗓️ <b>Pedir mais prazo</b>\nAté quando você consegue pagar <b>' + brl(v.suggest || v.remaining) + '</b>' + (v.nextDue ? ' (' + (v.nextDue < today ? 'venceu' : 'vence') + ' ' + fmtDate(v.nextDue) + ')' : '') + '?\n\nToque numa data ou mande a sua, se quiser com o motivo (ex: <code>20/10 recebo dia 20</code>).',
+    {reply_markup: {inline_keyboard: [opts, [CANCEL]]}});
+}
+function parseFriendDate(text) {
+  const t = norm(text);
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : parseDue('ate ' + t.replace(/^(ate|pra|para)\s+/, ''));
+  const note = String(text).replace(/^\s*(?:at[eé]|pra|para)?\s*(?:o\s+)?(?:dia\s+)?\d{1,2}(?:\/\d{1,2}(?:\/\d{2,4})?)?\s*[,.-]?\s*/i, '').trim();
+  return {iso, note: iso === text ? '' : note};
+}
+async function prazoSend(env, chat, fr, c, v, raw) {
+  const today = todayBR(), {iso, note} = parseFriendDate(raw);
+  if (!iso || iso <= today || iso > addDays(today, 120)) await setWait(env, chat, {kind: 'prazo'});
+  if (!iso) return say(env, chat, 'Não entendi a data 🤔 Manda assim: <code>20/10</code> ou <code>dia 20</code>.', {reply_markup: {inline_keyboard: [[CANCEL]]}});
+  if (iso <= today || iso > addDays(today, 120)) return say(env, chat, 'Escolha uma data entre amanhã e daqui a 4 meses.', {reply_markup: {inline_keyboard: [[CANCEL]]}});
+  await setWait(env, chat, null);
+  const token = friendToken(c, fr);
+  if (!await claimRate(env, token)) return say(env, chat, 'Muitos envios seguidos. Tente de novo daqui a uma hora.');
+  const amount = v.suggest || v.remaining, due = v.nextDue || '';
+  const id = 'cl' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const claim = {id, kind: 'prazo', token, at: new Date().toISOString(), newDate: iso, amount, due, note: note.slice(0, 140), who: null, whoName: '', status: 'pending', hasPhoto: false,
+    label: c.name, linkName: c.name, ref: {name: c.name}, chat, via: 'tg'};
+  const ids = await getJSON(env, 'claims', []);
+  ids.push(id);
+  await putJSON(env, 'claims', ids.slice(-200));
+  const owner = await env.BB.get('owner');
+  if (owner) {
+    const text = '🗓️ <b>' + esc(c.name) + '</b> pediu mais prazo (pelo Telegram)\nPagar <b>' + brl(amount) + '</b>' + (due ? ' (' + (due < today ? 'venceu' : 'vence') + ' ' + fmtDate(due) + ')' : '') + ' até <b>' + fmtDate(iso) + '</b>' +
+      (claim.note ? '\n“' + esc(claim.note) + '”' : '') + '\n\nAceita?';
+    const r = await say(env, owner, text, {reply_markup: {inline_keyboard: [[{text: '✅ Aceitar', callback_data: 'claim:ok:' + id}, {text: '❌ Recusar', callback_data: 'claim:no:' + id}]]}});
+    if (r && r.ok && r.result) claim.tg = {chat: owner, msg: r.result.message_id, photo: false};
+  }
+  await putJSON(env, 'claim:' + id, claim);
+  return say(env, chat, '📨 Pedido enviado: pagar ' + brl(amount) + ' até <b>' + fmtFull(iso) + '</b>. Te aviso aqui quando responderem.');
+}
+// configurar lembretes: antecedência e pausa
+function cfgText(fr) {
+  const lead = fr.lead == null ? 1 : fr.lead, today = todayBR();
+  const paused = fr.pause && fr.pause > today;
+  return '⚙️ <b>Lembretes</b>\nAgora você recebe <b>' + leadLabel(lead) + '</b> do vencimento' + (paused ? ', mas está <b>pausado até ' + fmtFull(fr.pause) + '</b>' : '') + '. Se atrasar, a cada 3 dias.\n\nQuando você quer ser avisado?';
+}
+function cfgMarkup(fr) {
+  const lead = fr.lead == null ? 1 : fr.lead, paused = fr.pause && fr.pause > todayBR();
+  const b = (n, t) => ({text: (lead === n ? '✓ ' : '') + t, callback_data: 'fr:lead:' + n});
+  return {inline_keyboard: [[b(3, '3 dias antes'), b(1, '1 dia antes'), b(0, 'Só no dia')],
+    paused ? [{text: '▶️ Voltar a receber agora', callback_data: 'fr:resume'}] : [{text: '⏸️ Pausar por um tempo', callback_data: 'fr:pmenu'}]]};
+}
+function pauseMarkup() {
+  const today = todayBR();
+  return {inline_keyboard: [[3, 7, 15].map(n => ({text: n + ' dias', callback_data: 'fr:pause:' + addDays(today, n)})), [{text: 'Até ' + fmtDate(addDays(today, 30)), callback_data: 'fr:pause:' + addDays(today, 30)}, CANCEL]]};
+}
+async function friendSet(env, me, patch) {
+  const friends = await getJSON(env, 'friends', {});
+  if (!friends[me]) return null;
+  Object.assign(friends[me], patch);
+  Object.keys(patch).forEach(k => { if (patch[k] == null) delete friends[me][k]; });
+  await putJSON(env, 'friends', friends);
+  return friends[me];
+}
+async function pauseFriend(env, chat, me, c, until) {
+  const today = todayBR();
+  if (!until || until <= today || until > addDays(today, 60)) return say(env, chat, 'Escolha uma data entre amanhã e daqui a 2 meses. Ex: <code>/pausar 20/10</code>.', {reply_markup: pauseMarkup()});
+  await friendSet(env, me, {pause: until});
+  await say(env, chat, '⏸️ Pausado. Você não recebe lembretes até <b>' + fmtFull(until) + '</b>; a partir desse dia volta ao normal. Pra voltar antes: /retomar');
+  const owner = await env.BB.get('owner');
+  if (owner) await say(env, owner, '⏸️ <b>' + esc(c ? c.name : me) + '</b> pausou os lembretes do Telegram até ' + fmtFull(until) + '.');
+}
+async function sendFriendReceipts(env, chat, v, pick) {
+  const list = (v && v.paidDebts) || [];
+  if (!list.length) return say(env, chat, '🧾 Ainda não tem dívida quitada. Quando você quitar, o recibo chega aqui sozinho.');
+  if (pick == null && list.length > 1) {
+    return say(env, chat, '🧾 De qual dívida você quer o recibo?', {reply_markup: {inline_keyboard: list.slice(0, 6).map((d, i) => [{text: d.title + ' (' + fmtFull(d.date) + ') · ' + brl(d.total), callback_data: 'fr:rc:' + i}])}});
+  }
+  const d = list[pick == null ? 0 : +pick];
+  if (!d) return;
+  const rc = await engineRun(env, e => e.receipt(d._id));
+  if (!rc) return say(env, chat, 'Não consegui gerar esse recibo agora. Tente de novo mais tarde.');
+  const s = await getJSON(env, 'summary', null);
+  return sendDoc(env, chat, rc, '🧾 Recibo de quitação: ' + brl(rc.total) + ', tudo pago' + (s && s.owner ? ' a ' + esc(firstOf(s.owner)) : '') + '.');
+}
+const FR_ROUTES = [
+  [/^\/?(menu|ajuda|help|opcoes|comandos)\b/, 'menu'],
+  [/^\/?(status|resumo|start|saldo|quanto devo)\b/, 'status'],
+  [/^\/?parcelas?\b/, 'parc'],
+  [/^\/?(pix|qr ?code|qr|pagar|chave)\b/, 'pix'],
+  [/^\/?(ja paguei|paguei|pago|comprovante)\b/, 'pago'],
+  [/^\/?(prazo|adiar|mais prazo)\b/, 'prazo'],
+  [/^\/?(historico|pagamentos)\b/, 'hist'],
+  [/^\/?(recibo|quitacao)\b/, 'rc'],
+  [/^\/?(lembretes?|avisos?|config\w*)\b/, 'cfg'],
+  [/^\/?(pausar|pausa)\b/, 'pause'],
+  [/^\/?(retomar|voltar)\b/, 'resume']
+];
+async function friendAction(env, chat, me, fr, act, arg, extra) {
+  const s = await getJSON(env, 'summary', null);
+  const c = s && (s.charges || []).find(x => x.key === me) || null;
+  const owner = s && s.owner ? firstOf(s.owner) : '';
+  const needView = ['parc', 'pix', 'pago', 'prazo', 'hist', 'rc', 'pv', 'np', 'pd', 'pz', 'photo'].includes(act);
+  const v = needView ? await friendView(env, me) : null;
+  if (act === 'menu') return say(env, chat, '📌 <b>O que dá pra fazer aqui</b>' + (owner ? ' (com ' + esc(owner) + ')' : '') + '\n\n' +
+    '📋 /parcelas · parcelas e vencimentos\n💠 /pix · PIX com o valor certo e QR Code\n✅ /paguei · avisar que pagou, com o comprovante\n🗓️ /prazo · pedir mais prazo\n📜 /historico · o que você já pagou\n🧾 /recibo · recibo de quitação\n⚙️ /lembretes · quando ser avisado\n⏸️ /pausar · pausar por um tempo\n🔕 /parar · não receber mais nada', {reply_markup: friendMenu(c)});
+  if (act === 'status') return say(env, chat, c ? friendText(c, 'status', s.owner) + (s.pix ? '\n\nPIX: <code>' + esc(s.pix) + '</code>' : '') : 'Nada em aberto agora. 🎉', {reply_markup: friendMenu(c)});
+  if (act === 'parc') return say(env, chat, parcelasText(v), {reply_markup: friendMenu(c)});
+  if (act === 'hist') return say(env, chat, historicoText(v), {reply_markup: v && v.paidDebts && v.paidDebts.length ? {inline_keyboard: [[{text: '🧾 Recibo de quitação', callback_data: 'fr:rc'}]]} : undefined});
+  if (act === 'rc') return sendFriendReceipts(env, chat, v, arg);
+  if (act === 'pix') return friendPix(env, chat, v, s, arg);
+  if (act === 'pago' || act === 'photo') {
+    const w = {kind: 'pago'};
+    const amt = arg ? money((new RegExp(NUM, 'i').exec(arg) || [])[1] || '') : NaN;
+    if (amt > 0) w.amount = amt;
+    if (extra && extra.photo) w.photo = extra.photo;
+    if (!c) return say(env, chat, 'Nada em aberto agora. 🎉');
+    return pagoStep(env, chat, me, fr, c, v, w);
+  }
+  if (act === 'pv' || act === 'np' || act === 'pd') {
+    const w = await getWait(env, chat);
+    if (!w || w.kind !== 'pago' || !c) return say(env, chat, 'Esse pedido expirou. Toque em ✅ Já paguei de novo.', {reply_markup: friendMenu(c)});
+    if (act === 'pv') { const m = /^(\d+)(?::(\w+))?$/.exec(arg || ''); if (m) { w.amount = +m[1] / 100; if (m[2]) w.debt = m[2]; } }
+    if (act === 'np') w.nophoto = true;
+    if (act === 'pd') w.debt = arg;
+    return pagoStep(env, chat, me, fr, c, v, w);
+  }
+  if (act === 'prazo') return c ? prazoStart(env, chat, fr, c, v, arg) : say(env, chat, 'Nada em aberto agora. 🎉');
+  if (act === 'pz') return c ? prazoSend(env, chat, fr, c, v, arg) : null;
+  if (act === 'cfg') return say(env, chat, cfgText(fr), {reply_markup: cfgMarkup(fr)});
+  if (act === 'lead') {
+    const n = [0, 1, 3].includes(+arg) ? +arg : 1;
+    const nf = await friendSet(env, me, {lead: n});
+    return say(env, chat, '✓ Combinado: você recebe ' + leadLabel(n) + ' do vencimento' + (nf && nf.pause && nf.pause > todayBR() ? ' (quando a pausa acabar)' : '') + '.');
+  }
+  if (act === 'pmenu') return say(env, chat, '⏸️ Pausar os lembretes até quando? Ou mande <code>/pausar 20/10</code>.', {reply_markup: pauseMarkup()});
+  if (act === 'pause') {
+    if (!arg) return say(env, chat, '⏸️ Pausar os lembretes até quando? Ou mande <code>/pausar 20/10</code>.', {reply_markup: pauseMarkup()});
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(arg) ? arg : /^\d{1,2}$/.test(arg.trim()) && +arg <= 60 && !/dia/.test(arg) ? addDays(todayBR(), +arg) : parseFriendDate(arg).iso;
+    return pauseFriend(env, chat, me, c, d);
+  }
+  if (act === 'resume') {
+    await friendSet(env, me, {pause: null});
+    await say(env, chat, '▶️ Pronto, os lembretes voltaram.');
+    const ow = await env.BB.get('owner');
+    if (ow && fr.pause && fr.pause > todayBR()) await say(env, ow, '▶️ <b>' + esc(c ? c.name : me) + '</b> voltou a receber os lembretes do Telegram.');
+    return;
+  }
+}
 async function friendMessage(env, chat, msg, code) {
   const friends = await getJSON(env, 'friends', {});
   const owner = await env.BB.get('owner');
   const s = await getJSON(env, 'summary', null);
   const ownerName = s && s.owner ? firstOf(s.owner) : '';
-  const text = String(msg.text || '').trim();
+  const text = String(msg.text || msg.caption || '').trim();
   if (code) {
     const snap = await getJSON(env, 'snapshot', null);
     const inv = (snap && snap.invites) || {};
     const key = Object.keys(inv).find(k => inv[k].code === code);
     if (!key) { await say(env, chat, 'Esse convite não vale mais. Peça um novo para quem te mandou.'); return; }
     Object.keys(friends).forEach(k => { if (friends[k].chat === chat && k !== key) delete friends[k]; });
-    const isNew = !friends[key] || friends[key].chat !== chat || friends[key].code !== code;
+    const old = friends[key];
+    const isNew = !old || old.chat !== chat || old.code !== code;
     const name = [msg.from && msg.from.first_name, msg.from && msg.from.last_name].filter(Boolean).join(' ');
-    friends[key] = {chat, code, at: new Date().toISOString(), name, sent: {}};
+    friends[key] = {chat, code, at: new Date().toISOString(), name, sent: {}, ...(old && !isNew ? {lead: old.lead, pause: old.pause} : {})};
+    Object.keys(friends[key]).forEach(k => { if (friends[key][k] === undefined) delete friends[key][k]; });
     await putJSON(env, 'friends', friends);
+    await tg(env, 'setMyCommands', {commands: FR_CMDS, scope: {type: 'chat', chat_id: chat}});
     const c = s && (s.charges || []).find(x => x.key === key);
     await say(env, chat, '✅ Pronto! Você vai receber aqui os lembretes do que está em aberto' + (ownerName ? ' com <b>' + esc(ownerName) + '</b>' : '') +
       ': na véspera e no dia do vencimento, e a cada 3 dias se atrasar.' + (c ? '\n\n' + friendText(c, 'status', s.owner) : '') +
-      '\n\n/status mostra quanto está em aberto. /parar para não receber mais.');
+      '\n\nPelos botões você vê as parcelas, pega o PIX, avisa que pagou e pede mais prazo. /menu mostra tudo, /parar para não receber mais.', {reply_markup: friendMenu(c)});
     if (isNew && owner) {
       const who = c ? c.name : (name || 'Alguém');
       await say(env, owner, '📨 <b>' + esc(who) + '</b> entrou nos lembretes do Telegram. O bot avisa na véspera e no dia do vencimento (e a cada 3 dias se atrasar).');
@@ -1245,42 +1623,84 @@ async function friendMessage(env, chat, msg, code) {
   }
   const me = Object.keys(friends).find(k => friends[k].chat === chat);
   if (!me) { await say(env, chat, 'Este bot é privado.'); return; }
+  const fr = friends[me];
   const c = s && (s.charges || []).find(x => x.key === me);
-  if (/^\/(parar|stop|sair)\b/i.test(text)) {
+  const n = norm(text);
+  if (/^\/(parar|stop|sair)\b/.test(n)) {
     delete friends[me];
     await putJSON(env, 'friends', friends);
+    await setWait(env, chat, null);
+    await tg(env, 'deleteMyCommands', {scope: {type: 'chat', chat_id: chat}});
     await say(env, chat, 'Pronto, você não recebe mais lembretes. Se mudar de ideia, é só abrir o convite de novo.');
     if (owner) await say(env, owner, '🔕 <b>' + esc(c ? c.name : me) + '</b> saiu dos lembretes do Telegram.');
     return;
   }
-  if (/^\/(status|resumo|start)\b/i.test(text)) {
-    await say(env, chat, c ? friendText(c, 'status', s.owner) + (s.pix ? '\n\nPIX: <code>' + esc(s.pix) + '</code>' : '') : 'Nada em aberto agora. 🎉', c && c.link ? {reply_markup: {inline_keyboard: [[{text: '🔗 Ver detalhes', url: c.link}]]}} : undefined);
-    return;
+  const photo = (msg.photo && msg.photo.length) ? pickPhoto(msg.photo) : (msg.document && /^image\//.test(msg.document.mime_type || '') ? msg.document : null);
+  const wait = await getWait(env, chat);
+  if (photo) {
+    const w = wait && wait.kind === 'pago' ? wait : {kind: 'pago'};
+    w.photo = {file_id: photo.file_id, file_size: photo.file_size, mime_type: photo.mime_type};
+    const amt = text ? money((new RegExp(NUM, 'i').exec(text) || [])[1] || '') : NaN;
+    if (amt > 0) w.amount = amt;
+    if (!c) return say(env, chat, 'Nada em aberto agora. 🎉');
+    return pagoStep(env, chat, me, fr, c, await friendView(env, me), w);
   }
-  await say(env, chat, 'Este bot só manda os lembretes' + (ownerName ? ' de ' + esc(ownerName) : '') + '. Para falar com ' + (ownerName ? esc(ownerName) : 'a pessoa') + ', mande mensagem direto.\n\n/status mostra quanto está em aberto. /parar para não receber mais.');
+  if (/^(cancelar|cancela)\b/.test(n.replace(/^\//, ''))) { if (wait) await setWait(env, chat, null); return say(env, chat, wait ? 'Cancelado.' : 'Nada pra cancelar.', {reply_markup: friendMenu(c)}); }
+  if (wait && !text.startsWith('/')) {
+    if (wait.kind === 'pago') {
+      const amt = money((new RegExp(NUM, 'i').exec(text) || [])[1] || '');
+      if (!(amt > 0) && !(wait.amount > 0)) return say(env, chat, 'Não entendi o valor 🤔 Manda só o número, tipo <code>150</code> ou <code>150,50</code>.', {reply_markup: {inline_keyboard: [[CANCEL]]}});
+      if (amt > 0) wait.amount = amt;
+      if (!c) return say(env, chat, 'Nada em aberto agora. 🎉');
+      return pagoStep(env, chat, me, fr, c, await friendView(env, me), wait);
+    }
+    if (wait.kind === 'prazo' && c) return prazoSend(env, chat, fr, c, await friendView(env, me), text);
+  }
+  for (const [re, act] of FR_ROUTES) {
+    const m = re.exec(n);
+    if (m) {
+      if (wait) await setWait(env, chat, null);
+      const arg = text.slice(text.search(/\s|$/)).trim() || null;
+      return friendAction(env, chat, me, fr, act, act === 'pago' && /^\/?(ja paguei)/.test(n) ? text.replace(/^\/?j[aá]\s+paguei/i, '').trim() || null : arg);
+    }
+  }
+  await say(env, chat, 'Este bot é automático e não repassa mensagens' + (ownerName ? '; para falar com ' + esc(ownerName) + ', mande mensagem direto' : '') + '. O que dá pra fazer aqui:', {reply_markup: friendMenu(c)});
 }
-// todo dia às 9h: véspera, dia do vencimento e, se atrasado, a cada 3 dias
+async function friendCallback(env, cq, chat) {
+  const friends = await getJSON(env, 'friends', {});
+  const me = Object.keys(friends).find(k => friends[k].chat === chat);
+  await tg(env, 'answerCallbackQuery', {callback_query_id: cq.id});
+  if (!me) return say(env, chat, 'Você não está mais nos lembretes. Para voltar, abra o convite de novo.');
+  const m = /^fr:(\w+)(?::(.+))?$/.exec(cq.data || '');
+  if (!m) return;
+  if (m[1] === 'x') { await setWait(env, chat, null); return say(env, chat, 'Cancelado.'); }
+  return friendAction(env, chat, me, friends[me], m[1], m[2] == null ? null : m[2]);
+}
+// todo dia às 9h: X dias antes (padrão: véspera), no dia do vencimento e, se atrasado, a cada 3 dias
 async function friendReminders(env) {
   const [friends, snap, s, owner] = await Promise.all([getJSON(env, 'friends', {}), getJSON(env, 'snapshot', null), getJSON(env, 'summary', null), env.BB.get('owner')]);
   if (!s || !snap || !Object.keys(friends).length) return;
-  const today = todayBR(), tomorrow = addDays(today, 1), inv = snap.invites || {}, done = [];
+  const today = todayBR(), inv = snap.invites || {}, done = [];
   let dirty = false;
   for (const key of Object.keys(friends)) {
     const fr = friends[key], iv = inv[key];
     if (!iv || iv.code !== fr.code || iv.on === false) continue;
+    if (fr.pause && fr.pause > today) continue;
+    if (fr.pause) { delete fr.pause; dirty = true; }
     const c = (s.charges || []).find(x => x.key === key);
     if (!c) continue;
     fr.sent = fr.sent || {};
+    const lead = fr.lead == null ? 1 : fr.lead;
     let kind = null;
     if (c.late > 0) { if (!fr.sent.late || addDays(fr.sent.late, 3) <= today) kind = 'late'; }
     else if (c.next && c.next.date === today) kind = 'today';
-    else if (c.next && c.next.date === tomorrow) kind = 'tomorrow';
+    else if (c.next && lead > 0 && c.next.date === addDays(today, lead)) kind = lead === 1 ? 'tomorrow' : 'soon';
     if (!kind || fr.sent.day === today) continue;
     const r = await sendFriend(env, fr, c, kind, s);
     if (r.ok) {
       fr.sent.day = today;
       if (kind === 'late') fr.sent.late = today;
-      done.push(esc(firstOf(c.name)) + ' (' + (kind === 'late' ? 'atrasado' : kind === 'today' ? 'vence hoje' : 'vence amanhã') + ')');
+      done.push(esc(firstOf(c.name)) + ' (' + (kind === 'late' ? 'atrasado' : kind === 'today' ? 'vence hoje' : kind === 'tomorrow' ? 'vence amanhã' : 'vence em ' + lead + ' dias') + ')');
     } else if (r.error_code === 403) {
       delete friends[key];
       if (owner) await say(env, owner, '🔕 <b>' + esc(c.name) + '</b> bloqueou o bot e não recebe mais lembretes.');
@@ -1564,7 +1984,7 @@ async function claimDecide(env, id, ok) {
   c.status = ok ? 'ok' : 'no';
   c.decidedAt = new Date().toISOString();
   if (ok) {
-    const ref = (v && v._ref) || {};
+    const ref = (v && v._ref) || c.ref || {};
     op = c.kind === 'prazo'
       ? {type: 'resched', newDate: c.newDate, date: todayBR(), at: c.decidedAt, text: 'prazo pedido pelo link (' + c.label + ') até ' + fmtDate(c.newDate),
         id: 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), viaLink: true}
@@ -1593,6 +2013,13 @@ async function claimDecide(env, id, ok) {
   } else if (c.tg) {
     const note = ok ? '✅ <b>Confirmado</b>: ' + esc(c.label) + ' pagou ' + brl(c.amount) + '.' + (applied && applied.ok ? ' Já está no app.' : ' Entra no app na próxima vez que você abrir.') : '❌ Marcado como não recebido (' + esc(c.label) + ', ' + brl(c.amount) + '). A pessoa vê isso no link.';
     await tg(env, c.tg.photo ? 'editMessageCaption' : 'editMessageText', {chat_id: c.tg.chat, message_id: c.tg.msg, parse_mode: 'HTML', ...(c.tg.photo ? {caption: note} : {text: note})});
+  }
+  if (c.chat) {
+    const sm = await getJSON(env, 'summary', null), who = sm && sm.owner ? esc(firstOf(sm.owner)) : 'Quem te emprestou';
+    const msg = c.kind === 'prazo'
+      ? (ok ? '✅ ' + who + ' aceitou: agora você paga ' + brl(c.amount) + ' até <b>' + fmtFull(c.newDate) + '</b>. Os lembretes já seguem a nova data.' : '❌ ' + who + ' não aceitou o prazo até ' + fmtFull(c.newDate) + '. Melhor falar direto com ' + who + '.')
+      : (ok ? '✅ ' + who + ' confirmou seu pagamento de <b>' + brl(c.amount) + '</b>. Valeu! 🙌' : '❌ ' + who + ' não encontrou o pagamento de ' + brl(c.amount) + '. Confere o comprovante e fala direto com ' + who + '.');
+    await say(env, c.chat, msg);
   }
   if (res) await sendReceipts(env, res);
   return {ok: true, status: c.status};

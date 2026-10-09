@@ -47,6 +47,7 @@ fmt = lambda d: d.strftime('%d/%m/%Y')
 T = datetime.date.today()
 
 tg('/start')
+data['debts'].append(debt('d2b', 'Larissa Mota', 300, ago(5), 3))
 snapd = dict(data); snapd['settings'] = {'pixKey': 'joao@pix.com', 'defaultLateFee': 2, 'defaultLateInterest': 1}
 check(http('PUT', '/api/state', {'snapshot': snapd}, AUTH)[0] == 200, 'dados na nuvem')
 
@@ -76,6 +77,29 @@ check(any(p_['amount'] == 20 for p_ in lar['payments']), 'Pix de "LARISSA MOTA S
 tg('Pix recebido: R$ 10,00 de VINICIUS P PRADO')
 vin = [x for x in snap()['debts'] if x['name'] == 'Vinicius Prado'][0]
 check(any(p_['amount'] == 10 for p_ in vin['payments']), 'Pix de "VINICIUS P PRADO" vira pagamento do Vinicius Prado')
+
+# ---------------- "recebi 120 da larissa": pergunta a dívida e a carteira
+def ask_buttons():
+    m = [x for x in sent() if x['method'] in ('sendMessage', 'editMessageText') and 'ask:' in json.dumps(x['body'].get('reply_markup', ''))][-1]
+    mk = m['body']['reply_markup']; mk = json.loads(mk) if isinstance(mk, str) else mk
+    return [b for row in mk['inline_keyboard'] for b in row]
+n_in = len(json.loads(kv()['inbox']))
+tg('recebi 120 da larissa')
+check('Foi de qual dívida?' in last() and len(json.loads(kv()['inbox'])) == n_in, 'pergunta de qual dívida (e ainda não lança)')
+bt = ask_buttons()
+check(len(bt) == 4 and 'Mais antiga primeiro' == bt[2]['text'] and bt[3]['text'] == 'Cancelar', 'botões: as 2 dívidas, mais antiga, cancelar: %s' % [b['text'] for b in bt])
+tg(cb=bt[1]['callback_data'])
+check('Caiu em qual carteira?' in last(), 'depois pergunta a carteira')
+wb = [b for b in ask_buttons() if ':w:' in b['callback_data']]
+check([b['text'] for b in wb] == ['Nubank', 'Inter', 'Dinheiro', 'Não mexer em carteira'], 'botões das carteiras: %s' % [b['text'] for b in wb])
+tg(cb=wb[1]['callback_data'])
+check('✅' in last() and 'Inter' in last(), 'confirma com a escolha: %s' % plain(last())[:120])
+d2b = [x for x in snap()['debts'] if x['id'] == 'd2b'][0]
+check(any(p_['amount'] == 120 and p_.get('walletId') == 'w2' for p_ in d2b['payments']), 'pagamento na dívida escolhida e na carteira Inter')
+tg('recebi 10 da larissa')
+tg(cb=[b for b in ask_buttons() if b['text'] == 'Cancelar'][0]['callback_data'])
+lar_pays = sum(len(x['payments']) for x in snap()['debts'] if x['name'] == 'Larissa Mota')
+check('Cancelado' in last() and not any(p_['amount'] == 10 for x in snap()['debts'] if x['name'] == 'Larissa Mota' for p_ in x['payments']), 'Cancelar não lança nada')
 
 # ---------------- resumo do mês no dia 1
 nm = (T.replace(day=28) + datetime.timedelta(days=5)).replace(day=1)
@@ -120,6 +144,15 @@ with sync_playwright() as p:
     page.locator('#undoStack button').first.click(); page.wait_for_timeout(300)
     rt = [x for x in st()['debts'] if x['id'] == 'rt'][0]
     check(len(rt['payments']) == 2 and rt['payments'][1]['mode'] == 'target' and rt['payments'][1]['target'] == 2, 'Desfazer devolve tudo como era')
+    # mensagem de cobrança pro WhatsApp: valor em negrito e Pix/Detalhes no fim
+    page.evaluate("var s = JSON.parse(localStorage.getItem('barnabank_settings_v1')); s.pixKey = 'joao@pix.com'; localStorage.setItem('barnabank_settings_v1', JSON.stringify(s));")
+    page.reload(); page.wait_for_timeout(600)
+    page.click('#pageTabs button[data-page="pessoas"]'); page.wait_for_timeout(300)
+    page.locator('#list .card', has_text='Vinicius').first.locator('.card-head .avatar').click(); page.wait_for_timeout(300)
+    import urllib.parse as up_
+    href = page.get_attribute('#list .card.open [data-act="whats"]', 'href') or ''
+    msg = up_.unquote(href.split('text=', 1)[-1])
+    check(msg.startswith('Oi Vinicius, tudo bem?') and '*R$' in msg and 'R$\u00a0' not in msg and 'R$ ' not in msg and '\n\n*Pix:* joao@pix.com' in msg, 'mensagem do WhatsApp no formato novo: %s' % msg[-120:])
     check(not errs, 'sem erros de JS %s' % errs)
     b.close()
 print('\n%d falha(s)' % len(fails))

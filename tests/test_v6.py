@@ -34,6 +34,14 @@ def tgmsg(text, chat=999):
     return http('POST', HOOK_PATH, {'update_id': upd[0], 'message': {'message_id': upd[0], 'chat': {'id': chat}, 'text': text}},
                 {'Content-Type': 'application/json', 'X-Telegram-Bot-Api-Secret-Token': HOOK_SECRET})
 last_reply = lambda: [s for s in sent() if s['method'] in ('sendMessage', 'editMessageText')][-1]['body']['text']
+def answer_ask(pick=0):
+    """responde à pergunta do bot (de qual dívida / qual carteira) tocando no botão `pick`"""
+    m = [x for x in sent() if x['method'] in ('sendMessage', 'editMessageText') and 'ask:' in json.dumps(x['body'].get('reply_markup', ''))][-1]
+    mk = m['body']['reply_markup']; mk = json.loads(mk) if isinstance(mk, str) else mk
+    btns = [b for row in mk['inline_keyboard'] for b in row if b.get('callback_data', '').startswith('ask:') and not b['callback_data'].endswith(':x')]
+    upd[0] += 1
+    return http('POST', HOOK_PATH, {'update_id': upd[0], 'callback_query': {'id': 'c%d' % upd[0], 'data': btns[pick]['callback_data'], 'message': {'message_id': m.get('result_id', 1), 'chat': {'id': 999}, 'text': ''}}},
+                {'Content-Type': 'application/json', 'X-Telegram-Bot-Api-Secret-Token': HOOK_SECRET})
 
 # ---------------- bot
 check(http('GET', '/api/state')[0] == 401, 'API sem chave é recusada')
@@ -115,6 +123,8 @@ with sync_playwright() as p:
     http('GET', '/__cron')
     check('Bom dia' in last_reply() and 'Atrasado' in last_reply(), 'lembrete diário das 9h')
     tgmsg('recebi 15 da larissa')
+    for _ in range(2):
+        if 'Foi de qual dívida' in last_reply() or 'Caiu em qual carteira' in last_reply(): answer_ask(0)
     check(inbox()[-1]['type'] == 'pay', 'com o resumo, "recebi 15 da larissa" é pagamento (ela está na lista)')
     tgmsg('recebi 3200 de salário')
     check(inbox()[-1]['type'] == 'tx' and inbox()[-1]['kind'] == 'entrada', '"recebi 3200 de salário" vira entrada')

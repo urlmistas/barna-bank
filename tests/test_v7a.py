@@ -69,7 +69,7 @@ with sync_playwright() as p:
     key = [r[0]['callback_data'] for r in m['reply_markup']['inline_keyboard'] if 'Larissa' in r[0]['text']][0]
     tg(cb=key)
     m = msgs()[-1]
-    check('Larissa' in m['text'] and 'Detalhes: ' + url in m['text'] and 'parse_mode' not in m, 'tocar no nome manda a mensagem pronta com o link')
+    check('Larissa' in m['text'] and '*Detalhes:* ' + url in m['text'] and 'parse_mode' not in m, 'tocar no nome manda a mensagem pronta com o link')
     btns = [r[0] for r in m['reply_markup']['inline_keyboard']]
     check(any(x.get('url', '').startswith('https://wa.me/?text=') for x in btns) and any(x.get('url') == url for x in btns), 'botões: WhatsApp e link de cobrança')
     tg('cobrar vinicius')

@@ -20,7 +20,7 @@ jobs:
           python-version: '3.12'
       - name: Instalar ferramentas de teste
         run: |
-          sudo apt-get install -y poppler-utils  # pdftotext (confere o recibo em PDF)
+          sudo apt-get update -qq && sudo apt-get install -y poppler-utils  # pdftotext (confere o recibo em PDF)
           pip install playwright opencv-python-headless numpy
           python -m playwright install --with-deps chromium
       - name: Montar o motor do bot

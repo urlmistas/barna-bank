@@ -7,7 +7,7 @@ Com o bot, você manda mensagens como estas e elas entram no app:
 | `Vini me deve 50` | nova dívida: Vini te deve R$ 50 |
 | `emprestei 300 pra Larissa em 3x` | empréstimo de R$ 300 em 3 parcelas |
 | `devo 80 pro Carlos` | você deve R$ 80 ao Carlos |
-| `recebi 20 do Vini` ou `Vini pagou 20` | pagamento do Vini (abate o mais antigo) |
+| `recebi 20 do Vini` ou `Vini pagou 20` | pagamento do Vini. Se ele tem mais de uma dívida, o bot pergunta de qual; se você tem mais de uma carteira (e nenhuma padrão em Configurações), pergunta em qual caiu |
 | `paguei 40 pro Carlos` | pagamento do que você deve ao Carlos |
 | `gastei 35 mercado no nubank` | gasto de R$ 35 em Mercado, na carteira Nubank |
 | `ganhei 150 freela` | entrada de R$ 150 |
@@ -64,10 +64,20 @@ Na página de uma pessoa, toque em **Lembretes no Telegram** e mande o convite (
 - na véspera e no dia do vencimento: quanto vence;
 - se atrasar: quanto está atrasado, a cada 3 dias.
 
-A mensagem leva o valor, o total em aberto, o link de cobrança (se você tiver criado) e o seu PIX. Você fica sabendo quando a pessoa entra, quando um lembrete é enviado e se ela sair (`/parar`). A pessoa só consegue ver o que ela deve (`/status`); nada mais do bot responde a ela. Dá para pausar ou desconectar cada pessoa na mesma tela do app.
+A mensagem leva o valor, o total em aberto, o seu PIX e um menu de botões. Você fica sabendo quando a pessoa entra, quando um lembrete é enviado e se ela sair (`/parar`). Dá para pausar ou desconectar cada pessoa na mesma tela do app.
+
+O que a pessoa pode fazer no bot (botões ou comandos, que aparecem só no chat dela):
+- `/parcelas`: cada parcela com valor, vencimento e se está paga, aberta ou atrasada
+- `/pix`: QR Code e PIX copia e cola já com o valor certo (atrasado, uma dívida ou tudo)
+- `/paguei`: avisa que pagou, com a foto do comprovante (ou manda a foto com o valor na legenda). Se tiver mais de uma dívida, escolhe qual. Chega pra você com **Recebi / Não recebi**, e ela fica sabendo da resposta
+- `/prazo`: pede mais prazo (datas prontas ou `20/10 recebo dia 20`). Chega pra você com **Aceitar / Recusar**
+- `/historico`: os pagamentos que ela já fez · `/recibo`: recibo de quitação
+- `/lembretes`: escolhe ser avisada 3 dias antes, na véspera ou só no dia · `/pausar` (ex: `/pausar 20/10`) e `/retomar`
+
+Ela só vê o que é dela; mensagens soltas não chegam até você (o bot responde com o menu).
 
 ### Recibo de quitação
-Quando alguém termina de pagar, o bot manda o **recibo de quitação em PDF** (com valor por extenso, pagamentos, sua cidade e seu nome, de Configurações). Se a pessoa está nos lembretes do Telegram, um botão manda o recibo direto pra ela. No app, aparece o aviso "quitou! · Recibo", e toda dívida quitada tem o botão **Recibo de quitação**.
+Quando alguém termina de pagar, o bot manda o **recibo de quitação em PDF** (com valor por extenso, pagamentos, sua cidade e seu nome, de Configurações). Se a pessoa está nos lembretes do Telegram, o recibo vai direto pra ela, sozinho. No app, aparece o aviso "quitou! · Recibo", e toda dívida quitada tem o botão **Recibo de quitação**.
 
 ### Backups diários
 A nuvem guarda uma cópia dos dados por dia (como estavam no começo do dia) e mantém os últimos 30 dias. Para voltar: **Configurações** → **Nuvem e bot do Telegram** → **Backups diários** → escolha o dia.
