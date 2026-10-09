@@ -152,7 +152,7 @@ with sync_playwright() as p:
     import urllib.parse as up_
     href = page.get_attribute('#list .card.open [data-act="whats"]', 'href') or ''
     msg = up_.unquote(href.split('text=', 1)[-1])
-    check(msg.startswith('Oi Vinicius, tudo bem?') and '*R$' in msg and '\n\n*Pix:* joao@pix.com' in msg, 'mensagem do WhatsApp no formato novo: %s' % msg[-120:])
+    check(msg.startswith('Oi Vinicius, tudo bem?') and '*R$' in msg and 'R$\u00a0' not in msg and 'R$ ' not in msg and '\n\n*Pix:* joao@pix.com' in msg, 'mensagem do WhatsApp no formato novo: %s' % msg[-120:])
     check(not errs, 'sem erros de JS %s' % errs)
     b.close()
 print('\n%d falha(s)' % len(fails))

@@ -644,16 +644,16 @@
     var wg = groupOf(d);
     if(wg && installments(d) === 1){
       msg = st === 'atrasado'
-        ? 'Oi ' + greetName(d.name) + ', tudo bem? Sobre o *' + wg.title + '*: sua parte de *' + money.format(remaining(d)) + '* ficou em aberto (era até ' + fmtDate(toISO(due)) + '). Consegue acertar comigo? 🙂'
-        : 'Oi ' + greetName(d.name) + ', tudo bem? Sobre o *' + wg.title + '*: sua parte ficou *' + money.format(remaining(d)) + '*' + (due ? ', pra pagar até ' + fmtDate(toISO(due)) : '') + '. Qualquer coisa me avisa 🙂';
+        ? 'Oi ' + greetName(d.name) + ', tudo bem? Sobre o *' + wg.title + '*: sua parte de *' + waMoney(remaining(d)) + '* ficou em aberto (era até ' + fmtDate(toISO(due)) + '). Consegue acertar comigo? 🙂'
+        : 'Oi ' + greetName(d.name) + ', tudo bem? Sobre o *' + wg.title + '*: sua parte ficou *' + waMoney(remaining(d)) + '*' + (due ? ', pra pagar até ' + fmtDate(toISO(due)) : '') + '. Qualquer coisa me avisa 🙂';
     } else if(st === 'atrasado'){
       msg = 'Oi ' + greetName(d.name) + ', tudo bem? Passando pra lembrar que ' +
         (sch.overdueCount > 1 ? 'tem ' + sch.overdueCount + ' parcelas em aberto, somando ' : 'ficou em aberto ') +
-        '*' + money.format(sch.overdue) + '* (vencimento em ' + fmtDate(toISO(due)) + '). Consegue acertar comigo? Pode ser uma parte também 🙂';
+        '*' + waMoney(sch.overdue) + '* (vencimento em ' + fmtDate(toISO(due)) + '). Consegue acertar comigo? Pode ser uma parte também 🙂';
     } else if(st === 'hoje'){
-      msg = 'Oi ' + greetName(d.name) + ', tudo bem? Só passando pra lembrar que sua parcela de *' + money.format(amountDueNow(d)) + '* vence hoje. Consegue enviar? 🙂';
+      msg = 'Oi ' + greetName(d.name) + ', tudo bem? Só passando pra lembrar que sua parcela de *' + waMoney(amountDueNow(d)) + '* vence hoje. Consegue enviar? 🙂';
     } else {
-      msg = 'Oi ' + greetName(d.name) + ', tudo bem? Sua próxima parcela é de *' + money.format(amountDueNow(d)) + '*' + (due ? (', vencimento em ' + fmtDate(toISO(due))) : '') + '. Qualquer coisa me avisa 😉';
+      msg = 'Oi ' + greetName(d.name) + ', tudo bem? Sua próxima parcela é de *' + waMoney(amountDueNow(d)) + '*' + (due ? (', vencimento em ' + fmtDate(toISO(due))) : '') + '. Qualquer coisa me avisa 😉';
     }
     msg += chargeFooter(shareLinkFor('debt', d.id) || shareLinkFor('person', nameKey(d.name)));
     return msg;
@@ -2125,6 +2125,8 @@
   // "Pedro (PC)" → "Pedro": nome para cumprimentar nas mensagens
   function greetName(name){ return firstName(String(name).replace(/\([^)]*\)/g, ' ')) || name; }
   // rodapé das mensagens de cobrança (negrito do WhatsApp com *)
+  // "R$150,00" sem espaço, pras mensagens de WhatsApp
+  function waMoney(v){ return money.format(v).replace(/^(-?R\$)[\s\u00a0]+/, '$1'); }
   function chargeFooter(link){
     var out = [];
     if(settings.pixKey) out.push('*Pix:* ' + settings.pixKey);
@@ -2608,7 +2610,7 @@
     var pend = st.members.filter(function(d){ return remaining(d) > EPS; });
     var paid = st.members.filter(function(d){ return memberState(d) === 'pago'; });
     var lines = ['Oi, pessoal! Passando pra lembrar do *' + g.title + '* (' + fmtDate(g.date) + ').', '', 'Faltam:'];
-    pend.forEach(function(d){ lines.push('• ' + d.name + ': ' + money.format(remaining(d)) + (memberState(d) === 'atrasado' ? ' (atrasado)' : '')); });
+    pend.forEach(function(d){ lines.push('• ' + d.name + ': ' + waMoney(remaining(d)) + (memberState(d) === 'atrasado' ? ' (atrasado)' : '')); });
     if(paid.length) lines.push('', 'Já pagaram: ' + paid.map(function(d){ return firstName(d.name); }).join(', ') + ' ✓');
     if(g.dueDate) lines.push('', 'Prazo: ' + fmtDate(g.dueDate));
     if(settings.pixKey) lines.push('*Pix:* ' + settings.pixKey);
@@ -4154,10 +4156,10 @@
     if(p.debts.length === 1) return whatsappMessage(p.debts[0]);
     var lines = p.debts.map(function(d){
       var g = groupOf(d);
-      return '• ' + (g ? g.title : 'empréstimo de ' + fmtDate(d.date)) + ': ' + money.format(overdueAmount(d));
+      return '• ' + (g ? g.title : 'empréstimo de ' + fmtDate(d.date)) + ': ' + waMoney(overdueAmount(d));
     });
     var msg = 'Oi ' + greetName(p.name) + ', tudo bem? Passando pra lembrar do que ficou em aberto comigo:\n' + lines.join('\n') +
-      '\nTotal: *' + money.format(p.overdue) + '*. Consegue acertar? Pode ser uma parte também 🙂';
+      '\nTotal: *' + waMoney(p.overdue) + '*. Consegue acertar? Pode ser uma parte também 🙂';
     return msg + chargeFooter(shareLinkFor('person', p.key));
   }
   function nudgeSub(p){

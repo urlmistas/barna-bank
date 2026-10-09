@@ -79,7 +79,7 @@ with sync_playwright() as p:
     # 3) cobrar pendentes
     open_group('Churrasco').locator('[data-gact="charge"]').click(); page.wait_for_timeout(200)
     msg = N(page.input_value('#chargeMsg'))
-    check('Bia: R$ 33,33' in msg and 'Já pagaram: Ana' in msg and '*Pix:* joao@pix.com' in msg, 'mensagem pronta para o grupo')
+    check('Bia: R$33,33' in msg and 'Já pagaram: Ana' in msg and '*Pix:* joao@pix.com' in msg, 'mensagem pronta para o grupo')
     check(page.locator('#chargeList a.btn-whats').count() == 1, 'link individual para quem tem telefone (Bia)')
     check(page.get_attribute('#chargeGroupLink', 'href').startswith('https://wa.me/?text='), 'botão abre WhatsApp com a mensagem')
     page.screenshot(path=SP + '/g_charge.png')
