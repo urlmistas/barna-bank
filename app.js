@@ -187,6 +187,13 @@
         else { Object.keys(d.dueOverride).forEach(function(k){ if(!/^\d{1,3}$/.test(k) || !/^\d{4}-\d{2}-\d{2}$/.test(d.dueOverride[k])) delete d.dueOverride[k]; }); if(!Object.keys(d.dueOverride).length) delete d.dueOverride; }
       }
       if(d.groupId && typeof d.groupId !== 'string') delete d.groupId;
+      // plano renegociado: valor e vencimento de cada parcela
+      if(d.plan){
+        var okPlan = Array.isArray(d.plan) && d.plan.length > 0 && d.plan.length <= 600 && d.plan.every(function(x){ return x && typeof x.v === 'number' && isFinite(x.v) && x.v >= 0 && /^\d{4}-\d{2}-\d{2}$/.test(x.due || ''); });
+        if(okPlan){ d.plan = d.plan.map(function(x){ return {v: Math.round(x.v * 100) / 100, due: x.due}; }); d.installments = d.plan.length; }
+        else delete d.plan;
+      }
+      if(d.reneg && !Array.isArray(d.reneg)) delete d.reneg;
       delete d.paid;
       return d;
     });
@@ -397,9 +404,10 @@
     openWalletId: null
   };
 
-  function installments(d){ return Math.max(1, d.installments || 1); }
+  function installments(d){ return d.plan ? d.plan.length : Math.max(1, d.installments || 1); }
   // Valor total contratado (sem encargos de atraso)
   function finalValue(d){
+    if(d.plan) return d.plan.reduce(function(s, x){ return s + x.v; }, 0);
     var n = installments(d);
     var r = (d.rate||0)/100;
     if(d.interestType === 'simples'){
@@ -424,6 +432,7 @@
   function dueDateForInstallment(d, idx){
     // idx: 0-based installment index
     if(d.dueOverride && d.dueOverride[idx]) return new Date(d.dueOverride[idx] + 'T00:00:00');
+    if(d.plan && d.plan[idx]) return new Date(d.plan[idx].due + 'T00:00:00');
     if(d.firstDue){
       // vencimento da 1ª parcela definido direto (ex.: grupo com data de pagamento)
       var f = new Date(d.firstDue + 'T00:00:00');
@@ -453,7 +462,7 @@
   function debtSchedule(d){
     var today = todayISO();
     if(!scheduleCache || scheduleCache.day !== today) scheduleCache = {day: today, map: {}};
-    var key = d.id + '|' + JSON.stringify([d.principal, d.rate, d.interestType, d.installments, d.date, d.dueDay, d.discount, d.lateFeePct, d.lateInterestPct, d.settledDate, d.firstDue, d.dueOverride, d.payments]);
+    var key = d.id + '|' + JSON.stringify([d.principal, d.rate, d.interestType, d.installments, d.date, d.dueDay, d.discount, d.lateFeePct, d.lateInterestPct, d.settledDate, d.firstDue, d.dueOverride, d.payments, d.plan]);
     var hit = scheduleCache.map[d.id];
     if(hit && hit.key === key) return hit.sched;
     var sched = computeSchedule(d, today);
@@ -469,7 +478,8 @@
     var insts = [];
     for(var i=0;i<n;i++){
       var due = dueDateForInstallment(d, i);
-      insts.push({i: i, due: due, dueISO: toISO(due), value: V, rem: V, paid: 0, pen: 0, penPaid: 0, multaDone: false, lastISO: null, touched: false, lastPayISO: null});
+      var Vi = d.plan ? d.plan[i].v : V;
+      insts.push({i: i, due: due, dueISO: toISO(due), value: Vi, rem: Vi, paid: 0, pen: 0, penPaid: 0, multaDone: false, lastISO: null, touched: false, lastPayISO: null});
     }
     function accrue(inst, tISO){
       if(!hasPenalty || tISO <= inst.dueISO) return;
@@ -1178,6 +1188,9 @@
         '<button class="hr-del" data-idx="' + realIdx + '" title="Remover este pagamento" aria-label="Remover este pagamento">' + ic('x') + '</button></div>';
     }).join('');
     var historyHtml = historyRows ? '<div class="history-list">' + historyRows + '</div>' : '<div class="history-empty">Nenhum pagamento registrado ainda.</div>';
+    if(d.reneg && d.reneg.length) historyHtml = '<div class="reneg-list">' + d.reneg.slice().reverse().map(function(r){
+      return '<div class="reneg-row">' + ic('handshake') + '<div><b>Renegociada em ' + fmtDate(r.at) + '</b><span>' + escapeHtml(r.from || '') + ' → ' + escapeHtml(r.to || '') + (r.note ? ' · “' + escapeHtml(r.note) + '”' : '') + '</span></div></div>';
+    }).join('') + '</div>' + historyHtml;
 
     // ---- resumo
     var due = nextDueDate(d);
@@ -1203,7 +1216,7 @@
       '<div class="od-top"><span class="od-name">' + escapeHtml(d.name) + (grp ? ' <span class="od-grp">· ' + escapeHtml(grp.title) + '</span>' : '') + '</span><span class="od-status ' + status + '">' + statusLabel(d) + '</span></div>' +
       '<div class="od-amt"><b>' + money.format(paid ? paidAmount(d) : remain) + '</b><span>' + (paid ? (isPayable ? 'pago no total' : 'recebido no total') : 'falta de ' + money.format(totalDue)) + '</span></div>' +
       '<div class="od-bar"><i style="width:' + progressPct(d).toFixed(1) + '%"></i></div>' +
-      '<div class="od-meta">' + (isPayable ? 'Dívida de ' : 'Emprestado em ') + fmtDate(d.date) + ' · ' + (n > 1 ? n + 'x de ' + money.format(installmentValue(d)) : 'parcela única') + (d.rate > 0 ? ' · juros ' + String(d.rate).replace('.', ',') + '% a.m.' : ' · sem juros') + '</div>' +
+      '<div class="od-meta">' + (isPayable ? 'Dívida de ' : 'Emprestado em ') + fmtDate(d.date) + ' · ' + (d.plan ? planLabel(d) : n > 1 ? n + 'x de ' + money.format(installmentValue(d)) : 'parcela única') + (d.plan ? ' · renegociada' : d.rate > 0 ? ' · juros ' + String(d.rate).replace('.', ',') + '% a.m.' : ' · sem juros') + '</div>' +
     '</div>';
     inner.innerHTML = odHead +
       '<div class="card-tabs" role="tablist">' +
@@ -1219,6 +1232,7 @@
           (wLink ? '<a class="btn btn-whats btn-sm" href="' + wLink + '" target="_blank" rel="noopener" data-act="whats">' + ic('message-circle') + ' WhatsApp</a>' : (isPayable ? '' : '<button class="btn btn-ghost btn-sm" data-act="nowhats" title="Cadastre o telefone em Editar">' + ic('message-circle') + ' WhatsApp</button>')) +
           (opts.inPerson ? '' : '<button class="btn btn-ghost btn-sm" data-act="profile">' + ic('user') + ' Ver pessoa</button>') +
           (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="settle">' + ic('badge-percent') + ' Quitar c/ desconto</button>') +
+          (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="reneg">' + ic('handshake') + ' Renegociar</button>') +
           '<div class="spacer"></div>' +
           (!isPayable ? '<button class="btn btn-ghost btn-sm" data-act="share" title="Link só desta dívida">' + ic('share-2') + ' Link' + (shareFor('debt', d.id) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>' : '') +
           (paid && !isPayable ? '<button class="btn btn-primary btn-sm" data-act="receipt">' + ic('receipt') + ' Recibo de quitação</button>' : '') +
@@ -1331,6 +1345,8 @@
     if(whatsBtn) whatsBtn.addEventListener('click', function(e){ e.stopPropagation(); });
     var profBtn = inner.querySelector('[data-act="profile"]');
     if(profBtn) profBtn.addEventListener('click', function(e){ e.stopPropagation(); openPerson(d.name); });
+    var renegBtn = inner.querySelector('[data-act="reneg"]');
+    if(renegBtn) renegBtn.addEventListener('click', function(e){ e.stopPropagation(); openReneg(d); });
     var settleBtn = inner.querySelector('[data-act="settle"]');
     if(settleBtn) settleBtn.addEventListener('click', function(e){ e.stopPropagation(); openSettleModal(d); });
     inner.querySelector('[data-act="statement"]').addEventListener('click', function(e){ e.stopPropagation(); openStatement(d); });
@@ -1600,6 +1616,7 @@
     var fgNote = document.getElementById('formGroupNote'), fg = debt ? groupOf(debt) : null;
     fgNote.style.display = fg ? '' : 'none';
     fgNote.textContent = fg ? 'Esta dívida faz parte do grupo “' + fg.title + '”. O que mudar aqui vale só para ' + debt.name + '. Para mudar o grupo todo, use Editar grupo.' : '';
+    if(debt && debt.plan){ fgNote.style.display = ''; fgNote.textContent = 'Esta dívida foi renegociada (' + planLabel(debt) + '). Mudar valor, parcelas, juros, data ou dia de vencimento aqui desfaz a renegociação. Para mudar as parcelas, use Renegociar.'; }
     populateFriendsList();
     setFormKind(debt ? debt.kind : state.viewKind);
     fName.value = debt ? debt.name : '';
@@ -1663,6 +1680,9 @@
     if(state.editingId){
       var d = state.debts.find(function(x){ return x.id === state.editingId; });
       var prevDueDay = d.dueDay;
+      if(d.plan && (Math.abs(principal - d.principal) > EPS || rate !== (d.rate || 0) || interestType !== (d.interestType || 'composto') || date !== d.date || installmentsRaw !== installments(d) || dueDay !== d.dueDay)){
+        delete d.plan; invalidateSchedules();
+      }
       d.name = name; d.principal = principal; d.rate = rate; d.interestType = interestType; d.date = date; d.days = days; d.installments = installmentsRaw; d.dueDay = dueDay; d.notes = notes; d.kind = currentFormKind; d.lateFeePct = lateFeePct; d.lateInterestPct = lateInterestPct;
       if(d.firstDue && dueDay !== prevDueDay){
         var fd = new Date(d.firstDue + 'T00:00:00');
@@ -5816,6 +5836,137 @@
       d.dueOverride[it.i] = newDate;
     });
     return out;
+  }
+  // ---------- renegociar: muda o valor das parcelas daqui pra frente, na mesma dívida ----------
+  function addMonthsISO(iso, k){
+    var b = new Date(iso + 'T00:00:00'), tm = b.getMonth() + k;
+    var y = b.getFullYear() + Math.floor(tm / 12), m = ((tm % 12) + 12) % 12;
+    return toISO(new Date(y, m, Math.min(b.getDate(), daysInMonth(y, m))));
+  }
+  // [{v, due}] → [{n, v, from, to}] (parcelas seguidas de mesmo valor juntas)
+  function planSegments(list){
+    var out = [];
+    list.forEach(function(x){
+      var last = out[out.length - 1];
+      if(last && Math.abs(last.v - x.v) < 0.05){ last.n++; last.to = x.due; }
+      else out.push({n: 1, v: x.v, from: x.due, to: x.due});
+    });
+    return out;
+  }
+  function segLabel(sg){ return sg.n + 'x de ' + money.format(sg.v); }
+  function planLabel(d){ return d.plan ? planSegments(d.plan).map(segLabel).join(' + ') : ''; }
+  function remainingLabel(d){
+    var s = debtSchedule(d);
+    return planSegments(s.insts.filter(function(it){ return it.open > EPS; }).map(function(it){ return {v: round2(it.open), due: it.dueISO}; })).map(segLabel).join(' + ');
+  }
+  function renegDefaults(d){
+    var s = debtSchedule(d), today = todayISO();
+    var open = s.insts.filter(function(it){ return it.open > EPS; });
+    var first = open[0], start = first ? first.dueISO : today;
+    if(first && start < today){
+      // atrasada: a próxima data no mesmo dia do mês, a partir de hoje
+      var t = new Date(today + 'T00:00:00'), day = first.due.getDate();
+      var c = new Date(t.getFullYear(), t.getMonth(), Math.min(day, daysInMonth(t.getFullYear(), t.getMonth())));
+      if(toISO(c) < today) c = new Date(t.getFullYear(), t.getMonth() + 1, Math.min(day, daysInMonth(t.getFullYear(), t.getMonth() + 1)));
+      start = toISO(c);
+    }
+    return {open: round2(s.open), count: open.length, curV: first ? round2(first.value) : 0, start: start};
+  }
+  // monta o plano novo sem mexer na dívida. mode: 'depois' (a diferença vem depois, em parcelas),
+  // 'fim' (a diferença numa parcela só no fim) ou 'estender' (mais parcelas do valor novo)
+  function buildReneg(d, o){
+    var s = debtSchedule(d), keep = [], R = round2(s.open);
+    var newV = round2(o.value || 0);
+    if(!(newV > 0) || !(R > EPS) || !/^\d{4}-\d{2}-\d{2}$/.test(o.start || '')) return null;
+    s.insts.forEach(function(it){
+      if(it.open <= EPS) keep.push({v: round2(it.value), due: it.dueISO});
+      else if(it.paid > EPS) keep.push({v: round2(it.paid), due: it.dueISO}); // o que já foi pago de uma parcela fica como está
+    });
+    var m = s.insts.filter(function(it){ return it.open > EPS; }).length, tail = [];
+    if(o.mode === 'estender' || newV * m >= R - EPS){
+      var k = Math.max(1, Math.ceil(R / newV - 1e-9));
+      for(var i = 0; i < k; i++) tail.push(i < k - 1 ? newV : round2(R - newV * (k - 1)));
+    } else {
+      for(var j = 0; j < m; j++) tail.push(newV);
+      var D = round2(R - newV * m);
+      if(o.mode === 'fim') tail.push(D);
+      else {
+        var dv = round2(o.diffValue > 0 ? o.diffValue : D / m);
+        if(dv > D) dv = D;
+        var k2 = Math.max(1, Math.ceil(D / dv - 1e-9));
+        for(var q = 0; q < k2; q++) tail.push(q < k2 - 1 ? dv : round2(D - dv * (k2 - 1)));
+      }
+    }
+    tail = tail.filter(function(v){ return v > EPS; });
+    if(tail.length > 360) return null;
+    var plan = keep.concat(tail.map(function(v, idx){ return {v: v, due: addMonthsISO(o.start, idx)}; }));
+    return {plan: plan, keep: keep.length, open: R};
+  }
+  function applyReneg(d, r, note){
+    var copy = function(x){ return x ? JSON.parse(JSON.stringify(x)) : null; };
+    var before = {plan: copy(d.plan), installments: d.installments, days: d.days, dueOverride: copy(d.dueOverride), reneg: copy(d.reneg)};
+    var fromLbl = remainingLabel(d);
+    d.plan = r.plan;
+    d.installments = r.plan.length; d.days = r.plan.length * 30;
+    if(d.dueOverride){ Object.keys(d.dueOverride).forEach(function(k){ if(+k >= r.keep) delete d.dueOverride[k]; }); if(!Object.keys(d.dueOverride).length) delete d.dueOverride; }
+    invalidateSchedules();
+    // centavos de arredondamento (ou encargos que ficaram pra trás) entram na última parcela
+    var diff = round2(r.open - remaining(d));
+    if(Math.abs(diff) > EPS){ var lastP = d.plan[d.plan.length - 1]; lastP.v = round2(lastP.v + diff); invalidateSchedules(); }
+    d.reneg = (d.reneg || []).concat([{at: todayISO(), from: fromLbl, to: planSegments(d.plan.slice(r.keep)).map(segLabel).join(' + '), note: note || ''}]);
+    return before;
+  }
+  function restoreReneg(d, b){
+    ['plan', 'dueOverride', 'reneg'].forEach(function(k){ if(b[k]) d[k] = b[k]; else delete d[k]; });
+    d.installments = b.installments; d.days = b.days;
+    invalidateSchedules();
+  }
+  function openReneg(d){
+    var df = renegDefaults(d);
+    if(!(df.open > EPS)){ showToast('Essa dívida já está quitada.', 'check'); return; }
+    var first = firstName(d.name);
+    openDialog({
+      title: 'Renegociar · ' + first, icon: 'handshake', okText: 'Renegociar',
+      html: '<p class="warn">Falta <b>' + money.format(df.open) + '</b> (' + remainingLabel(d) + '). As parcelas já pagas continuam como estão.</p>' +
+        '<div class="field-row"><div class="field"><label for="rnValue">Novo valor da parcela</label><input id="rnValue" class="money" type="text" inputmode="decimal" autocomplete="off" value="' + fmtMoneyInput(df.curV) + '"></div>' +
+        '<div class="field"><label for="rnStart">1ª parcela nova vence em</label><input id="rnStart" type="date" value="' + df.start + '"></div></div>' +
+        '<div class="field" id="rnModeBox"><label>O que sobrar de cada parcela</label>' +
+          '<label class="rn-opt"><input type="radio" name="rnMode" value="depois" checked><span>Pagar depois que acabar, em parcelas de <input id="rnDiff" class="money rn-inline" type="text" inputmode="decimal" autocomplete="off" placeholder="auto"></span></label>' +
+          '<label class="rn-opt"><input type="radio" name="rnMode" value="fim"><span>Tudo numa parcela só, no fim</span></label>' +
+          '<label class="rn-opt"><input type="radio" name="rnMode" value="estender"><span>Mais parcelas do novo valor, até acabar</span></label>' +
+        '</div>' +
+        '<div class="field"><label for="rnNote">Motivo (opcional)</label><input id="rnNote" type="text" maxlength="80" placeholder="Ex: combinamos de baixar a parcela"></div>' +
+        '<div class="rn-prev" id="rnPrev"></div>',
+      onOk: function(body){
+        var r = read(body);
+        if(!r) return 'Informe o novo valor e a data.';
+        if(r.plan.length - r.keep > 360) return 'Ficaria com parcelas demais.';
+        var before = applyReneg(d, r, body.querySelector('#rnNote').value.trim());
+        renderAll(); saveData();
+        showAction(firstName(d.name) + ': dívida renegociada', 'Desfazer', function(){ restoreReneg(d, before); renderAll(); saveData(); showToast('Renegociação desfeita', 'undo-2'); }, 'handshake');
+        return true;
+      }
+    });
+    var body = document.getElementById('adBody');
+    function read(b){
+      var mode = (b.querySelector('input[name="rnMode"]:checked') || {}).value || 'depois';
+      return buildReneg(d, {value: moneyVal(b.querySelector('#rnValue')), start: b.querySelector('#rnStart').value, mode: mode, diffValue: moneyVal(b.querySelector('#rnDiff'))});
+    }
+    function upd(){
+      var v = moneyVal(body.querySelector('#rnValue')), lower = v > 0 && v * df.count < df.open - EPS;
+      body.querySelector('#rnModeBox').style.display = lower ? '' : 'none';
+      var dInput = body.querySelector('#rnDiff');
+      if(lower) dInput.placeholder = fmtMoneyInput(round2((df.open - v * df.count) / df.count));
+      var r = read(body), out = body.querySelector('#rnPrev');
+      if(!r){ out.innerHTML = ''; return; }
+      var segs = planSegments(r.plan.slice(r.keep));
+      out.innerHTML = '<b>Fica assim</b>' + segs.map(function(sg){
+        return '<div class="rn-seg"><span>' + segLabel(sg) + '</span><small>' + (sg.n > 1 ? fmtDate(sg.from) + ' a ' + fmtDate(sg.to) : fmtDate(sg.from)) + '</small></div>';
+      }).join('') + '<div class="rn-tot">Total ' + money.format(df.open) + ' · termina em ' + fmtDate(r.plan[r.plan.length - 1].due) + '</div>';
+    }
+    body.addEventListener('input', upd);
+    body.addEventListener('change', upd);
+    upd();
   }
   // desfazer pelo Telegram algo que já tinha entrado no app
   function applyCloudUndo(list){
