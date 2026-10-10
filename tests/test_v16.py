@@ -26,7 +26,9 @@ start = months_from(T, -5, 15)
 pai = debt('dpai', 'Pai', 6799, start.isoformat(), 10, kind='payable', dueDay=day,
            payments=[{'date': months_from(T, -4 + i, day).isoformat(), 'amount': 679.90} for i in range(4)])
 lar = debt('dl2', 'Larissa Mota', 900, ago(40), 3)  # recebível pra testar "estender"
-data['debts'] += [pai, lar]
+pai2 = debt('dpai2', 'Mãe', 6799.02, start.isoformat(), 10, kind='payable', dueDay=day,
+            payments=[{'date': months_from(T, -4 + i, day).isoformat(), 'amount': 679.90} for i in range(4)])  # sobra 2 centavos de arredondamento
+data['debts'] += [pai, lar, pai2]
 
 with sync_playwright() as p:
     b = p.chromium.launch()
@@ -111,6 +113,23 @@ with sync_playwright() as p:
     l = get('dl2')
     check(abs(sum(x['v'] for x in l['plan']) - 900) < 0.01 and all(x['due'] >= T.isoformat() for x in l['plan']), 'total igual e sem parcela vencida')
     check('Atrasad' not in N(page.locator('.card[data-debt-id="dl2"]:visible').first.inner_text()), 'deixa de estar atrasada')
+    # centavos de arredondamento: o diálogo abre sem travar e não cria parcela de centavos
+    card = open_debt('Mãe', 'dpai2')
+    card.locator('[data-act="reneg"]').click(); page.wait_for_timeout(400)
+    prev = N(page.inner_text('#rnPrev'))
+    check('6x de R$ 679,9' in prev and 'Total R$ 4.079,42' in prev, 'abre com a prévia certa (sem travar): %s' % prev)
+    page.fill('#rnValue', '480'); page.wait_for_timeout(200)
+    prev = N(page.inner_text('#rnPrev'))
+    check('6x de R$ 480,00' in prev and '6x de R$ 199,9' in prev and '1x de' not in prev, '480 + 6x de 199,90, sem parcela de centavos: %s' % prev)
+    page.fill('#rnDiff', '200'); page.wait_for_timeout(200)
+    prev = N(page.inner_text('#rnPrev'))
+    check('5x de R$ 200,00' in prev and '1x de R$ 199,42' in prev, 'diferença em parcelas de 200: %s' % prev)
+    page.fill('#rnValue', '0,01'); page.check('input[name="rnMode"][value="estender"]'); page.wait_for_timeout(300)
+    check('parcelas demais' in page.inner_text('#rnPrev'), 'valor absurdo: avisa em vez de travar')
+    page.click('#adActions [data-ad="cancel"]'); page.wait_for_timeout(200)
+    # outro diálogo depois não leva os ouvintes do renegociar
+    page.evaluate("document.getElementById('btnFits').click()"); page.wait_for_timeout(300); page.fill('#fiAmount', '50'); page.wait_for_timeout(200)
+    page.click('#adActions [data-ad="cancel"]'); page.wait_for_timeout(200)
     # PIX/link e motor usam as parcelas novas
     v = page.evaluate("(function(){ var d = JSON.parse(localStorage.getItem('barnabank_debts_v3')).debts.find(function(x){return x.id==='dl2'}); return d.plan.length; })()")
     check(v >= 4, 'plano salvo')

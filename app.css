@@ -1487,3 +1487,4 @@
   .reneg-row .i{width:16px;height:16px;color:var(--gold-soft);flex-shrink:0;margin-top:2px;}
   .reneg-row div{display:flex;flex-direction:column;gap:2px;}
   .reneg-row span{color:var(--muted);}
+  .rn-bad{color:var(--red);font-size:12.5px;}

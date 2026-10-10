@@ -5853,15 +5853,16 @@
     });
     return out;
   }
+  var RN_CENT = 0.05;
   function segLabel(sg){ return sg.n + 'x de ' + money.format(sg.v); }
   function planLabel(d){ return d.plan ? planSegments(d.plan).map(segLabel).join(' + ') : ''; }
   function remainingLabel(d){
     var s = debtSchedule(d);
-    return planSegments(s.insts.filter(function(it){ return it.open > EPS; }).map(function(it){ return {v: round2(it.open), due: it.dueISO}; })).map(segLabel).join(' + ');
+    return planSegments(s.insts.filter(function(it){ return it.open > RN_CENT; }).map(function(it){ return {v: round2(it.open), due: it.dueISO}; })).map(segLabel).join(' + ');
   }
   function renegDefaults(d){
     var s = debtSchedule(d), today = todayISO();
-    var open = s.insts.filter(function(it){ return it.open > EPS; });
+    var open = s.insts.filter(function(it){ return it.open > RN_CENT; });
     var first = open[0], start = first ? first.dueISO : today;
     if(first && start < today){
       // atrasada: a próxima data no mesmo dia do mês, a partir de hoje
@@ -5880,25 +5881,35 @@
     if(!(newV > 0) || !(R > EPS) || !/^\d{4}-\d{2}-\d{2}$/.test(o.start || '')) return null;
     s.insts.forEach(function(it){
       if(it.open <= EPS) keep.push({v: round2(it.value), due: it.dueISO});
+      else if(it.open <= RN_CENT) keep.push({v: round2(it.paid), due: it.dueISO}); // só centavos em aberto: vão pras parcelas novas
       else if(it.paid > EPS) keep.push({v: round2(it.paid), due: it.dueISO}); // o que já foi pago de uma parcela fica como está
     });
-    var m = s.insts.filter(function(it){ return it.open > EPS; }).length, tail = [];
-    if(o.mode === 'estender' || newV * m >= R - EPS){
+    var m = s.insts.filter(function(it){ return it.open > RN_CENT; }).length, tail = [];
+    if(!m) m = 1;
+    var MAXP = 360;
+    var D = round2(R - newV * m);
+    if(o.mode !== 'estender' && D > EPS && D < 1){
+      // sobra só de centavos (arredondamento): vai na última parcela, sem parcela nova
+      for(var z = 0; z < m; z++) tail.push(newV);
+      tail[m - 1] = round2(newV + D);
+    } else if(o.mode === 'estender' || D <= EPS){
       var k = Math.max(1, Math.ceil(R / newV - 1e-9));
+      if(k > MAXP) return null;
       for(var i = 0; i < k; i++) tail.push(i < k - 1 ? newV : round2(R - newV * (k - 1)));
     } else {
       for(var j = 0; j < m; j++) tail.push(newV);
-      var D = round2(R - newV * m);
       if(o.mode === 'fim') tail.push(D);
       else {
         var dv = round2(o.diffValue > 0 ? o.diffValue : D / m);
-        if(dv > D) dv = D;
+        if(!(dv >= 0.01) || dv > D) dv = D;
         var k2 = Math.max(1, Math.ceil(D / dv - 1e-9));
+        if(k2 > MAXP) return null;
         for(var q = 0; q < k2; q++) tail.push(q < k2 - 1 ? dv : round2(D - dv * (k2 - 1)));
       }
     }
     tail = tail.filter(function(v){ return v > EPS; });
-    if(tail.length > 360) return null;
+    // resto de centavos no fim vira parte da parcela anterior
+    if(tail.length > 1 && tail[tail.length - 1] < 1){ var cents = tail.pop(); tail[tail.length - 1] = round2(tail[tail.length - 1] + cents); }
     var plan = keep.concat(tail.map(function(v, idx){ return {v: v, due: addMonthsISO(o.start, idx)}; }));
     return {plan: plan, keep: keep.length, open: R};
   }
@@ -5927,7 +5938,7 @@
     var first = firstName(d.name);
     openDialog({
       title: 'Renegociar · ' + first, icon: 'handshake', okText: 'Renegociar',
-      html: '<p class="warn">Falta <b>' + money.format(df.open) + '</b> (' + remainingLabel(d) + '). As parcelas já pagas continuam como estão.</p>' +
+      html: '<div id="rnBox"><p class="warn">Falta <b>' + money.format(df.open) + '</b> (' + remainingLabel(d) + '). As parcelas já pagas continuam como estão.</p>' +
         '<div class="field-row"><div class="field"><label for="rnValue">Novo valor da parcela</label><input id="rnValue" class="money" type="text" inputmode="decimal" autocomplete="off" value="' + fmtMoneyInput(df.curV) + '"></div>' +
         '<div class="field"><label for="rnStart">1ª parcela nova vence em</label><input id="rnStart" type="date" value="' + df.start + '"></div></div>' +
         '<div class="field" id="rnModeBox"><label>O que sobrar de cada parcela</label>' +
@@ -5936,18 +5947,17 @@
           '<label class="rn-opt"><input type="radio" name="rnMode" value="estender"><span>Mais parcelas do novo valor, até acabar</span></label>' +
         '</div>' +
         '<div class="field"><label for="rnNote">Motivo (opcional)</label><input id="rnNote" type="text" maxlength="80" placeholder="Ex: combinamos de baixar a parcela"></div>' +
-        '<div class="rn-prev" id="rnPrev"></div>',
+        '<div class="rn-prev" id="rnPrev"></div></div>',
       onOk: function(body){
         var r = read(body);
-        if(!r) return 'Informe o novo valor e a data.';
-        if(r.plan.length - r.keep > 360) return 'Ficaria com parcelas demais.';
+        if(!r) return 'Confira o novo valor e a data (no máximo 360 parcelas).';
         var before = applyReneg(d, r, body.querySelector('#rnNote').value.trim());
         renderAll(); saveData();
         showAction(firstName(d.name) + ': dívida renegociada', 'Desfazer', function(){ restoreReneg(d, before); renderAll(); saveData(); showToast('Renegociação desfeita', 'undo-2'); }, 'handshake');
         return true;
       }
     });
-    var body = document.getElementById('adBody');
+    var body = document.getElementById('rnBox');
     function read(b){
       var mode = (b.querySelector('input[name="rnMode"]:checked') || {}).value || 'depois';
       return buildReneg(d, {value: moneyVal(b.querySelector('#rnValue')), start: b.querySelector('#rnStart').value, mode: mode, diffValue: moneyVal(b.querySelector('#rnDiff'))});
@@ -5958,7 +5968,7 @@
       var dInput = body.querySelector('#rnDiff');
       if(lower) dInput.placeholder = fmtMoneyInput(round2((df.open - v * df.count) / df.count));
       var r = read(body), out = body.querySelector('#rnPrev');
-      if(!r){ out.innerHTML = ''; return; }
+      if(!r){ out.innerHTML = v > 0 ? '<span class="rn-bad">Com esse valor ficaria com parcelas demais.</span>' : ''; return; }
       var segs = planSegments(r.plan.slice(r.keep));
       out.innerHTML = '<b>Fica assim</b>' + segs.map(function(sg){
         return '<div class="rn-seg"><span>' + segLabel(sg) + '</span><small>' + (sg.n > 1 ? fmtDate(sg.from) + ' a ' + fmtDate(sg.to) : fmtDate(sg.from)) + '</small></div>';
