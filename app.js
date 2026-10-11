@@ -1109,7 +1109,7 @@
         '<div class="name">' + escapeHtml(d.name) + ' <span class="kind-pill ' + (isPayable?'payable':'receivable') + '">' + (isPayable?'A pagar':'A receber') + '</span>' +
           (grp ? '<button type="button" class="grp-pill" title="Ver o grupo">' + ic('users') + '<span>' + escapeHtml(grp.title) + '</span></button>' : '') + '</div>' +
         '<div class="sub"><span class="badge ' + status + '">' + statusLabel(d) + '</span><span class="sub-since"> · ' + (isPayable ? 'desde ' : 'emprestado em ') + fmtDate(d.date) + '</span></div>' +
-        (d.notes ? '<div class="sub note-line" title="' + escapeHtml(d.notes).replace(/"/g, '&quot;') + '">' + ic('sticky-note') + ' ' + escapeHtml(d.notes) + '</div>' : '') +
+        (d.notes ? '<div class="sub note-line" title="' + escapeHtml(d.notes).replace(/"/g, '&quot;') + '">' + ic('square-text') + ' ' + escapeHtml(d.notes) + '</div>' : '') +
       '</div>' +
       '<div class="head-amount">' + money.format(headVal) + '<br><span style="font-size:10px;color:var(--muted);font-weight:400;">' + headLbl + '</span></div>' +
       (q ? '<button type="button" class="quick-pay" title="Registrar ' + escapeHtml(money.format(q.amount)) + (isPayable ? ' pago' : ' recebido') + ' hoje" aria-label="Registrar ' + escapeHtml(money.format(q.amount)) + (isPayable ? ' pago a ' : ' recebido de ') + escapeHtml(d.name) + ' hoje">' + ic('check') + '<span>' + (isPayable ? 'Paguei' : 'Recebi') + '</span></button>' : '') +
@@ -1825,12 +1825,14 @@
         (rec.length && cloudOn() ? '<button type="button" class="btn btn-ghost btn-sm" id="personTg">' + ic('send') + ' Lembretes no Telegram' + (friendOf(key) ? ' <span class="live-dot" title="conectado"></span>' : '') + '</button>' : '') +
         '<button type="button" class="btn btn-primary btn-sm" id="personNewDebt">' + ic('plus') + ' Nova dívida com ' + escapeHtml(firstName(name)) + '</button>' +
       '</div>' +
-      personExtraHtml(key) +
       '<div class="stats person-stats">' + stats + '</div>' +
-      '<div class="section-h">' + ic('handshake') + ' Dívidas</div>' +
-      '<div class="list" id="personDebts"></div>' +
-      '<div class="section-h">' + ic('list') + ' Histórico de pagamentos</div>' +
-      '<div class="history-list person-history">' + histHtml + '</div>';
+      '<div class="page-grid person-grid">' +
+        '<div class="pg-main">' +
+          '<section class="side-card"><div class="sc-head"><span class="section-title">' + ic('handshake') + ' Dívidas</span></div><div class="list" id="personDebts"></div></section>' +
+          '<section class="side-card"><div class="sc-head"><span class="section-title">' + ic('list') + ' Histórico de pagamentos</span></div><div class="history-list person-history">' + histHtml + '</div></section>' +
+        '</div>' +
+        '<aside class="pg-side">' + personExtraHtml(key) + '</aside>' +
+      '</div>';
 
     var listBox = document.getElementById('personDebts');
     debts.slice().sort(function(a, b){
@@ -5205,7 +5207,7 @@
     return '<div class="person-extra">' + trustHtml(key) +
       '<div class="pe-tags">' + tags.map(function(t){ return '<span class="pe-tag">' + ic('tag') + escapeHtml(t) + '</span>'; }).join('') +
         '<button type="button" class="btn btn-ghost btn-sm" id="personTagsEdit">' + ic(tags.length || c.notes ? 'pencil' : 'tag') + (tags.length || c.notes ? ' Editar' : ' Etiquetas e notas') + '</button></div>' +
-      (c.notes ? '<div class="pe-notes">' + ic('sticky-note') + '<span>' + escapeHtml(c.notes) + '</span></div>' : '') +
+      (c.notes ? '<div class="pe-notes">' + ic('square-text') + '<span>' + escapeHtml(c.notes) + '</span></div>' : '') +
     '</div>';
   }
   function personTagsDialog(key, name){

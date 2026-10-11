@@ -1492,3 +1492,46 @@
   /* anotação da dívida, em uma linha no card fechado */
   .who .note-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
   .who .note-line .i{width:12px;height:12px;vertical-align:-1px;}
+
+  /* Carteiras, Contas e Relatórios: a mesma grade da home (conteúdo principal + lateral em cards) */
+  .page-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:20px;align-items:start;}
+  .pg-main,.pg-side{display:flex;flex-direction:column;gap:16px;min-width:0;}
+  .page-grid .balance-card{margin:0;}
+  .page-grid .chart-card{margin:0;padding:16px 18px;}
+  .page-grid .cal-card{margin:0;}
+  .page-grid .sc-head{align-items:center;}
+  .page-grid .side-card > .sc-head .btn{flex-shrink:0;}
+  #pageContas .stats,#pageRelatorios .stats.three{margin-bottom:16px;}
+  /* listas que viviam soltas na página agora moram dentro de um card */
+  .side-card .rec-list,.side-card .bill-list{background:none;border:none;border-radius:0;padding:0;overflow:visible;}
+  .side-card .goal-list{grid-template-columns:minmax(0,1fr);}
+  .side-card .goal-card{background:var(--card-2);}
+  .side-card .cc-list > *{margin:0;}
+  .side-card .ct-empty,.side-card .empty{padding:22px 12px;border:none;font-size:13px;}
+  .loan-stats{grid-template-columns:repeat(2,minmax(0,1fr));margin:0;gap:10px;}
+  .loan-stats .stat{background:var(--card-2);padding:12px 14px;}
+  .loan-stats .stat .value{font-size:17px;}
+  @media (max-width:900px){
+    .page-grid{grid-template-columns:minmax(0,1fr);}
+  }
+  .page-grid .pg-main > .toolbar{margin:0;}
+  /* cartão de crédito na coluna lateral: visual em cima, fatura embaixo */
+  .side-card .cc-block{grid-template-columns:minmax(0,1fr);background:var(--card-2);}
+  .side-card .cc-visual{min-height:150px;}
+  /* Faturas do mês (Relatórios): a classe rc-row também é usada na home, então aqui fica escopada */
+  #relCards .rc-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:12px 0;border:none;border-top:1px solid var(--stroke);width:auto;cursor:default;color:inherit;font-family:inherit;text-align:left;}
+  #relCards .rc-row:first-child{border-top:none;padding-top:4px;}
+  #relCards .rc-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #relCards .rc-sub{grid-column:2 / 3;}
+  #relCards .rc-st{grid-column:3;}
+  /* página da pessoa */
+  .person-stats{margin-bottom:16px;}
+  .pg-side > .person-extra{background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);padding:16px 18px;margin:0;}
+  .pg-side .person-extra .pe-rel{background:var(--card-2);}
+  .person-grid .side-card .list .card,.person-grid .side-card .list .gcard{background:var(--card-2);}
+  .person-grid .person-history .history-row{background:var(--card-2);}
+  .person-grid .side-card .history-empty{color:var(--muted);font-size:13px;padding:6px 2px;}
+  @media (max-width:900px){
+    .person-grid .pg-side{order:-1;}
+    .person-grid .side-card{padding:14px 12px;}
+  }
