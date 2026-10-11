@@ -1,0 +1,70 @@
+diff --git a/app.css b/app.css
+index a4181c4..4e8a2df 100644
+--- a/app.css
++++ b/app.css
+@@ -1488,3 +1488,7 @@
+   .reneg-row div{display:flex;flex-direction:column;gap:2px;}
+   .reneg-row span{color:var(--muted);}
+   .rn-bad{color:var(--red);font-size:12.5px;}
++
++  /* anotação da dívida, em uma linha no card fechado */
++  .who .note-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
++  .who .note-line .i{width:12px;height:12px;vertical-align:-1px;}
+diff --git a/app.js b/app.js
+index 811534d..83e5624 100644
+--- a/app.js
++++ b/app.js
+@@ -1109,6 +1109,7 @@
+         '<div class="name">' + escapeHtml(d.name) + ' <span class="kind-pill ' + (isPayable?'payable':'receivable') + '">' + (isPayable?'A pagar':'A receber') + '</span>' +
+           (grp ? '<button type="button" class="grp-pill" title="Ver o grupo">' + ic('users') + '<span>' + escapeHtml(grp.title) + '</span></button>' : '') + '</div>' +
+         '<div class="sub"><span class="badge ' + status + '">' + statusLabel(d) + '</span><span class="sub-since"> · ' + (isPayable ? 'desde ' : 'emprestado em ') + fmtDate(d.date) + '</span></div>' +
++        (d.notes ? '<div class="sub note-line" title="' + escapeHtml(d.notes).replace(/"/g, '&quot;') + '">' + ic('sticky-note') + ' ' + escapeHtml(d.notes) + '</div>' : '') +
+       '</div>' +
+       '<div class="head-amount">' + money.format(headVal) + '<br><span style="font-size:10px;color:var(--muted);font-weight:400;">' + headLbl + '</span></div>' +
+       (q ? '<button type="button" class="quick-pay" title="Registrar ' + escapeHtml(money.format(q.amount)) + (isPayable ? ' pago' : ' recebido') + ' hoje" aria-label="Registrar ' + escapeHtml(money.format(q.amount)) + (isPayable ? ' pago a ' : ' recebido de ') + escapeHtml(d.name) + ' hoje">' + ic('check') + '<span>' + (isPayable ? 'Paguei' : 'Recebi') + '</span></button>' : '') +
+@@ -1660,7 +1661,7 @@
+     var days = installmentsRaw > 0 ? installmentsRaw * 30 : 0;
+     var dueDay = parseInt(fDueDay.value, 10);
+     var phoneDigits = isPayable ? '' : onlyDigits(fPhone.value);
+-    var notes = isPayable ? '' : fNotes.value.trim();
++    var notes = fNotes.value.trim();
+ 
+     if(!name){ formErr.textContent = isPayable ? 'Informe o nome da empresa ou pessoa.' : 'Informe o nome do amigo.'; return; }
+     if(isNaN(principal) || principal <= 0){ formErr.textContent = 'Informe um valor válido.'; return; }
+diff --git a/index.html b/index.html
+index 69ed6cb..c600134 100644
+--- a/index.html
++++ b/index.html
+@@ -14,7 +14,7 @@
+ <link rel="preconnect" href="https://fonts.googleapis.com">
+ <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+ <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
+-<link rel="stylesheet" href="app.css?v=5538756d" data-app-css>
++<link rel="stylesheet" href="app.css?v=9c417ec9" data-app-css>
+ </head>
+ <body>
+ <!-- Ícones: Lucide (https://lucide.dev), licença ISC. Copyright (c) Lucide Icons and Contributors -->
+@@ -407,10 +407,10 @@
+           <input type="text" id="fPhone" placeholder="(11) 99999-9999" autocomplete="off" inputmode="tel">
+         </div>
+       </div>
+-      <div class="field">
+-        <label>Anotações (opcional)</label>
+-        <textarea id="fNotes" placeholder="Ex: combinou de pagar em dinheiro, atrasou uma vez…"></textarea>
+-      </div>
++    </div>
++    <div class="field">
++      <label for="fNotes">Anotações (opcional)</label>
++      <textarea id="fNotes" maxlength="600" placeholder="Ex: do que é essa dívida, combinou de pagar em dinheiro, atrasou uma vez…"></textarea>
+     </div>
+     <div class="err" id="formErr"></div>
+     <div class="modal-actions">
+@@ -814,7 +814,7 @@
+ {"contacts": {}, "debts": [], "wallets": [], "transactions": []}
+ </script>
+ 
+-<script src="app.js?v=7b610f99" data-app-js></script>
++<script src="app.js?v=4783b603" data-app-js></script>
+ 
+ </body>
+ </html>

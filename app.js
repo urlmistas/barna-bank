@@ -1109,6 +1109,7 @@
         '<div class="name">' + escapeHtml(d.name) + ' <span class="kind-pill ' + (isPayable?'payable':'receivable') + '">' + (isPayable?'A pagar':'A receber') + '</span>' +
           (grp ? '<button type="button" class="grp-pill" title="Ver o grupo">' + ic('users') + '<span>' + escapeHtml(grp.title) + '</span></button>' : '') + '</div>' +
         '<div class="sub"><span class="badge ' + status + '">' + statusLabel(d) + '</span><span class="sub-since"> · ' + (isPayable ? 'desde ' : 'emprestado em ') + fmtDate(d.date) + '</span></div>' +
+        (d.notes ? '<div class="sub note-line" title="' + escapeHtml(d.notes).replace(/"/g, '&quot;') + '">' + ic('sticky-note') + ' ' + escapeHtml(d.notes) + '</div>' : '') +
       '</div>' +
       '<div class="head-amount">' + money.format(headVal) + '<br><span style="font-size:10px;color:var(--muted);font-weight:400;">' + headLbl + '</span></div>' +
       (q ? '<button type="button" class="quick-pay" title="Registrar ' + escapeHtml(money.format(q.amount)) + (isPayable ? ' pago' : ' recebido') + ' hoje" aria-label="Registrar ' + escapeHtml(money.format(q.amount)) + (isPayable ? ' pago a ' : ' recebido de ') + escapeHtml(d.name) + ' hoje">' + ic('check') + '<span>' + (isPayable ? 'Paguei' : 'Recebi') + '</span></button>' : '') +
@@ -1660,7 +1661,7 @@
     var days = installmentsRaw > 0 ? installmentsRaw * 30 : 0;
     var dueDay = parseInt(fDueDay.value, 10);
     var phoneDigits = isPayable ? '' : onlyDigits(fPhone.value);
-    var notes = isPayable ? '' : fNotes.value.trim();
+    var notes = fNotes.value.trim();
 
     if(!name){ formErr.textContent = isPayable ? 'Informe o nome da empresa ou pessoa.' : 'Informe o nome do amigo.'; return; }
     if(isNaN(principal) || principal <= 0){ formErr.textContent = 'Informe um valor válido.'; return; }
