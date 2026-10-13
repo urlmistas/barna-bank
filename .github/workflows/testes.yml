@@ -25,6 +25,8 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Montar o motor do bot
         run: node bot/build-engine.mjs
+      - name: Dívida recorrente (motor)
+        run: node tests/test_recurring.mjs
       - name: Rodar todos os testes
         run: python tests/run_all.py
       - name: Guardar prints se algo falhar

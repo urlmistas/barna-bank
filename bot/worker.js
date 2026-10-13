@@ -1809,7 +1809,8 @@ async function sharePage(env, token, v) {
   const upd = '<p class="foot">Atualizado em ' + fmtFull((v.updatedAt || '').slice(0, 10)) + ' · BarnaBank</p>';
   const open = v.type === 'group' ? v.remaining > 0 : v.remaining > 0;
   const suggest = v.type === 'group' ? ((v.members.find(m => m.remaining > 0) || {}).remaining || 0) : (v.suggest || v.remaining || 0);
-  const pay = open ? pixBlock(token, v, suggest, owner) + paidBlock(v, claims) + prazoBlock(v, claims) : (claims.some(c => c.kind !== 'prazo') ? paidBlock(v, claims) : '');
+  const owe = v.dir === 'owe';
+  const pay = owe ? '' : open ? pixBlock(token, v, suggest, owner) + paidBlock(v, claims) + prazoBlock(v, claims) : (claims.some(c => c.kind !== 'prazo') ? paidBlock(v, claims) : '');
   const script = '<script>var TK=' + JSON.stringify(token) + ';' + PAGE_JS + '</script>';
   if (v.type === 'group') {
     const pct = v.owed > 0 ? Math.min(100, Math.round(v.paid / v.owed * 100)) : 0;
@@ -1835,17 +1836,24 @@ async function sharePage(env, token, v) {
     }).join('');
     const pays = (d.payments || []).slice(0, 8).map(p => '<div class="row slim"><span class="muted">' + fmtFull(p.date) + '</span><div class="grow"></div><b class="okc">' + brl(p.amount) + '</b></div>').join('');
     const pickBtn = (v.debts || []).length > 1 && v.pixInfo ? '<button class="ghost small" onclick="pickDebt(' + i + ')">Pagar esta</button>' : '';
-    return '<div class="card"><div class="dh"><div><h2>' + esc(d.title) + '</h2><span class="muted">desde ' + fmtFull(d.date) + (d.due ? ' · vence ' + fmtFull(d.due) : '') + '</span></div>' +
-      '<div class="right"><b class="' + (d.late > 0 ? 'latec' : '') + '">' + brl(d.remaining) + '</b><span class="muted">em aberto</span></div></div>' +
+    return '<div class="card"><div class="dh"><div><h2>' + esc(d.title) + '</h2><span class="muted">' + (d.monthly > 0 ? brl(d.monthly) + ' por mês · ' : '') + 'desde ' + fmtFull(d.date) + (d.due ? ' · vence ' + fmtFull(d.due) : '') + '</span></div>' +
+      '<div class="right"><b class="' + (d.late > 0 ? 'latec' : '') + '">' + brl(d.remaining) + '</b><span class="muted">' + (owe ? 'falta pagar' : 'em aberto') + '</span></div></div>' +
       '<div class="prog"><i style="width:' + (d.total > 0 ? Math.min(100, d.paid / d.total * 100) : 0) + '%"></i></div>' +
-      '<p class="muted small">Total ' + brl(d.total) + ' · já pago ' + brl(d.paid) + (d.late > 0 ? ' · <span class="latec">' + brl(d.late) + ' atrasado</span>' : '') + '</p>' + pickBtn +
+      '<p class="muted small">' + (d.monthly > 0 ? 'Cobrado até agora ' : 'Total ') + brl(d.total) + ' · já pago ' + brl(d.paid) + (d.late > 0 ? ' · <span class="latec">' + brl(d.late) + ' atrasado</span>' : '') + '</p>' + pickBtn +
       (insts ? '<h3>Parcelas</h3>' + insts : '') + (pays ? '<h3>Pagamentos</h3>' + pays : '') + '</div>';
   }).join('');
-  const hero = '<div class="card hero"><span class="muted">Oi, ' + esc(v.name) + '!</span>' +
+  const hero = owe
+    ? '<div class="card hero"><span class="muted">' + (v.owner ? owner + ' deve a ' + esc(v.name) : 'Dívida com ' + esc(v.name)) + '</span>' +
+      (v.remaining > 0
+        ? '<h1>' + brl(v.remaining) + '</h1><p class="muted">falta pagar' + (v.late > 0 ? ' · <span class="latec">' + brl(v.late) + ' atrasado</span>' : '') + '</p>'
+        : '<h1>Tudo pago 🎉</h1><p class="muted">Não deve mais nada por enquanto.</p>') +
+      (v.donePaid > 0 || v.debts.some(d => d.paid > 0) ? '<p class="muted small">Já pago: ' + brl(v.donePaid + v.debts.reduce((a, d) => a + d.paid, 0)) + '</p>' : '') + '</div>'
+    : '<div class="card hero"><span class="muted">Oi, ' + esc(v.name) + '!</span>' +
     (v.remaining > 0
       ? '<h1>' + brl(v.remaining) + '</h1><p class="muted">em aberto com ' + owner + (v.late > 0 ? ' · <span class="latec">' + brl(v.late) + ' atrasado</span>' : '') + '</p>'
       : '<h1>Tudo quitado 🎉</h1><p class="muted">Você não deve nada para ' + owner + '. Valeu!</p>') +
     (v.doneCount ? '<p class="muted small">' + v.doneCount + ' dívida(s) já quitada(s), ' + brl(v.donePaid) + ' pagos.</p>' : '') + '</div>';
+  if (owe) return page('Quanto falta pagar', hero + debts + upd, v.remaining > 0 ? 'Falta pagar ' + brl(v.remaining) : 'Tudo pago');
   return page('Resumo para ' + v.name, hero + pay + debts + upd + script, v.remaining > 0 ? brl(v.remaining) + ' em aberto' : 'Tudo quitado');
 }
 const PAGE_JS = `
@@ -1882,6 +1890,7 @@ async function claimsFor(env, token) {
 }
 async function prazoCreate(req, env, token, v) {
   if (!v) return json({error: 'Link desativado.'}, 404);
+  if (v.dir === 'owe') return json({error: 'Este link é só de consulta.'}, 400);
   const rate = await getJSON(env, 'crate:' + token, {n: 0, t: 0});
   if (Date.now() - rate.t > 3600000) { rate.n = 0; rate.t = Date.now(); }
   if (rate.n >= 5) return json({error: 'Muitos envios seguidos. Tente de novo em uma hora.'}, 429);
@@ -1931,6 +1940,7 @@ function prazoBlock(v, claims) {
 }
 async function claimCreate(req, env, token, v) {
   if (!v) return json({error: 'Link desativado.'}, 404);
+  if (v.dir === 'owe') return json({error: 'Este link é só de consulta.'}, 400);
   const rate = await getJSON(env, 'crate:' + token, {n: 0, t: 0});
   if (Date.now() - rate.t > 3600000) { rate.n = 0; rate.t = Date.now(); }
   if (rate.n >= 5) return json({error: 'Muitos envios seguidos. Tente de novo em uma hora.'}, 429);

@@ -45,6 +45,11 @@ Na página do link a pessoa tem:
 
 Você também fica sabendo quando a pessoa abre o link (o bot avisa, no máximo de 6 em 6 horas, e a janela do link no app mostra quantas vezes foi aberto). Pré-visualização do WhatsApp/Telegram não conta.
 
+### Dívidas que eu tenho (link do que devo)
+Dívida **a pagar** também tem link: botão **Link** dentro da dívida, ou **Link do que devo** na página da pessoa (junta tudo que você deve a ela). Quem abrir vê quanto já foi pago, quanto falta pra quitar e as parcelas, sem PIX nem botão de pagar. Atualiza sozinho.
+
+Para assinaturas no cartão de um amigo, marque **Dívida recorrente** ao criar a dívida: informe o valor por mês, o dia de vencimento e do que é (ex.: Netflix). Todo mês entra uma parcela nova, então o link sempre mostra o que ainda falta pagar até hoje.
+
 ### Perguntas e áudio
 - Pergunte do seu jeito: `quanto gastei com ifood esse mês?`, `quem me deve mais?`, `quanto o Vini já me pagou?`, `quanto eu devo?`, `qual meu saldo?`, `como tá meu orçamento?`.
 - Mande **áudio** ("gastei 30 no mercado") e o bot transcreve e lança.
