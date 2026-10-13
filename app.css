@@ -1535,3 +1535,72 @@
     .person-grid .pg-side{order:-1;}
     .person-grid .side-card{padding:14px 12px;}
   }
+
+  /* ===== v17: Carteiras, Contas e Relatórios no mesmo jeito do Início ===== */
+  /* topo enxuto: título + total + ações */
+  .pg-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px;flex-wrap:wrap;}
+  .pg-hl{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .pg-title{font-family:'Baloo 2',sans-serif;font-weight:600;font-size:26px;line-height:1.1;margin:0;}
+  .pg-sub{font-size:13.5px;color:var(--muted);}
+  .pg-sub b{color:var(--gold-soft);font-family:'Nunito',sans-serif;font-weight:700;font-size:15px;}
+  .pg-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  /* números num painel só (em vez de 3-4 cartões grandes) */
+  .stats.sum-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);padding:4px;margin:0 0 16px;}
+  .stats.three.sum-strip{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .sum-strip .stat{background:none;border:none;border-radius:0;box-shadow:none;padding:10px 14px;border-left:1px solid var(--stroke);min-width:0;}
+  .sum-strip .stat:first-child{border-left:none;}
+  .sum-strip .stat .label{font-size:11.5px;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sum-strip .stat .label .i{width:14px;height:14px;padding:0;background:none !important;}
+  .sum-strip .stat .value{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sum-strip .stat .stat-sub{font-size:11px;}
+  #pageRelatorios .toolbar{margin-bottom:14px;}
+  /* seções: abas no celular/tablet; no PC aparece tudo */
+  .pg-seg{display:none;}
+  /* "Seus dados" fica só no Início */
+  body:not([data-page="dashboard"]) footer{display:none;}
+  .fab-ctx{display:none;}
+  @media (max-width:900px){
+    .pg-seg{display:flex;margin:0 0 14px;}
+    .pg-seg button{flex:1;justify-content:center;padding:9px 6px;font-size:13px;}
+    .secs[data-show] [data-sec]{display:none;}
+    .secs[data-show="main"] [data-sec="main"],.secs[data-show="rec"] [data-sec="rec"],.secs[data-show="goal"] [data-sec="goal"],
+    .secs[data-show="bills"] [data-sec="bills"],.secs[data-show="cal"] [data-sec="cal"],.secs[data-show="cards"] [data-sec="cards"],
+    .secs[data-show="geral"] [data-sec="geral"],.secs[data-show="cat"] [data-sec="cat"],.secs[data-show="fixos"] [data-sec="fixos"]{display:flex;}
+    .secs [data-sec].chart-card{display:none;}
+    .secs[data-show="geral"] .chart-card[data-sec="geral"],.secs[data-show="cat"] .chart-card[data-sec="cat"],.secs[data-show="fixos"] .chart-card[data-sec="fixos"]{display:block;}
+    .secs .chart-card[data-sec][hidden]{display:none !important;}
+    .secs[data-show="cal"] .cal-card[data-sec="cal"]{display:block;}
+    .secs [data-sec="main"]{flex-direction:column;}
+    .secs{gap:0;}
+    .secs .pg-main,.secs .pg-side{gap:12px;}
+  }
+  @media (max-width:640px){
+    .pg-title{font-size:24px;}
+    .pg-head{margin-bottom:12px;}
+    /* no celular o botão principal vira o flutuante */
+    #pageCarteiras .pg-main-act{display:none;}
+    body[data-page="carteiras"] #btnNew,body[data-page="contas"] #btnNew,body[data-page="relatorios"] #btnNew{display:none;}
+    body[data-page="carteiras"] .fab-ctx,body[data-page="contas"] .fab-ctx{display:inline-flex;}
+    .stats.sum-strip{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .stats.sum-strip .stat:nth-child(3){border-left:none;}
+    .stats.sum-strip .stat:nth-child(n+3){border-top:1px solid var(--stroke);}
+    .stats.three.sum-strip{grid-template-columns:repeat(3,minmax(0,1fr));}
+    .stats.three.sum-strip .stat:nth-child(3){border-left:1px solid var(--stroke);border-top:none;}
+    .stats.three.sum-strip .stat:last-child{grid-column:auto;}
+    .sum-strip .stat{padding:9px 11px;}
+    .sum-strip .stat .value{font-size:15.5px;}
+    .stats.three.sum-strip .stat .value{font-size:14px;}
+    .stats.three.sum-strip .stat .label .i{display:none;}
+    #pageContas .pg-head{flex-wrap:nowrap;}
+    #pageContas .month-nav{width:auto;flex:1;min-width:0;}
+    #pageContas .month-label{font-size:16px;}
+    /* cartão de crédito mais baixo no celular */
+    .side-card .cc-visual{min-height:118px;}
+  }
+  @media (max-width:640px){
+    /* a aba já diz o que é e o botão flutuante cria: o cabeçalho do card sobra */
+    .secs .side-card[data-sec="rec"] > .sc-head,.secs .side-card[data-sec="goal"] > .sc-head,
+    .secs .side-card[data-sec="bills"] > .sc-head,.secs .side-card[data-sec="cards"] > .sc-head{display:none;}
+    .secs .side-card[data-sec]{padding:8px 12px;}
+    .secs .side-card[data-sec="cards"],.secs .side-card[data-sec="goal"]{padding:0;background:none;border:none;box-shadow:none;}
+  }

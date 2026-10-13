@@ -54,7 +54,10 @@ FONT_CSS = ("@font-face{font-family:'Baloo 2';src:url(https://fonts.gstatic.com/
 # Os testes antigos abrem um cartão e depois mexem em outros: no celular a dívida aberta
 # ocupa a tela toda, então aqui ela volta a abrir no lugar (o test_v12 testa a tela cheia).
 INLINE_CARDS_CSS = (".card[data-debt-id].open{position:relative !important;inset:auto !important;z-index:auto !important;border-radius:18px !important;overflow:visible !important;padding-bottom:0 !important;background:var(--card) !important;border:1px solid var(--stroke) !important}"
-    ".card[data-debt-id].open > .card-head{position:static !important}body.sheet-open{overflow:auto !important}body.sheet-open .fab{display:inline-flex !important}")
+    ".card[data-debt-id].open > .card-head{position:static !important}body.sheet-open{overflow:auto !important}body.sheet-open .fab:not(.fab-ctx){display:inline-flex !important}"
+    # abas das seções (v17): nos testes antigos tudo aparece de uma vez, como antes
+    ".secs [data-sec]{display:flex !important}.secs .chart-card[data-sec],.secs .cal-card[data-sec]{display:block !important}.secs .chart-card[data-sec][hidden]{display:none !important}"
+    ".secs .side-card > .sc-head{display:flex !important}#pageCarteiras .pg-main-act{display:inline-flex !important}body footer{display:block !important}body #btnNew{display:inline-flex !important}.fab-ctx{display:none !important}")
 def route_fonts(ctx, sheet=False):
     if not sheet:
         ctx.add_init_script("document.addEventListener('DOMContentLoaded',function(){var s=document.createElement('style');s.textContent=%s;document.head.appendChild(s);});" % json.dumps(INLINE_CARDS_CSS))

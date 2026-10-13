@@ -203,6 +203,7 @@ with sync_playwright() as p:
     page.reload(); page.wait_for_timeout(900)
     check(page.evaluate("Object.keys(JSON.parse(document.getElementById('seed-data').textContent || '{}')).length >= 0") is not None, 'recarregou')
     with page.expect_download() as dl:
+        page.evaluate("document.querySelector('#pageTabs [data-page=\"dashboard\"]').click()"); page.wait_for_timeout(400)  # "Seus dados" fica no Início
         page.click('#btnExportMenuToggle'); page.click('#btnExportJson')
     bk = json.loads(open(dl.value.path()).read())
     check(rid[0]['receiptId'] in bk.get('receipts', {}), 'comprovante continua salvo depois de recarregar e vai no backup')

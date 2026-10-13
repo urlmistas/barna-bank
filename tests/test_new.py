@@ -211,6 +211,7 @@ with sync_playwright() as p:
     page.click('#adActions [data-ad="cancel"]'); page.wait_for_timeout(150)
 
     # ---------- backup inclui contas e cartões
+    page.evaluate("document.querySelector('#pageTabs [data-page=\"dashboard\"]').click()"); page.wait_for_timeout(400)  # "Seus dados" fica no Início
     page.click('#btnExportMenuToggle')
     with page.expect_download() as dl:
         page.click('#btnExportJson')

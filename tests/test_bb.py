@@ -137,6 +137,7 @@ with sync_playwright() as p:
     check('Tabela Price' in txt, 'Edu: rótulo Tabela Price')
 
     # F: backup JSON completo
+    page.evaluate("document.querySelector('#pageTabs [data-page=\"dashboard\"]').click()"); page.wait_for_timeout(400)  # "Seus dados" fica no Início
     page.click('#btnExportMenuToggle')
     with page.expect_download() as dl:
         page.click('#btnExportJson')

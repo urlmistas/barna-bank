@@ -1809,7 +1809,46 @@
     if(page === 'pessoas' || page === 'pessoa') render(); else renderAll();
     if(!(opts && opts.keepScroll)) window.scrollTo(0, 0);
     if(typeof syncSheet === 'function') syncSheet();
+    document.body.setAttribute('data-page', page);
+    syncFab();
   }
+  // ---------- seções das abas (no celular, uma de cada vez; no PC, todas) ----------
+  // botão flutuante (celular): muda conforme a aba
+  var FAB_CTX = {
+    carteiras: {main: ['Lançamento', 'btnNewTransaction'], rec: ['Recorrente', 'btnNewRec'], goal: ['Meta', 'btnNewGoal']},
+    contas: {bills: ['Nova conta', 'btnNewBill'], cal: ['Nova conta', 'btnNewBill'], cards: ['Novo cartão', 'btnNewCard']}
+  };
+  var SEC_KEY = 'barnabank_secs_v1';
+  var secPick = (function(){ try{ return JSON.parse(lsGet(SEC_KEY) || '{}') || {}; }catch(e){ return {}; } })();
+  function setSec(page, sec, quiet){
+    var bar = document.querySelector('.pg-seg[data-for="' + page + '"]');
+    if(!bar || !bar.querySelector('[data-sec="' + sec + '"]')) return;
+    bar.querySelectorAll('button').forEach(function(b){ var on = b.getAttribute('data-sec') === sec; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    var host = bar.nextElementSibling;
+    if(host && host.classList.contains('secs')) host.setAttribute('data-show', sec);
+    secPick[page] = sec;
+    if(!quiet){ lsSet(SEC_KEY, JSON.stringify(secPick)); renderAll(); window.scrollTo(0, 0); }
+    syncFab();
+  }
+  document.querySelectorAll('.pg-seg').forEach(function(bar){
+    var page = bar.getAttribute('data-for');
+    bar.addEventListener('click', function(e){ var b = e.target.closest('button[data-sec]'); if(b) setSec(page, b.getAttribute('data-sec')); });
+    if(secPick[page]) setSec(page, secPick[page], true);
+  });
+  function fabTarget(){
+    var map = FAB_CTX[state.page];
+    if(!map) return null;
+    var bar = document.querySelector('.pg-seg[data-for="' + state.page + '"] button.active');
+    return map[bar ? bar.getAttribute('data-sec') : Object.keys(map)[0]] || map[Object.keys(map)[0]];
+  }
+  function syncFab(){
+    var t = fabTarget(), lbl = document.getElementById('fabCtxLabel');
+    if(lbl && t) lbl.textContent = t[0];
+  }
+  document.getElementById('fabCtx').addEventListener('click', function(){
+    var t = fabTarget(), b = t && document.getElementById(t[1]);
+    if(b) b.click();
+  });
 
   // ---------- página da pessoa ----------
   function openPerson(name){
@@ -3853,7 +3892,8 @@
   // ---------- carteiras (wallets) ----------
   function renderWalletsPage(){
     document.getElementById('walletsTotalBalance').textContent = money.format(totalWalletsBalance());
-    renderBalanceSub('walletsSub');
+    var nW = state.wallets.length;
+    document.getElementById('walletsSub').textContent = nW ? '· ' + nW + (nW === 1 ? ' carteira' : ' carteiras') : '';
     var listEl = document.getElementById('walletList');
     listEl.innerHTML = '';
     if(!state.wallets.length){
