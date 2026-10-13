@@ -957,6 +957,14 @@
     var archived = pool.filter(isPaid).length;
     var ac = document.getElementById('archiveCount');
     if(ac) ac.textContent = archived ? archived : '';
+    var lateN = pool.filter(function(d){ return statusOf(d) === 'atrasado'; }).length;
+    var lc = document.getElementById('lateCount');
+    if(lc) lc.textContent = lateN ? lateN : '';
+    var openSum = function(k){ return state.debts.reduce(function(s, d){ return d.kind === k && !isPaid(d) ? s + remaining(d) : s; }, 0); };
+    var kr = document.getElementById('ktAmtRec'), kp = document.getElementById('ktAmtPay');
+    if(kr) kr.textContent = money.format(openSum('receivable'));
+    if(kp) kp.textContent = money.format(openSum('payable'));
+    document.getElementById('pagePessoas').setAttribute('data-f', state.filter);
     if(items.length === 0){
       var empty = document.createElement('div');
       empty.className = 'empty';
@@ -1519,6 +1527,18 @@
   document.getElementById('search').addEventListener('input', function(e){ state.query = e.target.value; render(); });
   document.getElementById('sortSel').addEventListener('change', function(e){ state.sort = e.target.value; render(); });
   document.getElementById('sortSel').value = state.sort;
+  // menu ⋯ (ordenar, resumo, agrupar, placar, dividir conta)
+  var ppMenu = document.getElementById('ppMenu'), ppMore = document.getElementById('ppMore');
+  function ppMenuOpen(on){ ppMenu.hidden = !on; ppMore.setAttribute('aria-expanded', on ? 'true' : 'false'); ppMore.classList.toggle('active', on); }
+  ppMore.addEventListener('click', function(e){ e.stopPropagation(); ppMenuOpen(ppMenu.hidden); });
+  ppMenu.addEventListener('click', function(e){ if(e.target.closest('button')) ppMenuOpen(false); });
+  document.addEventListener('click', function(e){ if(!ppMenu.hidden && !e.target.closest('.pp-more')) ppMenuOpen(false); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !ppMenu.hidden) ppMenuOpen(false); });
+  document.getElementById('btnResumo').addEventListener('click', function(){
+    var r = document.getElementById('pessoasResumo');
+    r.hidden = !r.hidden;
+    if(!r.hidden){ r.open = true; r.scrollIntoView({behavior: 'smooth', block: 'start'}); }
+  });
   document.getElementById('btnGroup').addEventListener('click', function(){
     state.grouped = !state.grouped;
     this.classList.toggle('active', state.grouped);

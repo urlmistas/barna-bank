@@ -20,7 +20,10 @@ seed = {'debts': [], 'contacts': {'bia': {'phone': '11988887777'}}, 'transaction
         'wallets': [{'id': 'w1', 'name': 'Nubank', 'icon': '💜'}]}
 
 INLINE_CARDS_CSS = (".card[data-debt-id].open{position:relative !important;inset:auto !important;z-index:auto !important;border-radius:18px !important;overflow:visible !important;padding-bottom:0 !important;background:var(--card) !important;border:1px solid var(--stroke) !important}"
-    ".card[data-debt-id].open > .card-head{position:static !important}body.sheet-open{overflow:auto !important}body.sheet-open .fab:not(.fab-ctx){display:inline-flex !important}")
+    ".card[data-debt-id].open > .card-head{position:static !important}body.sheet-open{overflow:auto !important}body.sheet-open .fab:not(.fab-ctx){display:inline-flex !important}"
+    # Pessoas (v18): menu ⋯, resumo, "Cobrar todos" e avatares dos grupos sempre à mostra nos testes antigos
+    "#ppMenu{display:flex !important;position:static !important;box-shadow:none !important}#pessoasResumo[hidden]{display:block !important}#pagePessoas #lateBar{display:block !important}"
+    ".gcard .g-avatars{display:flex !important}.gcard .gp-meta{display:block !important}.ps-list .quick-pay span{display:inline !important}")
 
 with sync_playwright() as p:
     b = p.chromium.launch()

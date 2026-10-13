@@ -50,8 +50,8 @@ with sync_playwright() as p:
     check(mid and mid['dx'] > 3, 'indicador anda (no meio da animação ainda não chegou: %s)' % (mid and round(mid['dx'], 1)))
     check(r and r['dx'] < 1.5, 'indicador chega em Pessoas %s' % r)
     page.click('#filters button[data-f="atrasados"]'); page.wait_for_timeout(500)
-    r = ind('#filters')
-    check(r and r['dx'] < 1.5 and r['dw'] < 1.5, 'filtros: indicador em Atrasados %s' % r)
+    # v18: os filtros viraram pílulas (sem indicador deslizante): a ativa é a de Atrasados
+    check(page.locator('#filters button.active').get_attribute('data-f') == 'atrasados', 'filtros: pílula Atrasados ativa')
     page.click('#filters button[data-f="pendentes"]'); page.wait_for_timeout(450)
     page.click('#kindToggle button[data-k="payable"]'); page.wait_for_timeout(450)
     r = ind('#kindToggle')
