@@ -386,6 +386,16 @@
         <input type="date" id="fDate">
       </div>
     </div>
+    <div id="recurringBlock" style="display:none;">
+      <div class="field" style="display:flex;align-items:center;gap:10px;">
+        <input type="checkbox" id="fRecurring" style="width:16px;height:16px;">
+        <label style="margin-bottom:0;" for="fRecurring">Dívida recorrente: todo mês entra uma nova cobrança (assinatura no cartão de alguém)</label>
+      </div>
+      <div class="field" id="recurringLabelField" style="display:none;">
+        <label for="fRecLabel">Do que é (aparece no link)</label>
+        <input type="text" id="fRecLabel" maxlength="40" placeholder="Ex: Netflix, Spotify">
+      </div>
+    </div>
     <div id="receivableOnlyBlock">
       <div class="field-row">
         <div class="field">
@@ -404,7 +414,7 @@
       <div class="formula-box" id="formFormula" style="display:none;"></div>
     </div>
     <div class="field-row">
-      <div class="field">
+      <div class="field" id="installmentsField">
         <label>Número de parcelas</label>
         <input type="number" id="fInstallments" placeholder="1" step="1" min="1">
       </div>
@@ -838,7 +848,7 @@
 {"contacts": {}, "debts": [], "wallets": [], "transactions": []}
 </script>
 
-<script src="app.js?v=93d26b72" data-app-js></script>
+<script src="app.js?v=1e144e21" data-app-js></script>
 
 </body>
 </html>

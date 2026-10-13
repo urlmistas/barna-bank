@@ -194,6 +194,14 @@
         else delete d.plan;
       }
       if(d.reneg && !Array.isArray(d.reneg)) delete d.reneg;
+      // dívida recorrente (assinatura): todo mês entra uma parcela nova do mesmo valor
+      if(d.recurring){
+        var ra = d.recurring.amount;
+        if(d.kind === 'payable' && typeof ra === 'number' && isFinite(ra) && ra > 0){
+          d.recurring = {amount: Math.round(ra * 100) / 100, label: String(d.recurring.label || '').slice(0, 40)};
+          delete d.plan; delete d.reneg;
+        } else delete d.recurring;
+      }
       delete d.paid;
       return d;
     });
@@ -286,7 +294,7 @@
     if(p.shares && typeof p.shares === 'object' && !Array.isArray(p.shares)){
       Object.keys(p.shares).forEach(function(t){
         var sh = p.shares[t];
-        if(/^[A-Za-z0-9]{16,40}$/.test(t) && sh && (sh.type === 'person' || sh.type === 'group' || sh.type === 'debt') && typeof sh.ref === 'string') shares[t] = sh;
+        if(/^[A-Za-z0-9]{16,40}$/.test(t) && sh && (sh.type === 'person' || sh.type === 'group' || sh.type === 'debt' || sh.type === 'owe') && typeof sh.ref === 'string') shares[t] = sh;
       });
     }
     var tgLog = {}, cutoff = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
@@ -404,6 +412,23 @@
     openWalletId: null
   };
 
+  // Dívida recorrente: mantém uma parcela por mês, sempre com a próxima ainda por vencer.
+  // Reaproveita o motor de parcelas (sem juros), então "quanto falta" sai igual às outras dívidas.
+  function syncRecurring(){
+    var today = todayISO(), changed = false;
+    state.debts.forEach(function(d){
+      if(!d.recurring || d.kind !== 'payable') return;
+      var n = 1;
+      while(n < 600 && toISO(dueDateForInstallment(d, n - 1)) <= today) n++;
+      var total = round2(d.recurring.amount * n);
+      if(d.installments !== n || Math.abs(d.principal - total) > EPS || d.rate !== 0 || d.interestType !== 'composto'){
+        d.installments = n; d.days = n * 30; d.principal = total; d.rate = 0; d.interestType = 'composto';
+        changed = true;
+      }
+    });
+    if(changed) invalidateSchedules();
+    return changed;
+  }
   function installments(d){ return d.plan ? d.plan.length : Math.max(1, d.installments || 1); }
   // Valor total contratado (sem encargos de atraso)
   function finalValue(d){
@@ -672,6 +697,7 @@
   var listEl = document.getElementById('list');
 
   function render(){
+    syncRecurring();
     renderStats();
     renderSmartCards();
     renderChart();
@@ -1217,7 +1243,7 @@
       '<div class="od-top"><span class="od-name">' + escapeHtml(d.name) + (grp ? ' <span class="od-grp">· ' + escapeHtml(grp.title) + '</span>' : '') + '</span><span class="od-status ' + status + '">' + statusLabel(d) + '</span></div>' +
       '<div class="od-amt"><b>' + money.format(paid ? paidAmount(d) : remain) + '</b><span>' + (paid ? (isPayable ? 'pago no total' : 'recebido no total') : 'falta de ' + money.format(totalDue)) + '</span></div>' +
       '<div class="od-bar"><i style="width:' + progressPct(d).toFixed(1) + '%"></i></div>' +
-      '<div class="od-meta">' + (isPayable ? 'Dívida de ' : 'Emprestado em ') + fmtDate(d.date) + ' · ' + (d.plan ? planLabel(d) : n > 1 ? n + 'x de ' + money.format(installmentValue(d)) : 'parcela única') + (d.plan ? ' · renegociada' : d.rate > 0 ? ' · juros ' + String(d.rate).replace('.', ',') + '% a.m.' : ' · sem juros') + '</div>' +
+      '<div class="od-meta">' + (isPayable ? 'Dívida de ' : 'Emprestado em ') + fmtDate(d.date) + ' · ' + (d.recurring ? 'todo mês · ' + money.format(d.recurring.amount) + (d.recurring.label ? ' · ' + escapeHtml(d.recurring.label) : '') : d.plan ? planLabel(d) : n > 1 ? n + 'x de ' + money.format(installmentValue(d)) : 'parcela única') + (d.plan ? ' · renegociada' : d.rate > 0 ? ' · juros ' + String(d.rate).replace('.', ',') + '% a.m.' : ' · sem juros') + '</div>' +
     '</div>';
     inner.innerHTML = odHead +
       '<div class="card-tabs" role="tablist">' +
@@ -1233,9 +1259,9 @@
           (wLink ? '<a class="btn btn-whats btn-sm" href="' + wLink + '" target="_blank" rel="noopener" data-act="whats">' + ic('message-circle') + ' WhatsApp</a>' : (isPayable ? '' : '<button class="btn btn-ghost btn-sm" data-act="nowhats" title="Cadastre o telefone em Editar">' + ic('message-circle') + ' WhatsApp</button>')) +
           (opts.inPerson ? '' : '<button class="btn btn-ghost btn-sm" data-act="profile">' + ic('user') + ' Ver pessoa</button>') +
           (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="settle">' + ic('badge-percent') + ' Quitar c/ desconto</button>') +
-          (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="reneg">' + ic('handshake') + ' Renegociar</button>') +
+          (paid || d.recurring ? '' : '<button class="btn btn-ghost btn-sm" data-act="reneg">' + ic('handshake') + ' Renegociar</button>') +
           '<div class="spacer"></div>' +
-          (!isPayable ? '<button class="btn btn-ghost btn-sm" data-act="share" title="Link só desta dívida">' + ic('share-2') + ' Link' + (shareFor('debt', d.id) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>' : '') +
+          ('<button class="btn btn-ghost btn-sm" data-act="share" title="' + (isPayable ? 'Link para quem você deve ver quanto falta pagar' : 'Link só desta dívida') + '">' + ic('share-2') + ' Link' + (shareFor('debt', d.id) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>') +
           (paid && !isPayable ? '<button class="btn btn-primary btn-sm" data-act="receipt">' + ic('receipt') + ' Recibo de quitação</button>' : '') +
           '<button class="btn btn-ghost btn-sm" data-act="statement">' + ic('file-text') + ' Extrato</button>' +
           '<button class="btn btn-ghost btn-sm" data-act="edit">' + ic('pencil') + ' Editar</button>' +
@@ -1522,7 +1548,18 @@
   var fLateInterest = document.getElementById('fLateInterest');
   var formErr = document.getElementById('formErr');
   var formFormula = document.getElementById('formFormula');
+  var fRecurring = document.getElementById('fRecurring');
+  var fRecLabel = document.getElementById('fRecLabel');
   var currentFormKind = 'receivable';
+  function updateRecurringUi(){
+    var isPayable = currentFormKind === 'payable', rec = isPayable && fRecurring.checked;
+    document.getElementById('recurringBlock').style.display = isPayable ? '' : 'none';
+    document.getElementById('recurringLabelField').style.display = rec ? '' : 'none';
+    document.getElementById('installmentsField').style.display = rec ? 'none' : '';
+    lblPrincipal.textContent = isPayable ? (rec ? 'Valor por mês (R$)' : 'Valor total da dívida (R$)') : 'Valor emprestado (R$)';
+    lblDate.textContent = isPayable ? (rec ? 'Data que começou a cobrança' : 'Data que a dívida começou') : 'Data do empréstimo';
+  }
+  fRecurring.addEventListener('change', updateRecurringUi);
 
   function formulaHtml(p, r, n, type){
     var total = finalValue({principal:p, rate:r, installments:n, interestType: type});
@@ -1567,8 +1604,7 @@
     receivableOnlyBlock2.style.display = isPayable ? 'none' : '';
     lblName.textContent = isPayable ? 'Nome da empresa ou pessoa a quem devo' : 'Nome do amigo';
     fName.placeholder = isPayable ? 'Ex: Cartão Nubank' : 'Ex: Vinicius';
-    lblPrincipal.textContent = isPayable ? 'Valor total da dívida (R$)' : 'Valor emprestado (R$)';
-    lblDate.textContent = isPayable ? 'Data que a dívida começou' : 'Data do empréstimo';
+    updateRecurringUi();
     updateFormFormula();
   }
   formKindToggle.addEventListener('click', function(e){
@@ -1621,7 +1657,10 @@
     populateFriendsList();
     setFormKind(debt ? debt.kind : state.viewKind);
     fName.value = debt ? debt.name : '';
-    fPrincipal.value = debt ? fmtMoneyInput(debt.principal) : '';
+    fRecurring.checked = !!(debt && debt.recurring);
+    fRecLabel.value = debt && debt.recurring ? debt.recurring.label : '';
+    updateRecurringUi();
+    fPrincipal.value = debt ? fmtMoneyInput(debt.recurring ? debt.recurring.amount : debt.principal) : '';
     fRate.value = debt ? debt.rate : (settings.defaultRate || '');
     fInterestType.value = debt ? (debt.interestType || 'composto') : 'composto';
     fDate.value = debt ? debt.date : todayISO();
@@ -1662,6 +1701,8 @@
     var dueDay = parseInt(fDueDay.value, 10);
     var phoneDigits = isPayable ? '' : onlyDigits(fPhone.value);
     var notes = fNotes.value.trim();
+    var isRec = isPayable && fRecurring.checked;
+    if(isRec){ installmentsRaw = 1; days = 30; }
 
     if(!name){ formErr.textContent = isPayable ? 'Informe o nome da empresa ou pessoa.' : 'Informe o nome do amigo.'; return; }
     if(isNaN(principal) || principal <= 0){ formErr.textContent = 'Informe um valor válido.'; return; }
@@ -1681,24 +1722,30 @@
     if(state.editingId){
       var d = state.debts.find(function(x){ return x.id === state.editingId; });
       var prevDueDay = d.dueDay;
+      if(isRec) delete d.plan;
       if(d.plan && (Math.abs(principal - d.principal) > EPS || rate !== (d.rate || 0) || interestType !== (d.interestType || 'composto') || date !== d.date || installmentsRaw !== installments(d) || dueDay !== d.dueDay)){
         delete d.plan; invalidateSchedules();
       }
       d.name = name; d.principal = principal; d.rate = rate; d.interestType = interestType; d.date = date; d.days = days; d.installments = installmentsRaw; d.dueDay = dueDay; d.notes = notes; d.kind = currentFormKind; d.lateFeePct = lateFeePct; d.lateInterestPct = lateInterestPct;
+      if(isRec){ d.recurring = {amount: round2(principal), label: fRecLabel.value.trim().slice(0, 40)}; delete d.reneg; }
+      else delete d.recurring;
       if(d.firstDue && dueDay !== prevDueDay){
         var fd = new Date(d.firstDue + 'T00:00:00');
         d.firstDue = toISO(new Date(fd.getFullYear(), fd.getMonth(), Math.min(dueDay, daysInMonth(fd.getFullYear(), fd.getMonth()))));
       }
       showToast('Dívida atualizada');
     } else {
-      state.debts.push({
+      var nd = {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
         name: name, principal: principal, date: date, days: days, installments: installmentsRaw, rate: rate, interestType: interestType, dueDay: dueDay, payments: [], notes: notes, kind: currentFormKind, discount: 0, lateFeePct: lateFeePct, lateInterestPct: lateInterestPct
-      });
+      };
+      if(isRec) nd.recurring = {amount: round2(principal), label: fRecLabel.value.trim().slice(0, 40)};
+      state.debts.push(nd);
       showToast('Dívida adicionada');
     }
     if(phoneDigits){ var pc = state.contacts[nameKey(name)] || {}; pc.phone = phoneDigits; state.contacts[nameKey(name)] = pc; }
     closeModal();
+    syncRecurring();
     render();
   }
   document.getElementById('btnSave').addEventListener('click', function(){ saveForm(); });
@@ -1822,6 +1869,7 @@
       '<div class="person-actions">' +
         (wLink ? '<a class="btn btn-whats btn-sm" target="_blank" rel="noopener" href="' + escapeHtml(wLink) + '">' + ic('message-circle') + ' Cobrar no WhatsApp</a>' : '') +
         (rec.length ? '<button type="button" class="btn btn-ghost btn-sm" id="personShare">' + ic('share-2') + ' Link de cobrança' + (shareFor('person', key) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>' : '') +
+        (pay.length ? '<button type="button" class="btn btn-ghost btn-sm" id="personOweShare">' + ic('share-2') + ' Link do que devo' + (shareFor('owe', key) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>' : '') +
         (rec.length && cloudOn() ? '<button type="button" class="btn btn-ghost btn-sm" id="personTg">' + ic('send') + ' Lembretes no Telegram' + (friendOf(key) ? ' <span class="live-dot" title="conectado"></span>' : '') + '</button>' : '') +
         '<button type="button" class="btn btn-primary btn-sm" id="personNewDebt">' + ic('plus') + ' Nova dívida com ' + escapeHtml(firstName(name)) + '</button>' +
       '</div>' +
@@ -1843,6 +1891,8 @@
     document.getElementById('personTagsEdit').addEventListener('click', function(){ personTagsDialog(key, name); });
     var psh = document.getElementById('personShare');
     if(psh) psh.addEventListener('click', function(){ openShareDialog('person', key, name); });
+    var poweSh = document.getElementById('personOweShare');
+    if(poweSh) poweSh.addEventListener('click', function(){ openShareDialog('owe', key, name); });
     var ptg = document.getElementById('personTg');
     if(ptg) ptg.addEventListener('click', function(){ openTgRemind(key, name); });
     document.getElementById('personNewDebt').addEventListener('click', function(){
@@ -6262,22 +6312,24 @@
     return p.length > 1 ? p[0] + ' ' + p[p.length - 1][0].toUpperCase() + '.' : p[0];
   }
   function sortedPays(d){ return (d.payments || []).slice().sort(function(a, b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; }).map(function(p){ return {date: p.date, amount: round2(p.amount)}; }); }
-  function personShareView(key, onlyDebtId){
-    var ds = state.debts.filter(function(d){ return onlyDebtId ? d.id === onlyDebtId : (nameKey(d.name) === key && d.kind === 'receivable'); });
+  function personShareView(key, onlyDebtId, kind){
+    var ds = state.debts.filter(function(d){ return onlyDebtId ? d.id === onlyDebtId : (nameKey(d.name) === key && d.kind === (kind || 'receivable')); });
     if(!ds.length) return null;
+    var owe = ds[0].kind === 'payable';
     var open = ds.filter(function(d){ return !isPaid(d); }), done = ds.filter(isPaid);
     var sum = function(arr, fn){ return round2(arr.reduce(function(s, d){ return s + fn(d); }, 0)); };
     return {
-      type: 'person', name: firstName(ds[0].name), owner: settings.ownerName || '', pix: settings.pixKey || '', updatedAt: new Date().toISOString(),
+      type: 'person', dir: owe ? 'owe' : '', name: firstName(ds[0].name), owner: settings.ownerName || '', pix: owe ? '' : (settings.pixKey || ''), updatedAt: new Date().toISOString(),
       remaining: sum(open, remaining), late: sum(open, overdueAmount), doneCount: done.length, donePaid: sum(done, paidAmount),
       debts: open.sort(function(a, b){ return a.date < b.date ? -1 : 1; }).map(function(d){
         var s = debtSchedule(d), g = groupOf(d), n = installments(d);
         return {
           payNow: round2(s.overdue > EPS ? s.overdue : amountDueNow(d)), _id: d.id,
-          title: g ? g.title : (n > 1 ? 'Empréstimo em ' + n + 'x' : 'Empréstimo'), date: d.date,
+          title: g ? g.title : d.recurring ? (d.recurring.label || 'Cobrança mensal') : owe ? (n > 1 ? 'Dívida em ' + n + 'x' : 'Dívida') : (n > 1 ? 'Empréstimo em ' + n + 'x' : 'Empréstimo'), date: d.date,
+          monthly: d.recurring ? round2(d.recurring.amount) : 0,
           total: round2(effectiveTotal(d)), paid: round2(Math.min(paidAmount(d), effectiveTotal(d))), remaining: round2(remaining(d)), late: round2(s.overdue),
           due: n === 1 && s.insts[0] ? s.insts[0].dueISO : '',
-          insts: n > 1 ? s.insts.map(function(it){ return {n: it.i + 1, due: it.dueISO, value: round2(it.value + it.pen + it.penPaid), open: round2(it.open), state: it.state}; }) : [],
+          insts: n > 1 ? s.insts.filter(function(it){ return !d.recurring || it.open > EPS || it.i >= n - 4; }).map(function(it){ return {n: it.i + 1, due: it.dueISO, value: round2(it.value + it.pen + it.penPaid), open: round2(it.open), state: it.state}; }) : [],
           payments: sortedPays(d)
         };
       })
@@ -6297,9 +6349,10 @@
   }
   function shareViews(){
     var out = {};
+    syncRecurring();
     Object.keys(state.shares || {}).forEach(function(t){
       var sh = state.shares[t];
-      var v = sh.type === 'group' ? (groupById(sh.ref) ? groupShareView(groupById(sh.ref)) : null) : sh.type === 'debt' ? personShareView(null, sh.ref) : personShareView(sh.ref);
+      var v = sh.type === 'group' ? (groupById(sh.ref) ? groupShareView(groupById(sh.ref)) : null) : sh.type === 'debt' ? personShareView(null, sh.ref) : sh.type === 'owe' ? personShareView(sh.ref, null, 'payable') : personShareView(sh.ref);
       if(v) out[t] = decorateShare(v, sh);
     });
     return out;
@@ -6340,16 +6393,19 @@
       return;
     }
     var token = shareFor(type, ref);
+    var owe = type === 'owe' || (type === 'debt' && state.debts.some(function(x){ return x.id === ref && x.kind === 'payable'; }));
     function show(){
       var url = shareUrl(token);
       var phone = type !== 'group' ? whatsPhone(label) : '';
       var waText = type === 'group'
         ? 'Pessoal, aqui dá pra ver quem já pagou o *' + label + '* e quanto falta pra cada um: ' + url
+        : owe ? 'Oi ' + firstName(label) + '! Aqui dá pra ver quanto falta eu te pagar, com o que já paguei: ' + url
         : 'Oi ' + firstName(label) + '! Aqui tá o resumo do que ficou em aberto comigo, com as parcelas e o PIX: ' + url;
       openDialog({
-        title: type === 'group' ? 'Link do grupo' : type === 'debt' ? 'Link desta dívida · ' + firstName(label) : 'Link de cobrança · ' + firstName(label), icon: 'share-2', alert: true, okText: 'Fechar',
+        title: type === 'group' ? 'Link do grupo' : owe ? 'Link do que devo · ' + firstName(label) : type === 'debt' ? 'Link desta dívida · ' + firstName(label) : 'Link de cobrança · ' + firstName(label), icon: 'share-2', alert: true, okText: 'Fechar',
         html: '<p class="warn">' + (type === 'group'
             ? 'Quem abrir vê o <b>' + escapeHtml(label) + '</b>: quanto cada um já pagou e quanto falta, e o seu PIX.'
+            : owe ? 'Quem abrir vê só <b>o que você deve a ' + escapeHtml(firstName(label)) + '</b>: quanto já foi pago, quanto falta pra quitar e as parcelas. Não tem PIX nem botão de pagar. As outras dívidas e o resto do app ficam de fora.'
             : type === 'debt' ? 'Quem abrir vê só <b>esta dívida</b> de <b>' + escapeHtml(firstName(label)) + '</b>: parcelas, pagamentos e o seu PIX. As outras dívidas e o resto do app ficam de fora.'
             : 'Quem abrir vê só as dívidas de <b>' + escapeHtml(firstName(label)) + '</b> com você: parcelas, pagamentos e o seu PIX. Nada do resto do app.') +
           ' Atualiza sozinho quando você mexe no app.</p>' +
@@ -6358,7 +6414,7 @@
             '<a class="btn btn-whats btn-sm" id="shWa" target="_blank" rel="noopener" href="' + escapeHtml('https://wa.me/' + phone + '?text=' + encodeURIComponent(waText)) + '">' + ic('message-circle') + ' WhatsApp</a>' +
             '<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="' + escapeHtml(url) + '">' + ic('arrow-up-right') + ' Abrir</a></div>' +
           '<p class="share-views">👀 ' + escapeHtml(viewsText(token)) + '</p>' +
-          (settings.pixKey ? '' : '<p class="warn">Dica: cadastre sua chave PIX em Configurações para o link mostrar o QR e o "copia e cola" com o valor certo.</p>') +
+          (settings.pixKey || owe ? '' : '<p class="warn">Dica: cadastre sua chave PIX em Configurações para o link mostrar o QR e o "copia e cola" com o valor certo.</p>') +
           '<div class="field" style="margin-top:12px;"><label for="shOwner">Seu nome (aparece no link)</label><input id="shOwner" type="text" maxlength="40" placeholder="Ex: João" value="' + escapeHtml(settings.ownerName || '') + '"></div>' +
           '<button type="button" class="btn btn-danger btn-sm" id="shOff">' + ic('x') + ' Desativar link</button>'
       });
@@ -6883,10 +6939,14 @@
   }
   function decorateShare(v, sh){
     if(!v) return v;
-    v.pixInfo = settings.pixKey ? {key: pixKeyFor(settings.pixKey, settings.pixType), name: settings.ownerName || 'BarnaBank', city: settings.ownerCity || 'BRASIL'} : null;
+    var owes = v.dir === 'owe';
+    v.pixInfo = settings.pixKey && !owes ? {key: pixKeyFor(settings.pixKey, settings.pixType), name: settings.ownerName || 'BarnaBank', city: settings.ownerCity || 'BRASIL'} : null;
     if(sh.type === 'group'){
       var g = groupById(sh.ref), st = g ? groupStats(g) : null;
       v._ref = {type: 'group', members: st ? st.members.map(function(d){ return {name: d.name, debtId: d.id}; }) : []};
+    } else if(owes){
+      v._ref = {type: sh.type, name: '', debtId: sh.type === 'debt' ? sh.ref : null};
+      v.suggest = 0;
     } else {
       var ds = sh.type === 'debt' ? state.debts.filter(function(d){ return d.id === sh.ref; }) : state.debts.filter(function(d){ return nameKey(d.name) === sh.ref && d.kind === 'receivable' && !isPaid(d); });
       v._ref = {type: sh.type, name: ds[0] ? ds[0].name : '', debtId: sh.type === 'debt' ? sh.ref : null};
