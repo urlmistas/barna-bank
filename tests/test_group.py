@@ -20,7 +20,7 @@ seed = {'debts': [], 'contacts': {'bia': {'phone': '11988887777'}}, 'transaction
         'wallets': [{'id': 'w1', 'name': 'Nubank', 'icon': '💜'}]}
 
 INLINE_CARDS_CSS = (".card[data-debt-id].open{position:relative !important;inset:auto !important;z-index:auto !important;border-radius:18px !important;overflow:visible !important;padding-bottom:0 !important;background:var(--card) !important;border:1px solid var(--stroke) !important}"
-    ".card[data-debt-id].open > .card-head{position:static !important}body.sheet-open{overflow:auto !important}body.sheet-open .fab{display:inline-flex !important}")
+    ".card[data-debt-id].open > .card-head{position:static !important}body.sheet-open{overflow:auto !important}body.sheet-open .fab:not(.fab-ctx){display:inline-flex !important}")
 
 with sync_playwright() as p:
     b = p.chromium.launch()
@@ -143,6 +143,7 @@ with sync_playwright() as p:
     page.click('#btnGroup'); page.wait_for_timeout(200)
 
     # 9) backup inclui grupos e importa de volta
+    page.evaluate("document.querySelector('#pageTabs [data-page=\"dashboard\"]').click()"); page.wait_for_timeout(400)  # "Seus dados" fica no Início
     page.click('#btnExportMenuToggle')
     with page.expect_download() as dl:
         page.click('#btnExportJson')
@@ -150,6 +151,7 @@ with sync_playwright() as p:
     check(len(bk.get('groups', [])) == 3, 'backup JSON inclui os 3 grupos')
 
     # 10) excluir grupo: manter dívidas como individuais
+    page.evaluate("document.querySelector('#pageTabs [data-page=\"pessoas\"]').click()"); page.wait_for_timeout(400)
     open_group('Pizza').locator('[data-gact="delete"]').click()
     check(page.is_visible('#gDelKeep'), 'excluir pergunta se mantém as dívidas')
     page.click('#gDelKeep'); page.wait_for_timeout(300)
