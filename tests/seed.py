@@ -57,7 +57,10 @@ INLINE_CARDS_CSS = (".card[data-debt-id].open{position:relative !important;inset
     ".card[data-debt-id].open > .card-head{position:static !important}body.sheet-open{overflow:auto !important}body.sheet-open .fab:not(.fab-ctx){display:inline-flex !important}"
     # abas das seções (v17): nos testes antigos tudo aparece de uma vez, como antes
     ".secs [data-sec]{display:flex !important}.secs .chart-card[data-sec],.secs .cal-card[data-sec]{display:block !important}.secs .chart-card[data-sec][hidden]{display:none !important}"
-    ".secs .side-card > .sc-head{display:flex !important}#pageCarteiras .pg-main-act{display:inline-flex !important}body footer{display:block !important}body #btnNew{display:inline-flex !important}.fab-ctx{display:none !important}")
+    ".secs .side-card > .sc-head{display:flex !important}#pageCarteiras .pg-main-act{display:inline-flex !important}body footer{display:block !important}body #btnNew{display:inline-flex !important}.fab-ctx{display:none !important}"
+    # Pessoas (v18): menu ⋯, resumo, "Cobrar todos" e avatares dos grupos sempre à mostra nos testes antigos
+    "#ppMenu{display:flex !important;position:static !important;box-shadow:none !important}#pessoasResumo[hidden]{display:block !important}#pagePessoas #lateBar{display:block !important}"
+    ".gcard .g-avatars{display:flex !important}.gcard .gp-meta{display:block !important}.ps-list .quick-pay span{display:inline !important}")
 def route_fonts(ctx, sheet=False):
     if not sheet:
         ctx.add_init_script("document.addEventListener('DOMContentLoaded',function(){var s=document.createElement('style');s.textContent=%s;document.head.appendChild(s);});" % json.dumps(INLINE_CARDS_CSS))

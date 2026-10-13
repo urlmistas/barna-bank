@@ -1604,3 +1604,54 @@
     .secs .side-card[data-sec]{padding:8px 12px;}
     .secs .side-card[data-sec="cards"],.secs .side-card[data-sec="goal"]{padding:0;background:none;border:none;box-shadow:none;}
   }
+
+  /* ===== v18: Pessoas no jeito aprovado (abas com total, filtros em pílula, menu ⋯) ===== */
+  .pp-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;flex-wrap:wrap;}
+  .pp-kind{display:inline-flex;padding:4px;}
+  .pp-kind button{display:inline-flex;align-items:baseline;gap:8px;padding:9px 16px;font-size:13.5px;}
+  .pp-kind .kt-amt{font-family:'Nunito',sans-serif;font-weight:700;font-size:14px;color:var(--muted-2);}
+  .pp-kind button.active .kt-amt{color:var(--gold-soft);}
+  .pp-tools{display:flex;align-items:center;gap:8px;}
+  .pp-search .search{width:240px;}
+  .pp-more{position:relative;}
+  #ppMore .i{width:18px;height:18px;}
+  #ppMore.active{border-color:var(--gold);color:var(--gold-soft);}
+  .pp-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:240px;display:flex;flex-direction:column;gap:2px;padding:6px;
+    background:var(--card-2);border:1px solid var(--stroke);border-radius:14px;box-shadow:0 18px 40px rgba(0,0,0,0.5);}
+  .pp-menu[hidden]{display:none;}
+  .pp-menu > button{display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:none;border-radius:9px;color:var(--text);
+    font-family:'Inter',sans-serif;font-size:13.5px;font-weight:500;padding:10px 10px;text-align:left;cursor:pointer;}
+  .pp-menu > button:hover,.pp-menu > button:focus-visible{background:rgba(255,255,255,0.05);outline:none;}
+  .pp-menu > button .i{width:16px;height:16px;color:var(--muted);flex-shrink:0;}
+  .pp-menu > #btnGroup{padding-left:36px;}
+  .pp-menu > #btnGroup.active{color:var(--gold-soft);}
+  .ppm-sort{display:flex;align-items:center;gap:10px;padding:6px 6px 8px 10px;margin-bottom:4px;border-bottom:1px solid var(--stroke);font-size:13.5px;color:var(--text);}
+  .ppm-sort .i{width:16px;height:16px;color:var(--muted);flex-shrink:0;}
+  .ppm-sort .select{margin-left:auto;padding:6px 26px 6px 10px;font-size:12.5px;}
+  /* filtros em pílula */
+  .pp-chips{display:flex;gap:6px;background:none;border:none;padding:0;margin:0 0 14px;}
+  .pp-chips .seg-ind{display:none !important;}
+  .pp-chips button{border:1px solid var(--stroke);border-radius:999px;padding:6px 13px;font-size:12.5px;display:inline-flex;align-items:center;gap:6px;}
+  .pp-chips button.active{border-color:rgba(201,162,74,0.55);background:rgba(201,162,74,0.12);color:var(--gold-soft);}
+  .pp-chips .f-count.late{background:var(--red-soft);color:var(--red);}
+  .pp-chips button[data-f="atrasados"]:not(.active):has(.f-count.late:not(:empty)){border-color:rgba(226,102,92,0.4);color:#f0a39c;}
+  /* "Cobrar todos" só no filtro Atrasados (o número já aparece na pílula) */
+  #pagePessoas:not([data-f="atrasados"]) #lateBar{display:none;}
+  #lateBar .late-bar{margin:0 0 12px;}
+  #pessoasResumo{margin-bottom:12px;}
+  /* grupo fechado: só o essencial (as pessoas aparecem ao abrir) */
+  .gcard:not(.open) .g-avatars,.gcard:not(.open) .gp-meta{display:none;}
+  .gcard:not(.open) .gcard-prog{padding-bottom:14px;}
+  /* lista: botão rápido só com o ícone (o nome fica no título) */
+  .ps-list .quick-pay span{display:none;}
+  .ps-list .quick-pay{padding:8px;}
+  @media (max-width:640px){
+    .pp-head{gap:10px;}
+    .pp-kind{display:grid;grid-template-columns:1fr 1fr;width:100%;}
+    .pp-kind button{justify-content:center;flex-wrap:wrap;gap:2px 6px;padding:8px 6px;}
+    .pp-tools{width:100%;}
+    .pp-search{flex:1 1 auto;}
+    .pp-search .search{width:100%;}
+    .pp-chips{flex-wrap:nowrap;overflow-x:auto;gap:5px;}
+    .pp-chips button{padding:6px 10px;font-size:12px;flex-shrink:0;}
+  }
