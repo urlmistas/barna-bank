@@ -1,0 +1,61 @@
+name: PR title
+
+# Checks that every pull request title follows `type: description` or
+# `type(scope): description`, using only the types listed below (see CONTRIBUTING.md).
+#
+# Security: `pull_request_target` runs in the context of the base branch so it also works
+# for PRs from forks. This workflow never checks out or runs code from the PR. It only
+# reads the title through the API, with a read-only token. Do not add a checkout step here.
+on:
+  pull_request_target:
+    types: [opened, reopened, edited, synchronize]
+
+permissions: {}
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Only these 12 types are accepted (exact match, lowercase).
+          types: |
+            feat
+            fix
+            devex
+            refactor
+            style
+            docs
+            chore
+            revert
+            perf
+            test
+            build
+            ci
+          # Scope is optional: `feat: ...` and `feat(bot): ...` are both valid.
+          requireScope: false
+          # Strict header: type, optional non-empty (scope), ": " and a description that
+          # does not start with a space (`feat:x`, `feat:`, `feat(): x` are rejected).
+          headerPattern: '^(\w+)(?:\(([\w$.\-*/ ,]+)\))?: (\S.*)$'
+          headerPatternCorrespondence: type, scope, subject
+      # The parser above always accepts the breaking-change marker (`feat!: ...`), and no input
+      # turns that off, so it is rejected here. The title goes in as an env var, never inlined
+      # in the script (avoids script injection).
+      - name: Reject "!" marker
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if printf '%s' "$TITLE" | grep -Eq '^[A-Za-z]+(\([^)]*\))?!:'; then
+            echo "::error title=Invalid PR title::Use 'type: description' or 'type(scope): description'. The '!' marker is not accepted."
+            exit 1
+          fi
