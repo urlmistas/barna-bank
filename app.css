@@ -1910,3 +1910,39 @@
   @media (min-width:1024px){
     .ps-detail .pg-side .person-extra{background:none;border:none;padding:0;box-shadow:none;border-radius:0;}
   }
+
+  /* ===== v25 ===== */
+  /* parcelas separadas, uma a uma */
+  @media (min-width:1024px){
+    .ps-detail .card[data-debt-id] .inst-list{gap:6px;}
+    .ps-detail .card[data-debt-id] .inst-row{padding:10px 12px;border:1px solid #232838;border-top:1px solid #232838;border-radius:10px;background:rgba(255,255,255,0.025);}
+    .ps-detail .card[data-debt-id] .inst-row.st-atrasada{border-color:rgba(226,102,92,0.28);}
+    .ps-detail .card[data-debt-id] .inst-row.st-paga{border-color:rgba(87,185,138,0.22);}
+    /* botão do histórico, logo abaixo das parcelas */
+    .hist-btn{display:flex;align-items:center;gap:10px;width:100%;margin-top:10px;padding:0 14px;height:44px;border-radius:12px;border:1px solid #252a36;background:transparent;color:var(--text);font-family:'Inter',sans-serif;font-size:13.5px;font-weight:600;cursor:pointer;text-align:left;}
+    .hist-btn:hover,.hist-btn:focus-visible{background:rgba(255,255,255,0.04);outline:none;border-color:#343a4a;}
+    .hist-btn .i{width:16px;height:16px;color:var(--muted);flex-shrink:0;}
+    .hist-btn span{flex:1;}
+    .hist-btn em{font-style:normal;font-size:12px;font-weight:600;color:var(--muted);background:#1a1e28;border-radius:999px;padding:2px 8px;}
+    .hist-btn > .i:last-child{transition:transform .25s ease;}
+    .card-body-inner.hist-open .hist-btn > .i:last-child{transform:rotate(180deg);}
+  }
+  @media (max-width:1023px){ .hist-btn{display:none;} }
+  /* abertura suave de tudo que expande para baixo */
+  @keyframes bbDrop{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:none;}}
+  @keyframes bbPopIn{from{opacity:0;transform:translateY(-4px) scale(.98);}to{opacity:1;transform:none;}}
+  details[open]::details-content{animation:bbDrop .26s ease;}
+  .ps-detail .card-body-inner.pay-open .pay-form{animation:bbDrop .24s ease;}
+  .ps-detail .card-body-inner.hist-open .card-panel[data-panel="historico"]{animation:bbDrop .26s ease;}
+  .cs-pop{animation:bbPopIn .16s ease;}
+  .ap-box{animation:bbPopIn .2s ease;}
+  .od-details summary .i,.fc-more summary .i{transition:transform .25s ease;}
+  .gcard .g-body,.gcard-body{animation:bbDrop .24s ease;}
+  @media (prefers-reduced-motion:reduce){
+    details[open]::details-content{animation:none;}
+    .ps-detail .card-body-inner.pay-open .pay-form,.ps-detail .card-body-inner.hist-open .card-panel[data-panel="historico"],.cs-pop,.ap-box{animation:none;}
+  }
+
+  @media (min-width:1024px){
+    .ps-detail .card[data-debt-id] .card-body-inner.hist-open .card-panel[data-panel="historico"]{display:flex !important;margin-top:10px;}
+  }

@@ -1286,6 +1286,7 @@
       '</div>' +
       '<div class="card-panel" data-panel="parcelas"' + (tab === 'parcelas' ? '' : ' hidden') + '>' +
         '<div class="stamps">' + stampsHtml + '</div><div class="inst-list">' + instRows + '</div>' +
+        '<button type="button" class="hist-btn" data-act="histtoggle" aria-expanded="false">' + ic('history') + '<span>Histórico de pagamentos</span><em>' + sortedPayments.length + '</em>' + ic('chevron-down') + '</button>' +
       '</div>' +
       '<div class="card-panel" data-panel="historico"' + (tab === 'historico' ? '' : ' hidden') + '>' +
         '<div class="history">' + historyHtml +
@@ -1396,6 +1397,12 @@
       var on = inner.classList.toggle('pay-open');
       payTgl.setAttribute('aria-expanded', on ? 'true' : 'false');
       if(on){ var fa = inner.querySelector('.pf-amount'); if(fa) fa.focus(); }
+    });
+    var histTgl = inner.querySelector('[data-act="histtoggle"]');
+    if(histTgl) histTgl.addEventListener('click', function(e){
+      e.stopPropagation();
+      var on = inner.classList.toggle('hist-open');
+      histTgl.setAttribute('aria-expanded', on ? 'true' : 'false');
     });
     var moreTgl = inner.querySelector('[data-act="more"]');
     if(moreTgl) moreTgl.addEventListener('click', function(e){ e.stopPropagation(); openMoreSheet(d, inner); });
@@ -6258,7 +6265,6 @@
       var u = b.querySelector('svg use'), href = u ? (u.getAttribute('href') || '') : '';
       items.push({el: b, txt: (b.textContent || '').replace(/\s+/g, ' ').trim(), icon: href.replace('#i-', ''), danger: b.classList.contains('btn-danger')});
     });
-    if(inner.querySelector('[data-panel="historico"]')) items.push({hist: true, txt: 'Histórico de pagamentos', icon: 'history'});
     var back = document.createElement('div');
     back.className = 'ap-back';
     back.innerHTML = '<div class="ap-box" role="dialog" aria-modal="true" aria-label="Mais ações">' +
