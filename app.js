@@ -404,6 +404,7 @@
     sort: 'due',
     cardTab: {},
     personKey: null,
+    selGroup: null,
     prevPage: 'pessoas',
     query: '',
     grouped: false,
@@ -706,6 +707,7 @@
     renderDuePanel();
     renderGroups();
     renderList();
+    renderPeopleList();
     renderLateBar();
     if(typeof renderClaims === 'function') renderClaims();
     renderAll();
@@ -978,13 +980,11 @@
       else if(state.filter === 'pagos') empty.textContent = 'O Arquivo está vazio. Dívidas quitadas aparecem aqui.';
       else empty.textContent = 'Nenhuma dívida encontrada com esse filtro.';
       if(!(hasGroups && state.filter !== 'todos' && pool.length)) listEl.appendChild(empty);
-      placeOpenDetail();
       return;
     }
 
     if(!state.grouped){
       items.forEach(function(d){ listEl.appendChild(buildCard(d)); });
-      placeOpenDetail();
       return;
     }
 
@@ -1030,7 +1030,6 @@
 
       listEl.appendChild(g);
     });
-    placeOpenDetail();
   }
 
   // ---------- card da dívida (abas Resumo / Parcelas / Histórico) ----------
@@ -1118,6 +1117,13 @@
     }, 'Pagamento restaurado', 'trash');
   }
 
+  function debtLabel(d){
+    if(d.subject) return d.subject;
+    var g = groupOf(d), n = installments(d);
+    if(g) return g.title;
+    if(d.recurring) return d.recurring.label || 'Cobrança mensal';
+    return (d.kind === 'payable' ? 'Dívida' : 'Empréstimo') + ' de ' + fmtDate(d.date) + (n > 1 ? ' · ' + n + 'x' : '');
+  }
   function buildCard(d, opts){
     opts = opts || {};
     var n = installments(d);
@@ -1128,6 +1134,8 @@
     var sched = debtSchedule(d);
     var paid = isPaid(d);
     var q = quickPayInfo(d);
+    // dentro da pessoa o nome já está no topo: o card diz do que é a dívida
+    var label = opts.inPerson ? debtLabel(d) : d.name;
 
     var card = document.createElement('div');
     card.className = 'card' + (open ? ' open' : '') + (paid ? ' is-paid' : '');
@@ -1140,9 +1148,9 @@
     else if(sched.overdue > 0){ headVal = sched.overdue; headLbl = 'em atraso'; }
     else { headVal = sched.firstOpen ? sched.firstOpen.open : installmentValue(d); headLbl = (sched.firstOpen && sched.firstOpen.touched) ? 'falta na parcela' : 'próxima parcela'; }
     head.innerHTML =
-      '<div class="avatar">' + escapeHtml(initials(d.name)) + '</div>' +
+      (opts.inPerson ? '<div class="avatar av-debt">' + ic(d.recurring ? 'repeat' : grp ? 'users' : isPayable ? 'banknote-arrow-up' : 'hand-coins') + '</div>' : '<div class="avatar">' + escapeHtml(initials(d.name)) + '</div>') +
       '<div class="who">' +
-        '<div class="name">' + escapeHtml(d.name) + (d.subject ? ' <span class="subj">· ' + escapeHtml(d.subject) + '</span>' : '') + ' <span class="kind-pill ' + (isPayable?'payable':'receivable') + '">' + (isPayable?'A pagar':'A receber') + '</span>' +
+        '<div class="name">' + escapeHtml(label) + (d.subject && !opts.inPerson ? ' <span class="subj">· ' + escapeHtml(d.subject) + '</span>' : '') + ' <span class="kind-pill ' + (isPayable?'payable':'receivable') + '">' + (isPayable?'A pagar':'A receber') + '</span>' +
           (grp ? '<button type="button" class="grp-pill" title="Ver o grupo">' + ic('users') + '<span>' + escapeHtml(grp.title) + '</span></button>' : '') + '</div>' +
         '<div class="sub"><span class="badge ' + status + '">' + statusLabel(d) + '</span><span class="sub-since"> · ' + (isPayable ? 'desde ' : 'emprestado em ') + fmtDate(d.date) + '</span></div>' +
         (d.notes ? '<div class="sub note-line" title="' + escapeHtml(d.notes).replace(/"/g, '&quot;') + '">' + ic('square-text') + ' ' + escapeHtml(d.notes) + '</div>' : '') +
@@ -1250,7 +1258,7 @@
     function tabBtn(id, label){ return '<button type="button" class="ct-btn' + (tab === id ? ' active' : '') + '" role="tab" aria-selected="' + (tab === id) + '" data-tab="' + id + '">' + label + '</button>'; }
     var totalDue = effectiveTotal(d), remain = remaining(d);
     var odHead = '<div class="od-head">' +
-      '<div class="od-top"><span class="od-name">' + escapeHtml(d.name) + (d.subject ? ' <span class="od-grp">· ' + escapeHtml(d.subject) + '</span>' : '') + (grp ? ' <span class="od-grp">· ' + escapeHtml(grp.title) + '</span>' : '') + '</span><span class="od-status ' + status + '">' + statusLabel(d) + '</span></div>' +
+      '<div class="od-top"><span class="od-name">' + escapeHtml(opts.inPerson ? label : d.name) + (d.subject && !opts.inPerson ? ' <span class="od-grp">· ' + escapeHtml(d.subject) + '</span>' : '') + (grp && !opts.inPerson ? ' <span class="od-grp">· ' + escapeHtml(grp.title) + '</span>' : '') + '</span><span class="od-status ' + status + '">' + statusLabel(d) + '</span></div>' +
       '<div class="od-amt"><b>' + money.format(paid ? paidAmount(d) : remain) + '</b><span>' + (paid ? (isPayable ? 'pago no total' : 'recebido no total') : 'falta de ' + money.format(totalDue)) + '</span></div>' +
       '<div class="od-bar"><i style="width:' + progressPct(d).toFixed(1) + '%"></i></div>' +
       '<div class="od-meta">' + (isPayable ? 'Dívida de ' : 'Emprestado em ') + fmtDate(d.date) + ' · ' + (d.recurring ? 'todo mês · ' + money.format(d.recurring.amount) + (d.recurring.label ? ' · ' + escapeHtml(d.recurring.label) : '') : d.plan ? planLabel(d) : n > 1 ? n + 'x de ' + money.format(installmentValue(d)) : 'parcela única') + (d.plan ? ' · renegociada' : d.rate > 0 ? ' · juros ' + String(d.rate).replace('.', ',') + '% a.m.' : ' · sem juros') + '</div>' +
@@ -1889,8 +1897,11 @@
   document.getElementById('btnPersonBack').addEventListener('click', function(){
     showPage(state.prevPage && state.prevPage !== 'pessoa' ? state.prevPage : 'pessoas');
   });
-  function renderPersonPage(){
-    var el = document.getElementById('personContent');
+  function renderPersonPage(target){
+    var el = target || document.getElementById('personContent');
+    // os ids de dentro (#personDebts, #personShare...) não podem existir em dois lugares
+    var other = target ? document.getElementById('personContent') : document.getElementById('psDetail');
+    if(other) other.innerHTML = '';
     var key = state.personKey;
     var debts = state.debts.filter(function(d){ return nameKey(d.name) === key; });
     if(!debts.length){
@@ -1930,7 +1941,7 @@
     }).join('') : '<div class="history-empty">Nenhum pagamento ainda.</div>';
 
     el.innerHTML =
-      '<div class="person-head">' +
+      '<div class="person-top"><div class="person-head">' +
         '<div class="avatar avatar-lg">' + escapeHtml(initials(name)) + '</div>' +
         '<div class="ph-info"><h2 class="ph-name">' + escapeHtml(name) + '</h2>' +
           '<div class="ph-sub">' + debts.length + (debts.length === 1 ? ' dívida' : ' dívidas') + ' · desde ' + fmtDate(since) + (phone ? ' · ' + escapeHtml(formatPhoneDisplay(phone)) : '') + '</div></div>' +
@@ -1941,7 +1952,7 @@
         (pay.length ? '<button type="button" class="btn btn-ghost btn-sm" id="personOweShare">' + ic('share-2') + ' Link do que devo' + (shareFor('owe', key) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>' : '') +
         (rec.length && cloudOn() ? '<button type="button" class="btn btn-ghost btn-sm" id="personTg">' + ic('send') + ' Lembretes no Telegram' + (friendOf(key) ? ' <span class="live-dot" title="conectado"></span>' : '') + '</button>' : '') +
         '<button type="button" class="btn btn-primary btn-sm" id="personNewDebt">' + ic('plus') + ' Nova dívida com ' + escapeHtml(firstName(name)) + '</button>' +
-      '</div>' +
+      '</div></div>' +
       '<div class="stats person-stats">' + stats + '</div>' +
       '<div class="page-grid person-grid">' +
         '<div class="pg-main">' +
@@ -1972,29 +1983,134 @@
     });
   }
 
+  // ---------- Pessoas: uma linha por pessoa (e por grupo) ----------
+  function personRows(){
+    var kind = state.viewKind, q = state.query.trim().toLowerCase(), today = todayISO(), by = {}, rows = [];
+    state.debts.forEach(function(d){
+      if(d.kind !== kind || groupOf(d)) return;
+      var k = nameKey(d.name);
+      (by[k] = by[k] || {key: k, name: d.name, debts: []}).debts.push(d);
+    });
+    Object.keys(by).forEach(function(k){
+      var p = by[k], open = p.debts.filter(function(d){ return !isPaid(d); });
+      var late = open.filter(function(d){ return statusOf(d) === 'atrasado'; });
+      if(state.filter === 'pendentes' && !open.length) return;
+      if(state.filter === 'atrasados' && !late.length) return;
+      if(state.filter === 'pagos' && open.length) return;
+      if(q && p.name.toLowerCase().indexOf(q) === -1 && !p.debts.some(function(d){ return (d.subject || '').toLowerCase().indexOf(q) !== -1; })) return;
+      var rem = round2(open.reduce(function(s, d){ return s + remaining(d); }, 0));
+      var lateAmt = round2(late.reduce(function(s, d){ return s + overdueAmount(d); }, 0));
+      var dues = open.map(function(d){ var x = nextDueDate(d); return x ? toISO(x) : ''; }).filter(Boolean).sort();
+      var sub, cls = '';
+      if(late.length){
+        var oldest = late.map(function(d){ var o = debtSchedule(d).insts.find(function(it){ return it.late; }); return o ? o.dueISO : today; }).sort()[0];
+        sub = money.format(lateAmt) + ' atrasado · ' + Math.max(1, daysBetweenISO(oldest, today)) + ' dias'; cls = 'late';
+      } else if(open.length) sub = (open.length > 1 ? open.length + ' dívidas · ' : '') + 'em dia' + (dues[0] ? ' · vence ' + fmtDate(dues[0]) : '');
+      else { var t = kind === 'receivable' ? trustInfo(k) : null; sub = (kind === 'payable' ? 'quitado' : 'quitou') + (t ? ' · confiança ' + t.score : ''); }
+      rows.push({type: 'person', key: k, name: p.name, ini: initials(p.name), sub: sub, cls: cls, amount: rem, late: late.length > 0, due: dues[0] || '9999', recent: p.debts.reduce(function(m, d){ return d.date > m ? d.date : m; }, ''), first: p.debts[0]});
+    });
+    state.groups.filter(function(g){ return g.kind === kind; }).forEach(function(g){
+      var st = groupStats(g);
+      if(!groupMatchesFilter(g, st)) return;
+      var pend = st.members.filter(function(d){ return remaining(d) > EPS; });
+      var names = pend.map(function(d){ return firstName(d.name); });
+      var sub = !st.members.length ? 'grupo sem pessoas' : !pend.length ? 'grupo · todos pagaram' : 'grupo · ' + (names.length === 1 ? 'falta ' + names[0] : 'faltam ' + (names.length > 2 ? names.slice(0, 2).join(', ') + ' e mais ' + (names.length - 2) : names.join(' e ')));
+      rows.push({type: 'group', key: g.id, name: g.title, ini: initials(g.title), sub: sub, cls: st.late ? 'late' : '', amount: round2(st.remaining), late: !!st.late, due: g.dueDate || '9999', recent: g.date, group: g});
+    });
+    var s = state.sort;
+    rows.sort(function(a, b){
+      if(s === 'valueDesc') return b.amount - a.amount;
+      if(s === 'valueAsc') return a.amount - b.amount;
+      if(s === 'recent') return a.recent < b.recent ? 1 : -1;
+      if(s === 'oldest') return a.recent < b.recent ? -1 : 1;
+      if(a.late !== b.late) return a.late ? -1 : 1;
+      return a.due < b.due ? -1 : a.due > b.due ? 1 : b.amount - a.amount;
+    });
+    return rows;
+  }
+  function selectPersonRow(r){
+    if(r.type === 'group'){
+      if(!wideMQ.matches){ state.openGroupId = state.openGroupId === r.key ? null : r.key; render(); return; }
+      state.selGroup = r.key; state.personKey = null; state.openId = null;
+      render(); return;
+    }
+    if(!wideMQ.matches){ openPerson(r.name); return; }
+    state.selGroup = null; state.personKey = r.key;
+    // a dívida mais urgente da pessoa já vem aberta
+    var open = state.debts.filter(function(d){ return nameKey(d.name) === r.key && !isPaid(d); })
+      .sort(function(a, b){ var x = nextDueDate(a), y = nextDueDate(b); return (x ? x.getTime() : Infinity) - (y ? y.getTime() : Infinity); });
+    state.openId = open[0] ? open[0].id : null;
+    render();
+  }
+  function renderPeopleList(){
+    var box = document.getElementById('peopleList');
+    if(!box) return;
+    var rows = personRows();
+    // PC: sempre tem alguém aberto do lado
+    if(wideMQ.matches && state.page === 'pessoas'){
+      var has = rows.some(function(r){ return r.type === 'group' ? r.key === state.selGroup : !state.selGroup && r.key === state.personKey; });
+      if(!has && rows.length){
+        var r0 = rows[0];
+        if(r0.type === 'group'){ state.selGroup = r0.key; state.personKey = null; }
+        else { state.selGroup = null; state.personKey = r0.key; var od = state.debts.filter(function(d){ return nameKey(d.name) === r0.key && !isPaid(d); }); state.openId = od[0] ? od[0].id : null; }
+      }
+      if(!rows.length){ state.selGroup = null; }
+    }
+    box.innerHTML = '';
+    // o card do grupo só é montado aqui quando a lista antiga (#groupList) não aparece: nunca em dois lugares
+    var groupListHidden = groupListEl && getComputedStyle(groupListEl).display === 'none';
+    if(groupListHidden) groupListEl.innerHTML = '';
+    if(!rows.length){
+      var pool = state.debts.filter(function(d){ return d.kind === state.viewKind; });
+      var e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = !pool.length ? (state.viewKind === 'payable' ? 'Nenhuma dívida sua cadastrada ainda.' : 'Ninguém te deve nada ainda.') + ' Toque em "Nova dívida" para começar.'
+        : state.query.trim() ? 'Nada encontrado para "' + state.query.trim() + '".'
+        : state.filter === 'atrasados' ? 'Ninguém atrasado.' : state.filter === 'pagos' ? 'Nada quitado ainda.' : 'Tudo quitado!';
+      box.appendChild(e);
+      placeOpenDetail();
+      return;
+    }
+    rows.forEach(function(r){
+      var sel = wideMQ.matches && (r.type === 'group' ? state.selGroup === r.key : !state.selGroup && state.personKey === r.key);
+      var b = document.createElement('button');
+      b.type = 'button'; b.setAttribute('role', 'listitem');
+      b.className = 'prow' + (sel ? ' active' : '') + (r.type === 'group' ? ' is-group' : '');
+      b.setAttribute('data-person', r.type === 'group' ? '' : r.key);
+      if(r.type === 'group') b.setAttribute('data-group', r.key);
+      b.innerHTML = '<span class="pr-av' + (r.type === 'group' ? ' grp' : '') + '">' + (r.type === 'group' ? ic('users') : escapeHtml(r.ini)) + '</span>' +
+        '<span class="pr-info"><b>' + escapeHtml(r.name) + '</b><span class="' + r.cls + '">' + escapeHtml(r.sub) + '</span></span>' +
+        '<span class="pr-amt">' + money.format(r.amount) + '</span>';
+      b.addEventListener('click', function(){ selectPersonRow(r); });
+      box.appendChild(b);
+      // celular: o grupo abre embaixo da própria linha
+      if(r.type === 'group' && !wideMQ.matches && state.openGroupId === r.key && groupListHidden) box.appendChild(buildGroupCard(r.group, groupStats(r.group)));
+    });
+    placeOpenDetail();
+  }
+
   // ---------- dívida aberta: painel ao lado no PC, tela cheia no celular ----------
   var wideMQ = window.matchMedia ? window.matchMedia('(min-width:1024px)') : {matches: false, addEventListener: function(){}};
   function placeOpenDetail(){
     var pane = document.getElementById('psDetail');
     if(!pane) return;
-    pane.innerHTML = '';
-    var card = listEl.querySelector('.card[data-debt-id].open');
-    if(wideMQ.matches && card){
-      var body = card.querySelector('.card-body');
-      if(body){
-        body.style.maxHeight = 'none';
-        var close = document.createElement('button');
-        close.type = 'button'; close.className = 'btn btn-ghost btn-sm btn-icon od-close'; close.setAttribute('aria-label', 'Fechar');
-        close.innerHTML = ic('x');
-        close.addEventListener('click', function(){ state.openId = null; render(); });
-        pane.appendChild(close);
-        pane.appendChild(body);
-        pane.classList.add('has');
-        return;
-      }
+    if(!wideMQ.matches || state.page !== 'pessoas'){ pane.innerHTML = ''; pane.classList.remove('has'); return; }
+    var g = state.selGroup ? groupById(state.selGroup) : null;
+    if(g){
+      pane.innerHTML = '';
+      state.openGroupId = g.id;
+      pane.appendChild(buildGroupCard(g, groupStats(g)));
+      pane.classList.add('has', 'is-group');
+      return;
+    }
+    pane.classList.remove('is-group');
+    if(state.personKey && state.debts.some(function(d){ return nameKey(d.name) === state.personKey; })){
+      renderPersonPage(pane);
+      pane.classList.add('has');
+      return;
     }
     pane.classList.remove('has');
-    if(wideMQ.matches) pane.innerHTML = '<div class="ps-empty">' + ic('hand-coins') + '<b>Escolha alguém na lista</b><span>A dívida abre aqui do lado, com as parcelas, o histórico e o botão de registrar pagamento.</span></div>';
+    pane.innerHTML = '<div class="ps-empty">' + ic('hand-coins') + '<b>Escolha alguém na lista</b><span>A pessoa abre aqui do lado, com as dívidas, as parcelas, o histórico e o botão de registrar pagamento.</span></div>';
   }
   function syncSheet(){
     var host = state.page === 'pessoas' ? listEl : state.page === 'pessoa' ? document.getElementById('personContent') : null;

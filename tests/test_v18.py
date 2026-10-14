@@ -40,23 +40,29 @@ with sync_playwright() as p:
         page.click('#filters [data-f="pendentes"]'); page.wait_for_timeout(300)
         # menu ⋯
         page.click('#ppMore'); page.wait_for_timeout(200)
-        check(vis(page, '#ppMenu') and vis(page, '#sortSel') and vis(page, '#btnBoard') and vis(page, '#btnSplit') and vis(page, '#btnGroup'), '%s: ⋯ abre ordenar, resumo, agrupar, placar e dividir' % tag)
+        check(vis(page, '#ppMenu') and vis(page, '#sortSel') and vis(page, '#btnBoard') and vis(page, '#btnSplit') and not vis(page, '#btnGroup'), '%s: ⋯ abre ordenar, resumo, placar e dividir (agrupar saiu: a lista já é por pessoa)' % tag)
         page.screenshot(path=SP + '/v18_%s_menu.png' % tag)
         page.click('#btnResumo'); page.wait_for_timeout(400)
         check(vis(page, '#pessoasResumo') and not vis(page, '#ppMenu'), '%s: Resumo e gráfico abre o resumo e fecha o menu' % tag)
         page.click('#ppMore'); page.wait_for_timeout(150)
         page.mouse.click(5, h - 300); page.wait_for_timeout(200)
         check(not vis(page, '#ppMenu'), '%s: clicar fora fecha o menu' % tag)
-        page.click('#ppMore'); page.wait_for_timeout(150)
-        page.click('#btnGroup'); page.wait_for_timeout(300)
-        check(page.locator('#list .group-head').count() > 0, '%s: agrupar por amigo pelo menu' % tag)
-        page.click('#ppMore'); page.wait_for_timeout(150); page.click('#btnGroup'); page.wait_for_timeout(300)
         # grupo fechado mostra só o essencial
-        if page.locator('.gcard').count():
-            check(not vis(page, '.gcard:not(.open) .g-avatars'), '%s: grupo fechado sem a fileira de pessoas' % tag)
+        # v20: uma linha por pessoa (e por grupo)
+        names = [N(x) for x in page.locator('#peopleList .prow .pr-info b').all_inner_texts()]
+        check(len(names) == len(set(names)) and len(names) >= 3, '%s: lista com uma linha por pessoa: %s' % (tag, names))
+        # grupo: no celular abre embaixo da linha, no PC no painel
+        if page.locator('#peopleList .prow.is-group').count():
+            page.locator('#peopleList .prow.is-group').first.click(); page.wait_for_timeout(400)
+            where = '#psDetail .gcard.open' if tag == 'pc' else '#peopleList .gcard.open'
+            check(vis(page, where) and page.locator('.gcard.open').count() == 1, '%s: grupo abre (%s), sem card duplicado' % (tag, where))
+        # pessoa no PC: abre no painel com o topo e a dívida
+        if tag == 'pc':
+            page.locator('#peopleList .prow:not(.is-group)').first.click(); page.wait_for_timeout(400)
+            check(vis(page, '#psDetail .person-top') and page.locator('#psDetail .card.open').count() == 1, 'pc: pessoa abre no painel com a dívida aberta')
         # trocar pra Eu devo
         page.click('#kindToggle [data-k="payable"]'); page.wait_for_timeout(300)
-        check('Cartão Nubank' in page.inner_text('#list'), '%s: Eu devo lista as minhas dívidas' % tag)
+        check('Cartão Nubank' in page.inner_text('#peopleList'), '%s: Eu devo lista as minhas dívidas' % tag)
         check(page.evaluate("document.documentElement.scrollWidth <= innerWidth"), '%s: sem rolagem pro lado' % tag)
         page.screenshot(path=SP + '/v18_%s_pessoas.png' % tag)
         check(not errs, '%s: sem erros de JS %s' % (tag, errs))
