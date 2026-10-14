@@ -1274,17 +1274,19 @@
         (d.notes ? '<div class="notes-block"><b>Anotações</b>' + escapeHtml(d.notes) + '</div>' : '') +
         payFormHtml +
         '<div class="card-actions">' +
-          (wLink ? '<a class="btn btn-whats btn-sm" href="' + wLink + '" target="_blank" rel="noopener" data-act="whats">' + ic('message-circle') + ' WhatsApp</a>' : (isPayable ? '' : '<button class="btn btn-ghost btn-sm" data-act="nowhats" title="Cadastre o telefone em Editar">' + ic('message-circle') + ' WhatsApp</button>')) +
-          (opts.inPerson ? '' : '<button class="btn btn-ghost btn-sm" data-act="profile">' + ic('user') + ' Ver pessoa</button>') +
+          (paid ? '' : '<button type="button" class="btn btn-primary btn-sm ca-pay" data-act="paytoggle" aria-expanded="false">' + ic('check') + ' Registrar pagamento</button>') +
+          (wLink ? '<a class="btn btn-whats btn-sm ca-sec" href="' + wLink + '" target="_blank" rel="noopener" data-act="whats">' + ic('message-circle') + ' WhatsApp</a>' : (isPayable ? '' : '<button class="btn btn-ghost btn-sm ca-sec" data-act="nowhats" title="Cadastre o telefone em Editar">' + ic('message-circle') + ' WhatsApp</button>')) +
+          (opts.inPerson ? '' : '<button class="btn btn-ghost btn-sm ca-sec" data-act="profile">' + ic('user') + ' Ver pessoa</button>') +
           (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="extend">' + ic('calendar-clock') + ' Dar mais prazo</button>') +
           (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="settle">' + ic('badge-percent') + ' Quitar c/ desconto</button>') +
-          (paid || d.recurring ? '' : '<button class="btn btn-ghost btn-sm" data-act="reneg">' + ic('handshake') + ' Renegociar</button>') +
+          (paid || d.recurring ? '' : '<button class="btn btn-ghost btn-sm ca-sec" data-act="reneg">' + ic('handshake') + ' Renegociar</button>') +
+          '<button type="button" class="btn btn-ghost btn-sm btn-icon ca-more" data-act="more" aria-label="Mais ações" aria-expanded="false">' + ic('ellipsis') + '</button>' +
           '<div class="spacer"></div>' +
-          ('<button class="btn btn-ghost btn-sm" data-act="share" title="' + (isPayable ? 'Link para quem você deve ver quanto falta pagar' : 'Link só desta dívida') + '">' + ic('share-2') + ' Link' + (shareFor('debt', d.id) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>') +
-          (paid && !isPayable ? '<button class="btn btn-primary btn-sm" data-act="receipt">' + ic('receipt') + ' Recibo de quitação</button>' : '') +
-          '<button class="btn btn-ghost btn-sm" data-act="statement">' + ic('file-text') + ' Extrato</button>' +
-          '<button class="btn btn-ghost btn-sm" data-act="edit">' + ic('pencil') + ' Editar</button>' +
-          '<button class="btn btn-danger btn-sm" data-act="del">' + ic('trash') + ' Excluir</button>' +
+          ('<button class="btn btn-ghost btn-sm ca-sec" data-act="share" title="' + (isPayable ? 'Link para quem você deve ver quanto falta pagar' : 'Link só desta dívida') + '">' + ic('share-2') + ' Link' + (shareFor('debt', d.id) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>') +
+          (paid && !isPayable ? '<button class="btn btn-primary btn-sm ca-sec" data-act="receipt">' + ic('receipt') + ' Recibo de quitação</button>' : '') +
+          '<button class="btn btn-ghost btn-sm ca-sec" data-act="statement">' + ic('file-text') + ' Extrato</button>' +
+          '<button class="btn btn-ghost btn-sm ca-sec" data-act="edit">' + ic('pencil') + ' Editar</button>' +
+          '<button class="btn btn-danger btn-sm ca-sec" data-act="del">' + ic('trash') + ' Excluir</button>' +
         '</div>' +
       '</div>' +
       '<div class="card-panel" data-panel="parcelas"' + (tab === 'parcelas' ? '' : ' hidden') + '>' +
@@ -1393,6 +1395,19 @@
     if(profBtn) profBtn.addEventListener('click', function(e){ e.stopPropagation(); openPerson(d.name); });
     var renegBtn = inner.querySelector('[data-act="reneg"]');
     if(renegBtn) renegBtn.addEventListener('click', function(e){ e.stopPropagation(); openReneg(d); });
+    var payTgl = inner.querySelector('[data-act="paytoggle"]');
+    if(payTgl) payTgl.addEventListener('click', function(e){
+      e.stopPropagation();
+      var on = inner.classList.toggle('pay-open');
+      payTgl.setAttribute('aria-expanded', on ? 'true' : 'false');
+      if(on){ var fa = inner.querySelector('.pf-amount'); if(fa) fa.focus(); }
+    });
+    var moreTgl = inner.querySelector('[data-act="more"]');
+    if(moreTgl) moreTgl.addEventListener('click', function(e){
+      e.stopPropagation();
+      var on = inner.classList.toggle('more-open');
+      moreTgl.setAttribute('aria-expanded', on ? 'true' : 'false');
+    });
     var extendBtn = inner.querySelector('[data-act="extend"]');
     if(extendBtn) extendBtn.addEventListener('click', function(e){ e.stopPropagation(); openExtend(d); });
     var settleBtn = inner.querySelector('[data-act="settle"]');
@@ -1953,16 +1968,16 @@
         (wLink ? '<a class="btn btn-whats btn-sm" target="_blank" rel="noopener" href="' + escapeHtml(wLink) + '">' + ic('message-circle') + ' Cobrar no WhatsApp</a>' : '') +
         (rec.length ? '<button type="button" class="btn btn-ghost btn-sm" id="personShare">' + ic('share-2') + ' Link de cobrança' + (shareFor('person', key) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>' : '') +
         (pay.length ? '<button type="button" class="btn btn-ghost btn-sm" id="personOweShare">' + ic('share-2') + ' Link do que devo' + (shareFor('owe', key) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>' : '') +
+        '<div class="pa-more-wrap"><button type="button" class="btn btn-ghost btn-sm btn-icon pa-more" id="personMore" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">' + ic('ellipsis') + '</button><div class="pa-menu" id="personMenu">' +
         (rec.length && cloudOn() ? '<button type="button" class="btn btn-ghost btn-sm" id="personTg">' + ic('send') + ' Lembretes no Telegram' + (friendOf(key) ? ' <span class="live-dot" title="conectado"></span>' : '') + '</button>' : '') +
         '<button type="button" class="btn btn-primary btn-sm" id="personNewDebt">' + ic('plus') + ' Nova dívida com ' + escapeHtml(firstName(name)) + '</button>' +
-      '</div></div>' +
+      '</div></div></div></div>' +
       '<div class="stats person-stats">' + stats + '</div>' +
       '<div class="page-grid person-grid">' +
         '<div class="pg-main">' +
           '<section class="side-card"><div class="sc-head"><span class="section-title">' + ic('handshake') + ' Dívidas</span></div><div class="list" id="personDebts"></div></section>' +
-          '<section class="side-card"><div class="sc-head"><span class="section-title">' + ic('list') + ' Histórico de pagamentos</span></div><div class="history-list person-history">' + histHtml + '</div></section>' +
-        '</div>' +
-        '<aside class="pg-side">' + personExtraHtml(key) + '</aside>' +
+          '</div>' +
+        '<aside class="pg-side">' + personExtraHtml(key, '<section class="side-card pe-history"><div class="sc-head"><span class="section-title">' + ic('list') + ' Histórico</span></div><div class="history-list person-history">' + histHtml + '</div></section>') + '</aside>' +
       '</div>';
 
     var listBox = document.getElementById('personDebts');
@@ -1972,6 +1987,13 @@
       return (x ? x.getTime() : Infinity) - (y ? y.getTime() : Infinity);
     }).forEach(function(d){ listBox.appendChild(buildCard(d, {inPerson: true})); });
     document.getElementById('personTagsEdit').addEventListener('click', function(){ personTagsDialog(key, name); });
+    var pmore = document.getElementById('personMore'), pmenu = document.getElementById('personMenu');
+    if(pmore) pmore.addEventListener('click', function(e){
+      e.stopPropagation();
+      var on = pmenu.classList.toggle('open');
+      pmore.setAttribute('aria-expanded', on ? 'true' : 'false');
+      if(on) setTimeout(function(){ document.addEventListener('click', function close(){ pmenu.classList.remove('open'); pmore.setAttribute('aria-expanded', 'false'); document.removeEventListener('click', close); }); }, 0);
+    });
     var psh = document.getElementById('personShare');
     if(psh) psh.addEventListener('click', function(){ openShareDialog('person', key, name); });
     var poweSh = document.getElementById('personOweShare');
@@ -5441,9 +5463,9 @@
       cls: pct >= 90 ? 'good' : pct >= 60 ? 'mid' : 'bad',
       label: pct >= 90 ? 'Paga em dia' : pct >= 60 ? 'Às vezes atrasa' : 'Costuma atrasar'};
   }
-  function personExtraHtml(key){
+  function personExtraHtml(key, mid){
     var c = contactOf(key) || {}, tags = c.tags || [];
-    return '<div class="person-extra">' + trustHtml(key) +
+    return '<div class="person-extra">' + trustHtml(key) + (mid || '') +
       '<div class="pe-tags">' + tags.map(function(t){ return '<span class="pe-tag">' + ic('tag') + escapeHtml(t) + '</span>'; }).join('') +
         '<button type="button" class="btn btn-ghost btn-sm" id="personTagsEdit">' + ic(tags.length || c.notes ? 'pencil' : 'tag') + (tags.length || c.notes ? ' Editar' : ' Etiquetas e notas') + '</button></div>' +
       (c.notes ? '<div class="pe-notes">' + ic('square-text') + '<span>' + escapeHtml(c.notes) + '</span></div>' : '') +
@@ -6188,14 +6210,14 @@
         '<div class="field"><label for="exDate">Novo vencimento</label><input id="exDate" type="date" min="' + addDaysISO(today, 1) + '" value="' + def + '"></div>',
       onOk: function(body){
         var nd = body.querySelector('#exDate').value;
-        if(!/^d{4}-d{2}-d{2}$/.test(nd)) return 'Escolha a nova data.';
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(nd)) return 'Escolha a nova data.';
         var prev = d.dueOverride ? JSON.parse(JSON.stringify(d.dueOverride)) : null;
         var moved = reschedule(d, nd);
         if(!moved.length) return 'Escolha uma data depois do vencimento atual (' + fmtDate(cur) + ').';
-        invalidateSchedules(); renderAll(); saveData();
+        invalidateSchedules(); render(); renderAll(); saveData();
         showAction('Prazo de ' + first + ' até ' + fmtDate(nd), 'Desfazer', function(){
           if(prev) d.dueOverride = prev; else delete d.dueOverride;
-          invalidateSchedules(); renderAll(); saveData(); showToast('Prazo desfeito', 'undo-2');
+          invalidateSchedules(); render(); renderAll(); saveData(); showToast('Prazo desfeito', 'undo-2');
         }, 'calendar-clock');
         return true;
       }

@@ -1701,3 +1701,114 @@
   .ps-detail .card.open .od-top{display:none;}
   .ps-detail .quick-pay span{display:none;}
   .ps-detail .quick-pay{padding:8px;}
+
+  /* ===== v21: Pessoas igual ao desenho "Escolhido · Pessoas + dívida · PC" ===== */
+  .ca-pay,.ca-more,.pa-more{display:none;}
+  .pa-menu{display:contents;}
+  .pa-more-wrap{display:contents;}
+  @media (min-width:1024px){
+    /* cabeçalho em largura total */
+    .wrap:has(#pagePessoas:not([style*="none"])){max-width:none;padding:0;}
+    .wrap:has(#pagePessoas:not([style*="none"])) > header.topbar{height:72px;box-sizing:border-box;margin:0;padding:0 40px;border-bottom:1px solid #1a1e28;}
+    #pagePessoas > :not(.pessoas-split){margin-left:40px;margin-right:40px;}
+    #pagePessoas .pessoas-split{grid-template-columns:400px minmax(0,1fr);gap:0;align-items:stretch;min-height:calc(100vh - 73px);}
+    /* coluna da lista: busca, abas, filtros, pessoas */
+    #pagePessoas .ps-list{background:none;border:none;border-right:1px solid #161a22;border-radius:0;box-shadow:none;padding:24px 20px;position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto;display:flex;flex-direction:column;gap:12px;box-sizing:border-box;}
+    #pagePessoas .ps-list .pp-head{display:flex;flex-direction:column-reverse;align-items:stretch;gap:12px;margin:0;}
+    #pagePessoas .ps-list .pp-tools{width:100%;}
+    #pagePessoas .ps-list .pp-search{flex:1 1 auto;}
+    #pagePessoas .ps-list .pp-search .search{width:100%;height:42px;border-radius:11px;background:#14171f;border-color:#1f2430;}
+    #pagePessoas .ps-list .pp-kind{display:grid;grid-template-columns:1fr 1fr;width:100%;padding:4px;gap:4px;border-radius:11px;background:#14171f;border:none;box-sizing:border-box;}
+    #pagePessoas .ps-list .pp-kind button{justify-content:center;flex-wrap:wrap;gap:2px 6px;height:34px;padding:0 6px;border-radius:8px;font-size:13px;}
+    #pagePessoas .ps-list .pp-kind button.active{background:#232838;}
+    #pagePessoas .ps-list .pp-chips{margin:0;flex-wrap:wrap;}
+    #pagePessoas .ps-list .pp-chips button{height:30px;padding:0 11px;font-size:12px;}
+    #pagePessoas .ps-list .plist{margin-top:4px;}
+    #pagePessoas .prow{border-radius:12px;padding:11px 12px;border-color:transparent;}
+    #pagePessoas .prow.active{background:#1a1e28;border-color:transparent;}
+    #pagePessoas .pr-av{width:38px;height:38px;font-size:12.5px;}
+    #pagePessoas .pr-info span{font-size:12px;}
+    /* lado direito: a pessoa sem moldura */
+    #pagePessoas .ps-detail{position:static;max-height:none;overflow:visible;background:none;border:none;border-radius:0;padding:28px 40px;box-sizing:border-box;}
+    .ps-detail .person-top{margin-bottom:22px;align-items:center;}
+    .ps-detail .person-head{gap:14px;}
+    .ps-detail .person-head .avatar-lg{width:52px;height:52px;font-size:16px;background:#2a2f3c;color:var(--gold-soft);box-shadow:none;}
+    .ps-detail .ph-name{font-family:'Baloo 2',sans-serif;font-weight:600;font-size:28px;line-height:1.1;}
+    .ps-detail .ph-sub{font-size:13px;color:var(--muted);}
+    .ps-detail .person-actions{flex-wrap:nowrap;gap:8px;max-width:none;align-items:center;position:relative;}
+    .ps-detail .person-actions .btn{height:40px;padding:0 14px;border-radius:10px;font-size:13.5px;font-weight:600;white-space:nowrap;}
+    .ps-detail .person-actions .btn-whats{background:rgba(62,207,126,0.10);border:1px solid #1f5c3c;color:#7fe0ac;box-shadow:none;}
+    .ps-detail .pa-more-wrap{display:block;position:relative;}
+    .ps-detail .pa-more{display:inline-flex;width:40px;padding:0;justify-content:center;}
+    .ps-detail .pa-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:230px;flex-direction:column;gap:2px;padding:6px;background:var(--card-2);border:1px solid var(--stroke);border-radius:14px;box-shadow:0 18px 40px rgba(0,0,0,0.5);}
+    .ps-detail .pa-menu.open{display:flex;}
+    .ps-detail .pa-menu .btn{width:100%;justify-content:flex-start;background:transparent;border:none;}
+    .ps-detail .pa-menu .btn:hover{background:rgba(255,255,255,0.05);}
+    .ps-detail .person-grid{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px;align-items:start;}
+    .ps-detail .person-grid .pg-main{gap:14px;}
+    .ps-detail .person-grid .pg-main > .side-card > .sc-head{display:none;}
+    /* cartão da dívida aberta */
+    .ps-detail .card.open{background:#14171f;border:1px solid #1f2430;border-radius:18px;padding:22px;position:static;}
+    .ps-detail .card.open > .card-head{display:none;}
+    .ps-detail .card.open .od-top{display:flex;padding-right:0;}
+    .ps-detail .card.open .od-name{font:400 13px 'Inter',sans-serif;color:var(--muted);}
+    .ps-detail .card.open .od-amt b{font-size:44px;}
+    .ps-detail .card.open .od-bar i{background:#57b98a;}
+    .ps-detail .card.open .od-meta{display:none;}
+    .ps-detail .card.open .card-body-inner{display:flex;flex-direction:column;gap:12px;}
+    .ps-detail .card.open .od-head{margin:0;gap:12px;}
+    .ps-detail .card.open .card-tabs{display:none;}
+    .ps-detail .card.open .card-panel{display:flex !important;flex-direction:column;gap:12px;}
+    .ps-detail .card.open .card-panel[data-panel="historico"]{display:none !important;}
+    .ps-detail .card-body-inner.more-open .card-panel[data-panel="historico"]{display:flex !important;}
+    .ps-detail .card.open .card-actions{order:1;gap:8px;align-items:center;}
+    .ps-detail .card.open .card-actions .btn{height:44px;padding:0 16px;border-radius:12px;font-size:13.5px;font-weight:600;}
+    .ps-detail .card.open .card-actions .ca-pay{display:inline-flex;font-size:14.5px;padding:0 20px;}
+    .ps-detail .card.open .card-actions .ca-more{display:inline-flex;width:44px;padding:0;justify-content:center;}
+    .ps-detail .card.open .card-actions .ca-sec,.ps-detail .card.open .card-actions .spacer{display:none;}
+    .ps-detail .card-body-inner.more-open .card-actions .ca-sec{display:inline-flex;}
+    .ps-detail .card.open .pay-form{display:none;order:2;}
+    .ps-detail .card-body-inner.pay-open .pay-form{display:flex;}
+    .ps-detail .card.open .od-details{order:3;margin:0;}
+    .ps-detail .card.open .notes-block{order:3;}
+    /* parcelas sempre à mostra */
+    .ps-detail .card.open .card-panel[data-panel="parcelas"] .stamps{display:none;}
+    .ps-detail .card.open .inst-list{display:flex;flex-direction:column;margin:0;font-family:'Inter',sans-serif;font-size:14px;}
+    .ps-detail .card.open .inst-row{display:grid;grid-template-columns:36px minmax(0,1fr) 110px 84px;gap:0 14px;align-items:center;padding:11px 0;margin:0;background:none;border:none;border-top:1px solid #1b1f29;border-radius:0;color:var(--text);}
+    .ps-detail .card.open .ir-n{grid-column:1;color:var(--muted);font-weight:500;font-size:12.5px;}
+    .ps-detail .card.open .ir-val{grid-column:2;grid-row:1;font-weight:500;}
+    .ps-detail .card.open .ir-due{grid-column:3;grid-row:1;font-size:12.5px;color:var(--muted);}
+    .ps-detail .card.open .ir-st{grid-column:4;grid-row:1;text-align:center;font-size:12px;font-weight:600;padding:4px 9px;border-radius:999px;background:#1a1e28;color:var(--muted);}
+    .ps-detail .card.open .inst-row.st-atrasada .ir-st{background:rgba(226,102,92,0.12);color:#f0a39c;}
+    .ps-detail .card.open .inst-row.st-paga .ir-st{background:rgba(87,185,138,0.12);color:#7fe0ac;}
+    .ps-detail .card.open .inst-row.st-parcial .ir-st{background:rgba(201,162,74,0.14);color:var(--gold-soft);}
+    .ps-detail .card.open .ir-det{grid-column:2 / -1;grid-row:2;font-size:11.5px;color:var(--muted-2);}
+    /* coluna da direita: confiança, histórico, etiquetas */
+    .ps-detail .pg-side{display:flex;flex-direction:column;gap:20px;}
+    .ps-detail .person-extra{margin:0;gap:20px;}
+    .ps-detail .trust{padding:18px 20px;border-radius:18px;background:#14171f;border:1px solid #1f2430;}
+    .ps-detail .person-extra .side-card.pe-history{padding:18px 20px;border-radius:18px;background:#14171f;border:1px solid #1f2430;}
+    .ps-detail .pe-history .sc-head .section-title{font-size:15px;font-weight:600;}
+    .ps-detail .pe-history .section-title .i{display:none;}
+    .ps-detail .pe-history .history-row{font-size:13.5px;}
+  }
+  @media (min-width:1024px){
+    #pagePessoas .ps-list .pp-kind .seg-ind{display:none !important;}
+    #pagePessoas .ps-list .pp-kind button{background:transparent;color:var(--muted);}
+    #pagePessoas .ps-list .pp-kind button.active{background:#232838;color:var(--text);}
+    #pagePessoas .ps-list .pp-chips{flex-wrap:nowrap;gap:5px;}
+    #pagePessoas .ps-list .pp-chips button{padding:0 9px;white-space:nowrap;}
+    .ps-detail .card.open > .card-body{border-top:none;}
+    .ps-detail .card.open .card-actions .btn{padding:0 13px;}
+    .ps-detail .card.open .card-actions .ca-pay{padding:0 18px;}
+    .ps-detail .pe-history .history-list{gap:0;}
+    .ps-detail .pe-history .history-row{background:none;border:none;padding:6px 0;border-radius:0;}
+  }
+  @media (min-width:1024px){
+    #pagePessoas .ps-list .pp-kind button.active{background:#232838 !important;color:var(--text);}
+  }
+  @media (min-width:1024px){
+    .ps-detail .card.open .card-actions .ca-more{order:50;}
+    .ps-detail .card.open .card-actions .ca-sec{order:60;}
+    .ps-detail .pa-menu .btn-primary{color:var(--text);box-shadow:none;}
+  }
