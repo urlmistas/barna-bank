@@ -23,7 +23,9 @@ INLINE_CARDS_CSS = (".card[data-debt-id].open{position:relative !important;inset
     ".card[data-debt-id].open > .card-head{position:static !important}body.sheet-open{overflow:auto !important}body.sheet-open .fab:not(.fab-ctx){display:inline-flex !important}"
     # Pessoas (v18): menu ⋯, resumo, "Cobrar todos" e avatares dos grupos sempre à mostra nos testes antigos
     "#ppMenu{display:flex !important;position:static !important;box-shadow:none !important}#pessoasResumo[hidden]{display:block !important}#pagePessoas #lateBar{display:block !important}"
-    ".gcard .g-avatars{display:flex !important}.gcard .gp-meta{display:block !important}.ps-list .quick-pay span{display:inline !important}")
+    ".gcard .g-avatars{display:flex !important}.gcard .gp-meta{display:block !important}.ps-list .quick-pay span{display:inline !important}"
+    # Pessoas (v20): lista por pessoa no lugar dos cards; os testes antigos usam os cards
+    "#peopleList{display:none !important}#pagePessoas #list,#pagePessoas #groupList{display:flex !important}#ppMenu #btnGroup{display:flex !important}")
 
 with sync_playwright() as p:
     b = p.chromium.launch()
@@ -77,7 +79,7 @@ with sync_playwright() as p:
     d_ana = [d for d in stored()['debts'] if d['name'] == 'Ana'][0]
     check(d_ana['payments'][0].get('note') == 'pago pelo Pedro', 'pagamento guarda a observação (amigo pagando pelo outro)')
     check('R$ 33,34 de R$ 66,67 recebidos' in N(page.inner_text('.gcard')), 'progresso do grupo atualiza')
-    check(page.locator('.g-av.st-pago').count() == 1, 'avatar da Ana fica como pago')
+    check(page.locator('#groupList .g-av.st-pago').count() == 1, 'avatar da Ana fica como pago')
 
     # 3) cobrar pendentes
     open_group('Churrasco').locator('[data-gact="charge"]').click(); page.wait_for_timeout(200)

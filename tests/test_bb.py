@@ -55,7 +55,8 @@ def check(cond, msg):
     if not cond: fails.append(msg)
 
 INLINE_CARDS_CSS = (".card[data-debt-id].open{position:relative !important;inset:auto !important;z-index:auto !important;border-radius:18px !important;overflow:visible !important;padding-bottom:0 !important;background:var(--card) !important;border:1px solid var(--stroke) !important}"
-    ".card[data-debt-id].open > .card-head{position:static !important}body.sheet-open{overflow:auto !important}body.sheet-open .fab{display:inline-flex !important}")
+    ".card[data-debt-id].open > .card-head{position:static !important}body.sheet-open{overflow:auto !important}body.sheet-open .fab:not(.fab-ctx){display:inline-flex !important}"
+    "#peopleList{display:none !important}#pagePessoas #list,#pagePessoas #groupList{display:flex !important}")
 
 with sync_playwright() as p:
     b = p.chromium.launch()

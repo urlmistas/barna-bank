@@ -1657,3 +1657,47 @@
   }
   /* assunto da dívida ao lado do nome */
   .name .subj{font-weight:500;color:var(--muted);font-size:0.92em;}
+
+  /* ===== v20: Pessoas — uma linha por pessoa à esquerda, a pessoa inteira à direita ===== */
+  #pagePessoas #list,#pagePessoas #groupList{display:none;}
+  #ppMenu #btnGroup{display:none;}
+  .plist{display:flex;flex-direction:column;gap:2px;}
+  .prow{display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px;border-radius:14px;border:1px solid transparent;background:transparent;color:var(--text);font-family:'Inter',sans-serif;text-align:left;cursor:pointer;}
+  .prow:hover{background:rgba(255,255,255,0.03);}
+  .prow.active{background:var(--card-2);border-color:rgba(201,162,74,0.45);}
+  .prow:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
+  .pr-av{width:40px;height:40px;border-radius:50%;background:#2a2f3c;color:var(--gold-soft);display:grid;place-items:center;font-weight:700;font-size:13px;flex-shrink:0;}
+  .pr-av.grp{background:#1d2a44;color:#8fb5f5;}
+  .pr-av .i{width:18px;height:18px;}
+  .pr-info{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;}
+  .pr-info b{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pr-info span{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pr-info span.late{color:var(--red);}
+  .pr-amt{font-family:'Nunito',sans-serif;font-weight:700;font-size:14.5px;white-space:nowrap;}
+  .plist .gcard{margin:2px 0 8px;}
+  .plist .empty{padding:28px 12px;}
+  .person-top{display:flex;flex-direction:column;gap:12px;}
+  @media (min-width:1024px){
+    .pessoas-split{grid-template-columns:minmax(280px,360px) minmax(0,1fr);}
+    .ps-list{background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);padding:8px;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;}
+    .ps-detail{padding:22px 24px;}
+    .ps-detail .person-top{flex-direction:row;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:18px;}
+    .ps-detail .person-head{margin:0;}
+    .ps-detail .person-actions{justify-content:flex-end;margin:0;max-width:60%;}
+    .ps-detail .person-stats{display:none;}
+    .ps-detail .person-grid{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);}
+    .ps-detail.is-group{padding:8px;}
+    .ps-detail.is-group .gcard{border:none;}
+  }
+  @media (max-width:1023px){
+    .prow{border-radius:0;border-width:0 0 1px;border-color:var(--stroke);padding:12px 2px;}
+    .prow:hover{background:transparent;}
+  }
+  /* dentro da pessoa: as dívidas sem "card dentro de card" e com ícone em vez das iniciais */
+  .avatar.av-debt{background:#22202a;color:var(--gold-soft);}
+  .avatar.av-debt .i{width:18px;height:18px;}
+  .ps-detail .person-grid .side-card{background:none;border:none;padding:0;box-shadow:none;}
+  .ps-detail .person-grid .side-card .list .card{background:var(--card-2);}
+  .ps-detail .card.open .od-top{display:none;}
+  .ps-detail .quick-pay span{display:none;}
+  .ps-detail .quick-pay{padding:8px;}
