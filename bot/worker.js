@@ -2084,7 +2084,48 @@ function lkWhen(iso) {
   return {txt: 'em ' + d + ' dias', cls: d <= 7 ? 'soon' : ''};
 }
 const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+const LK_MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+// link gerado por um app de antes da v19 (sem "info" e "summary"): calcula aqui o que dá com o que veio
+function lkFill(v) {
+  const debts = (v.debts || []).map(d => {
+    if (d.info) return d;
+    const insts = (d.insts || []).slice().sort((a, b) => a.n - b.n), rec = d.monthly > 0;
+    const open = insts.filter(it => it.open > 0.005);
+    const vals = insts.map(it => it.value), same = vals.length && vals.every(x => Math.abs(x - vals[0]) < 0.05);
+    let next = open[0] ? {date: open[0].due, amount: open[0].open, n: open[0].n} : (d.remaining > 0 && d.due ? {date: d.due, amount: d.remaining, n: 1} : null);
+    const count = rec ? 0 : (insts.length ? insts[insts.length - 1].n : 1);
+    return {...d, info: {subject: '', note: '', recurring: rec, day: rec && next ? +next.date.slice(8, 10) : 0,
+      count, instValue: rec ? 0 : (same ? vals[0] : count === 1 ? d.total : 0), planLabel: '',
+      paidCount: insts.filter(it => it.state === 'paga').length, next,
+      after: open[1] ? {date: open[1].due, amount: open[1].open, n: open[1].n} : null,
+      end: rec || !insts.length ? (rec ? '' : d.due || '') : insts[insts.length - 1].due, monthsPaid: rec ? (d.payments || []).length : 0}};
+  });
+  if (v.summary) return {...v, debts};
+  const hist = [], dues = [], ends = [];
+  debts.forEach(d => {
+    const f = d.info, insts = (d.insts || []).slice().sort((a, b) => a.n - b.n);
+    let cum = 0;
+    (d.payments || []).slice().sort((a, b) => a.date < b.date ? -1 : 1).forEach(p => {
+      cum += p.amount || 0;
+      let label = 'pagamento';
+      if (f.recurring) label = LK_MONTHS[+p.date.slice(5, 7) - 1];
+      else if (f.count > 1 && insts.length === f.count) { let acc = 0, k = 0; while (k < insts.length - 1 && (acc += insts[k].value) < cum - 0.01) k++; label = insts[k].n + 'ª parcela'; }
+      hist.push({date: p.date, amount: p.amount, title: d.title, label});
+    });
+    if (f.next) dues.push({date: f.next.date, amount: f.next.amount, title: d.title, n: f.next.n, of: f.count, recurring: f.recurring});
+    if (f.after) dues.push({date: f.after.date, amount: f.after.amount, title: d.title, n: f.after.n, of: f.count, recurring: f.recurring});
+    if (!f.recurring && f.end) ends.push(f.end);
+  });
+  hist.sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+  dues.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  const open = debts.filter(d => d.remaining > 0.005);
+  return {...v, debts, summary: {
+    openCount: open.filter(d => !d.info.recurring).length, recurringCount: open.filter(d => d.info.recurring).length,
+    doneCount: v.doneCount || 0, paidTotal: Math.round(((v.donePaid || 0) + debts.reduce((a, d) => a + (d.paid || 0), 0)) * 100) / 100,
+    payCount: hist.length, next: dues[0] || null, after: dues[1] || null, endAll: ends.sort().pop() || '', history: hist.slice(0, 8)}};
+}
 function owePage(v, ownerName) {
+  v = lkFill(v);
   const s = v.summary || {}, debts = (v.debts || []).slice();
   debts.sort((a, b) => ((a.info && a.info.next && a.info.next.date) || '9999') < ((b.info && b.info.next && b.info.next.date) || '9999') ? -1 : 1);
   const paidTot = s.paidTotal || 0, total = paidTot + (v.remaining || 0), pct = total > 0 ? Math.round(paidTot / total * 100) : 0;
