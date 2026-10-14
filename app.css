@@ -1748,41 +1748,41 @@
     .ps-detail .person-grid .pg-main{gap:14px;}
     .ps-detail .person-grid .pg-main > .side-card > .sc-head{display:none;}
     /* cartão da dívida aberta */
-    .ps-detail .card.open{background:#14171f;border:1px solid #1f2430;border-radius:18px;padding:22px;position:static;}
-    .ps-detail .card.open > .card-head{display:none;}
-    .ps-detail .card.open .od-top{display:flex;padding-right:0;}
-    .ps-detail .card.open .od-name{font:400 13px 'Inter',sans-serif;color:var(--muted);}
-    .ps-detail .card.open .od-amt b{font-size:44px;}
-    .ps-detail .card.open .od-bar i{background:#57b98a;}
-    .ps-detail .card.open .od-meta{display:none;}
-    .ps-detail .card.open .card-body-inner{display:flex;flex-direction:column;gap:12px;}
-    .ps-detail .card.open .od-head{margin:0;gap:12px;}
-    .ps-detail .card.open .card-tabs{display:none;}
-    .ps-detail .card.open .card-panel{display:flex !important;flex-direction:column;gap:12px;}
-    .ps-detail .card.open .card-panel[data-panel="historico"]{display:none !important;}
+    .ps-detail .card[data-debt-id]{background:#14171f;border:1px solid #1f2430;border-radius:18px;padding:22px;position:static;}
+    .ps-detail .card[data-debt-id] > .card-head{display:none;}
+    .ps-detail .card[data-debt-id] .od-top{display:flex;padding-right:0;}
+    .ps-detail .card[data-debt-id] .od-name{font:400 13px 'Inter',sans-serif;color:var(--muted);}
+    .ps-detail .card[data-debt-id] .od-amt b{font-size:44px;}
+    .ps-detail .card[data-debt-id] .od-bar i{background:#57b98a;}
+    .ps-detail .card[data-debt-id] .od-meta{display:none;}
+    .ps-detail .card[data-debt-id] .card-body-inner{display:flex;flex-direction:column;gap:12px;}
+    .ps-detail .card[data-debt-id] .od-head{margin:0;gap:12px;}
+    .ps-detail .card[data-debt-id] .card-tabs{display:none;}
+    .ps-detail .card[data-debt-id] .card-panel{display:flex !important;flex-direction:column;gap:12px;}
+    .ps-detail .card[data-debt-id] .card-panel[data-panel="historico"]{display:none !important;}
     .ps-detail .card-body-inner.more-open .card-panel[data-panel="historico"]{display:flex !important;}
-    .ps-detail .card.open .card-actions{order:1;gap:8px;align-items:center;}
-    .ps-detail .card.open .card-actions .btn{height:44px;padding:0 16px;border-radius:12px;font-size:13.5px;font-weight:600;}
-    .ps-detail .card.open .card-actions .ca-pay{display:inline-flex;font-size:14.5px;padding:0 20px;}
-    .ps-detail .card.open .card-actions .ca-more{display:inline-flex;width:44px;padding:0;justify-content:center;}
-    .ps-detail .card.open .card-actions .ca-sec,.ps-detail .card.open .card-actions .spacer{display:none;}
+    .ps-detail .card[data-debt-id] .card-actions{order:1;gap:8px;align-items:center;}
+    .ps-detail .card[data-debt-id] .card-actions .btn{height:44px;padding:0 16px;border-radius:12px;font-size:13.5px;font-weight:600;}
+    .ps-detail .card[data-debt-id] .card-actions .ca-pay{display:inline-flex;font-size:14.5px;padding:0 20px;}
+    .ps-detail .card[data-debt-id] .card-actions .ca-more{display:inline-flex;width:44px;padding:0;justify-content:center;}
+    .ps-detail .card[data-debt-id] .card-actions .ca-sec,.ps-detail .card[data-debt-id] .card-actions .spacer{display:none;}
     .ps-detail .card-body-inner.more-open .card-actions .ca-sec{display:inline-flex;}
-    .ps-detail .card.open .pay-form{display:none;order:2;}
+    .ps-detail .card[data-debt-id] .pay-form{display:none;order:2;}
     .ps-detail .card-body-inner.pay-open .pay-form{display:flex;}
-    .ps-detail .card.open .od-details{order:3;margin:0;}
-    .ps-detail .card.open .notes-block{order:3;}
+    .ps-detail .card[data-debt-id] .od-details{order:3;margin:0;}
+    .ps-detail .card[data-debt-id] .notes-block{order:3;}
     /* parcelas sempre à mostra */
-    .ps-detail .card.open .card-panel[data-panel="parcelas"] .stamps{display:none;}
-    .ps-detail .card.open .inst-list{display:flex;flex-direction:column;margin:0;font-family:'Inter',sans-serif;font-size:14px;}
-    .ps-detail .card.open .inst-row{display:grid;grid-template-columns:36px minmax(0,1fr) 110px 84px;gap:0 14px;align-items:center;padding:11px 0;margin:0;background:none;border:none;border-top:1px solid #1b1f29;border-radius:0;color:var(--text);}
-    .ps-detail .card.open .ir-n{grid-column:1;color:var(--muted);font-weight:500;font-size:12.5px;}
-    .ps-detail .card.open .ir-val{grid-column:2;grid-row:1;font-weight:500;}
-    .ps-detail .card.open .ir-due{grid-column:3;grid-row:1;font-size:12.5px;color:var(--muted);}
-    .ps-detail .card.open .ir-st{grid-column:4;grid-row:1;text-align:center;font-size:12px;font-weight:600;padding:4px 9px;border-radius:999px;background:#1a1e28;color:var(--muted);}
-    .ps-detail .card.open .inst-row.st-atrasada .ir-st{background:rgba(226,102,92,0.12);color:#f0a39c;}
-    .ps-detail .card.open .inst-row.st-paga .ir-st{background:rgba(87,185,138,0.12);color:#7fe0ac;}
-    .ps-detail .card.open .inst-row.st-parcial .ir-st{background:rgba(201,162,74,0.14);color:var(--gold-soft);}
-    .ps-detail .card.open .ir-det{grid-column:2 / -1;grid-row:2;font-size:11.5px;color:var(--muted-2);}
+    .ps-detail .card[data-debt-id] .card-panel[data-panel="parcelas"] .stamps{display:none;}
+    .ps-detail .card[data-debt-id] .inst-list{display:flex;flex-direction:column;margin:0;font-family:'Inter',sans-serif;font-size:14px;}
+    .ps-detail .card[data-debt-id] .inst-row{display:grid;grid-template-columns:36px minmax(0,1fr) 110px 84px;gap:0 14px;align-items:center;padding:11px 0;margin:0;background:none;border:none;border-top:1px solid #1b1f29;border-radius:0;color:var(--text);}
+    .ps-detail .card[data-debt-id] .ir-n{grid-column:1;color:var(--muted);font-weight:500;font-size:12.5px;}
+    .ps-detail .card[data-debt-id] .ir-val{grid-column:2;grid-row:1;font-weight:500;}
+    .ps-detail .card[data-debt-id] .ir-due{grid-column:3;grid-row:1;font-size:12.5px;color:var(--muted);}
+    .ps-detail .card[data-debt-id] .ir-st{grid-column:4;grid-row:1;text-align:center;font-size:12px;font-weight:600;padding:4px 9px;border-radius:999px;background:#1a1e28;color:var(--muted);}
+    .ps-detail .card[data-debt-id] .inst-row.st-atrasada .ir-st{background:rgba(226,102,92,0.12);color:#f0a39c;}
+    .ps-detail .card[data-debt-id] .inst-row.st-paga .ir-st{background:rgba(87,185,138,0.12);color:#7fe0ac;}
+    .ps-detail .card[data-debt-id] .inst-row.st-parcial .ir-st{background:rgba(201,162,74,0.14);color:var(--gold-soft);}
+    .ps-detail .card[data-debt-id] .ir-det{grid-column:2 / -1;grid-row:2;font-size:11.5px;color:var(--muted-2);}
     /* coluna da direita: confiança, histórico, etiquetas */
     .ps-detail .pg-side{display:flex;flex-direction:column;gap:20px;}
     .ps-detail .person-extra{margin:0;gap:20px;}
@@ -1798,9 +1798,9 @@
     #pagePessoas .ps-list .pp-kind button.active{background:#232838;color:var(--text);}
     #pagePessoas .ps-list .pp-chips{flex-wrap:nowrap;gap:5px;}
     #pagePessoas .ps-list .pp-chips button{padding:0 9px;white-space:nowrap;}
-    .ps-detail .card.open > .card-body{border-top:none;}
-    .ps-detail .card.open .card-actions .btn{padding:0 13px;}
-    .ps-detail .card.open .card-actions .ca-pay{padding:0 18px;}
+    .ps-detail .card[data-debt-id] > .card-body{border-top:none;}
+    .ps-detail .card[data-debt-id] .card-actions .btn{padding:0 13px;}
+    .ps-detail .card[data-debt-id] .card-actions .ca-pay{padding:0 18px;}
     .ps-detail .pe-history .history-list{gap:0;}
     .ps-detail .pe-history .history-row{background:none;border:none;padding:6px 0;border-radius:0;}
   }
@@ -1808,7 +1808,7 @@
     #pagePessoas .ps-list .pp-kind button.active{background:#232838 !important;color:var(--text);}
   }
   @media (min-width:1024px){
-    .ps-detail .card.open .card-actions .ca-more{order:50;}
-    .ps-detail .card.open .card-actions .ca-sec{order:60;}
+    .ps-detail .card[data-debt-id] .card-actions .ca-more{order:50;}
+    .ps-detail .card[data-debt-id] .card-actions .ca-sec{order:60;}
     .ps-detail .pa-menu .btn-primary{color:var(--text);box-shadow:none;}
   }
