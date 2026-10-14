@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=bd6ba9d3" data-app-css>
+<link rel="stylesheet" href="app.css?v=67883c7a" data-app-css>
 </head>
 <body data-page="dashboard">
 <!-- Ícones: Lucide (https://lucide.dev), licença ISC. Copyright (c) Lucide Icons and Contributors -->
@@ -88,33 +88,6 @@
     </div>
   </div>
 
-  <div class="pp-head">
-    <div class="filters pp-kind" id="kindToggle">
-      <button data-k="receivable" class="active"><span class="kt-l">Me devem</span><span class="kt-amt" id="ktAmtRec"></span></button>
-      <button data-k="payable"><span class="kt-l">Eu devo</span><span class="kt-amt" id="ktAmtPay"></span></button>
-    </div>
-    <div class="pp-tools">
-      <label class="search-wrap pp-search"><svg class="i" aria-hidden="true"><use href="#i-search"></use></svg><input class="search" id="search" placeholder="Buscar pessoa ou grupo…" aria-label="Buscar"></label>
-      <div class="pp-more">
-        <button type="button" class="btn btn-ghost btn-sm btn-icon" id="ppMore" aria-label="Mais opções" aria-haspopup="true" aria-expanded="false"><svg class="i" aria-hidden="true"><use href="#i-ellipsis"></use></svg></button>
-        <div class="pp-menu" id="ppMenu" hidden>
-          <label class="ppm-sort"><svg class="i" aria-hidden="true"><use href="#i-arrow-left-right"></use></svg><span>Ordenar</span>
-            <select class="select" id="sortSel" aria-label="Ordenar">
-              <option value="due">Vence primeiro</option>
-              <option value="recent">Mais recentes</option>
-              <option value="oldest">Mais antigos</option>
-              <option value="valueDesc">Maior valor</option>
-              <option value="valueAsc">Menor valor</option>
-            </select></label>
-          <button type="button" id="btnResumo"><svg class="i" aria-hidden="true"><use href="#i-chart-column"></use></svg><span>Resumo e gráfico</span></button>
-          <button type="button" id="btnGroup">Agrupar por amigo</button>
-          <button type="button" id="btnBoard"><svg class="i" aria-hidden="true"><use href="#i-trophy"></use></svg><span>Placar</span></button>
-          <button type="button" id="btnSplit"><svg class="i" aria-hidden="true"><use href="#i-receipt"></use></svg><span>Dividir conta</span></button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <details class="summary-panel" id="pessoasResumo" hidden>
     <summary><span class="sp-title"><svg class="i" aria-hidden="true"><use href="#i-chart-column"></use></svg> Resumo</span><span class="sp-line" id="resumoLine"></span><span class="chev"><svg class="i" aria-hidden="true"><use href="#i-chevron-down"></use></svg></span></summary>
     <div class="sp-body">
@@ -162,17 +135,41 @@
 
   <div id="claimsPessoas"></div>
 
-  <div class="filters pp-chips scroll-x" id="filters">
-    <button data-f="pendentes" class="active">Em aberto</button>
-    <button data-f="atrasados">Atrasados <span class="f-count late" id="lateCount"></span></button>
-    <button data-f="pagos">Quitados <span class="f-count" id="archiveCount"></span></button>
-    <button data-f="todos">Todos</button>
-  </div>
-
-  <div id="lateBar"></div>
-
   <div class="pessoas-split">
     <div class="ps-list">
+    <div class="pp-head">
+      <div class="filters pp-kind" id="kindToggle">
+        <button data-k="receivable" class="active"><span class="kt-l">Me devem</span><span class="kt-amt" id="ktAmtRec"></span></button>
+        <button data-k="payable"><span class="kt-l">Eu devo</span><span class="kt-amt" id="ktAmtPay"></span></button>
+      </div>
+      <div class="pp-tools">
+        <label class="search-wrap pp-search"><svg class="i" aria-hidden="true"><use href="#i-search"></use></svg><input class="search" id="search" placeholder="Buscar pessoa ou grupo…" aria-label="Buscar"></label>
+        <div class="pp-more">
+          <button type="button" class="btn btn-ghost btn-sm btn-icon" id="ppMore" aria-label="Mais opções" aria-haspopup="true" aria-expanded="false"><svg class="i" aria-hidden="true"><use href="#i-ellipsis"></use></svg></button>
+          <div class="pp-menu" id="ppMenu" hidden>
+            <label class="ppm-sort"><svg class="i" aria-hidden="true"><use href="#i-arrow-left-right"></use></svg><span>Ordenar</span>
+              <select class="select" id="sortSel" aria-label="Ordenar">
+                <option value="due">Vence primeiro</option>
+                <option value="recent">Mais recentes</option>
+                <option value="oldest">Mais antigos</option>
+                <option value="valueDesc">Maior valor</option>
+                <option value="valueAsc">Menor valor</option>
+              </select></label>
+            <button type="button" id="btnResumo"><svg class="i" aria-hidden="true"><use href="#i-chart-column"></use></svg><span>Resumo e gráfico</span></button>
+            <button type="button" id="btnGroup">Agrupar por amigo</button>
+            <button type="button" id="btnBoard"><svg class="i" aria-hidden="true"><use href="#i-trophy"></use></svg><span>Placar</span></button>
+            <button type="button" id="btnSplit"><svg class="i" aria-hidden="true"><use href="#i-receipt"></use></svg><span>Dividir conta</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="filters pp-chips scroll-x" id="filters">
+      <button data-f="pendentes" class="active">Em aberto</button>
+      <button data-f="atrasados">Atrasados <span class="f-count late" id="lateCount"></span></button>
+      <button data-f="pagos">Quitados <span class="f-count" id="archiveCount"></span></button>
+      <button data-f="todos">Todos</button>
+    </div>
+      <div id="lateBar"></div>
       <div class="glist" id="groupList"></div>
       <div class="list" id="list"></div>
       <div class="plist" id="peopleList" role="list" aria-label="Pessoas"></div>
@@ -863,7 +860,7 @@
 {"contacts": {}, "debts": [], "wallets": [], "transactions": []}
 </script>
 
-<script src="app.js?v=49643aa4" data-app-js></script>
+<script src="app.js?v=68a34176" data-app-js></script>
 
 </body>
 </html>

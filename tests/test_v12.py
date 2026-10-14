@@ -84,7 +84,7 @@ with sync_playwright() as p:
     check(db['x'] > lb['x'] + lb['width'] - 1, 'PC: painel fica à direita da lista')
     check(page.locator('#peopleList .prow', has_text='Larissa Mota').count() == 1, 'PC: uma linha por pessoa')
     n0 = len([d for d in json.loads(page.evaluate("localStorage.getItem('barnabank_debts_v3')"))['debts'] if d['name'] == 'Larissa Mota'][0]['payments'])
-    page.fill('#psDetail .pf-amount', '50,00'); page.click('#psDetail [data-act="registrar"]'); page.wait_for_timeout(500)
+    page.click('#psDetail [data-act="paytoggle"]'); page.fill('#psDetail .pf-amount', '50,00'); page.click('#psDetail [data-act="registrar"]'); page.wait_for_timeout(500)
     n1 = len([d for d in json.loads(page.evaluate("localStorage.getItem('barnabank_debts_v3')"))['debts'] if d['name'] == 'Larissa Mota'][0]['payments'])
     check(n1 == n0 + 1, 'PC: registrar pagamento pelo painel')
     page.screenshot(path=SP + '/v12_pc_pessoas.png', full_page=True)
