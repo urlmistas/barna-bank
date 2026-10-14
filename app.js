@@ -167,6 +167,8 @@
         d.payments = d.payments.map(function(dt){ return {date: dt, amount: instVal}; });
       }
       if(typeof d.notes !== 'string') d.notes = '';
+      if(typeof d.subject === 'string' && d.subject.trim()) d.subject = d.subject.trim().slice(0, 50); else delete d.subject;
+      if(typeof d.pubNote === 'string' && d.pubNote.trim()) d.pubNote = d.pubNote.trim().slice(0, 140); else delete d.pubNote;
       if(d.interestType !== 'simples' && d.interestType !== 'composto' && d.interestType !== 'price') d.interestType = 'composto';
       if(typeof d.lateFeePct !== 'number' || isNaN(d.lateFeePct) || d.lateFeePct < 0) d.lateFeePct = 0;
       if(typeof d.lateInterestPct !== 'number' || isNaN(d.lateInterestPct) || d.lateInterestPct < 0) d.lateInterestPct = 0;
@@ -1140,7 +1142,7 @@
     head.innerHTML =
       '<div class="avatar">' + escapeHtml(initials(d.name)) + '</div>' +
       '<div class="who">' +
-        '<div class="name">' + escapeHtml(d.name) + ' <span class="kind-pill ' + (isPayable?'payable':'receivable') + '">' + (isPayable?'A pagar':'A receber') + '</span>' +
+        '<div class="name">' + escapeHtml(d.name) + (d.subject ? ' <span class="subj">· ' + escapeHtml(d.subject) + '</span>' : '') + ' <span class="kind-pill ' + (isPayable?'payable':'receivable') + '">' + (isPayable?'A pagar':'A receber') + '</span>' +
           (grp ? '<button type="button" class="grp-pill" title="Ver o grupo">' + ic('users') + '<span>' + escapeHtml(grp.title) + '</span></button>' : '') + '</div>' +
         '<div class="sub"><span class="badge ' + status + '">' + statusLabel(d) + '</span><span class="sub-since"> · ' + (isPayable ? 'desde ' : 'emprestado em ') + fmtDate(d.date) + '</span></div>' +
         (d.notes ? '<div class="sub note-line" title="' + escapeHtml(d.notes).replace(/"/g, '&quot;') + '">' + ic('square-text') + ' ' + escapeHtml(d.notes) + '</div>' : '') +
@@ -1248,7 +1250,7 @@
     function tabBtn(id, label){ return '<button type="button" class="ct-btn' + (tab === id ? ' active' : '') + '" role="tab" aria-selected="' + (tab === id) + '" data-tab="' + id + '">' + label + '</button>'; }
     var totalDue = effectiveTotal(d), remain = remaining(d);
     var odHead = '<div class="od-head">' +
-      '<div class="od-top"><span class="od-name">' + escapeHtml(d.name) + (grp ? ' <span class="od-grp">· ' + escapeHtml(grp.title) + '</span>' : '') + '</span><span class="od-status ' + status + '">' + statusLabel(d) + '</span></div>' +
+      '<div class="od-top"><span class="od-name">' + escapeHtml(d.name) + (d.subject ? ' <span class="od-grp">· ' + escapeHtml(d.subject) + '</span>' : '') + (grp ? ' <span class="od-grp">· ' + escapeHtml(grp.title) + '</span>' : '') + '</span><span class="od-status ' + status + '">' + statusLabel(d) + '</span></div>' +
       '<div class="od-amt"><b>' + money.format(paid ? paidAmount(d) : remain) + '</b><span>' + (paid ? (isPayable ? 'pago no total' : 'recebido no total') : 'falta de ' + money.format(totalDue)) + '</span></div>' +
       '<div class="od-bar"><i style="width:' + progressPct(d).toFixed(1) + '%"></i></div>' +
       '<div class="od-meta">' + (isPayable ? 'Dívida de ' : 'Emprestado em ') + fmtDate(d.date) + ' · ' + (d.recurring ? 'todo mês · ' + money.format(d.recurring.amount) + (d.recurring.label ? ' · ' + escapeHtml(d.recurring.label) : '') : d.plan ? planLabel(d) : n > 1 ? n + 'x de ' + money.format(installmentValue(d)) : 'parcela única') + (d.plan ? ' · renegociada' : d.rate > 0 ? ' · juros ' + String(d.rate).replace('.', ',') + '% a.m.' : ' · sem juros') + '</div>' +
@@ -1564,6 +1566,7 @@
   var fInterestType = document.getElementById('fInterestType');
   var fPhone = document.getElementById('fPhone');
   var fNotes = document.getElementById('fNotes');
+  var fSubject = document.getElementById('fSubject'), fPubNote = document.getElementById('fPubNote');
   var fLateFee = document.getElementById('fLateFee');
   var fLateInterest = document.getElementById('fLateInterest');
   var formErr = document.getElementById('formErr');
@@ -1689,6 +1692,8 @@
     var contact = state.contacts[nameKey(debt ? debt.name : '')];
     fPhone.value = contact ? formatPhoneDisplay(contact.phone) : '';
     fNotes.value = debt ? debt.notes : '';
+    fSubject.value = debt ? (debt.subject || '') : '';
+    fPubNote.value = debt ? (debt.pubNote || '') : '';
     fLateFee.value = debt ? (debt.lateFeePct || '') : (settings.defaultLateFee || '');
     fLateInterest.value = debt ? (debt.lateInterestPct || '') : (settings.defaultLateInterest || '');
     formErr.textContent = '';
@@ -1721,6 +1726,7 @@
     var dueDay = parseInt(fDueDay.value, 10);
     var phoneDigits = isPayable ? '' : onlyDigits(fPhone.value);
     var notes = fNotes.value.trim();
+    var subject = fSubject.value.trim().slice(0, 50), pubNote = fPubNote.value.trim().slice(0, 140);
     var isRec = isPayable && fRecurring.checked;
     if(isRec){ installmentsRaw = 1; days = 30; }
 
@@ -1747,6 +1753,8 @@
         delete d.plan; invalidateSchedules();
       }
       d.name = name; d.principal = principal; d.rate = rate; d.interestType = interestType; d.date = date; d.days = days; d.installments = installmentsRaw; d.dueDay = dueDay; d.notes = notes; d.kind = currentFormKind; d.lateFeePct = lateFeePct; d.lateInterestPct = lateInterestPct;
+      if(subject) d.subject = subject; else delete d.subject;
+      if(pubNote) d.pubNote = pubNote; else delete d.pubNote;
       if(isRec){ d.recurring = {amount: round2(principal), label: fRecLabel.value.trim().slice(0, 40)}; delete d.reneg; }
       else delete d.recurring;
       if(d.firstDue && dueDay !== prevDueDay){
@@ -1760,6 +1768,8 @@
         name: name, principal: principal, date: date, days: days, installments: installmentsRaw, rate: rate, interestType: interestType, dueDay: dueDay, payments: [], notes: notes, kind: currentFormKind, discount: 0, lateFeePct: lateFeePct, lateInterestPct: lateInterestPct
       };
       if(isRec) nd.recurring = {amount: round2(principal), label: fRecLabel.value.trim().slice(0, 40)};
+      if(subject) nd.subject = subject;
+      if(pubNote) nd.pubNote = pubNote;
       state.debts.push(nd);
       showToast('Dívida adicionada');
     }
@@ -6372,6 +6382,36 @@
     return p.length > 1 ? p[0] + ' ' + p[p.length - 1][0].toUpperCase() + '.' : p[0];
   }
   function sortedPays(d){ return (d.payments || []).slice().sort(function(a, b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; }).map(function(p){ return {date: p.date, amount: round2(p.amount)}; }); }
+  // de qual parcela é cada pagamento ("5ª parcela", "outubro" na recorrente): pelo valor acumulado
+  function payLabels(d, s){
+    var bounds = [], acc = 0;
+    s.insts.forEach(function(it){ acc += it.value; bounds.push(acc); });
+    var cum = 0;
+    return (d.payments || []).slice().sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; }).map(function(p){
+      cum += p.amount || 0;
+      var idx = 0;
+      while(idx < bounds.length - 1 && bounds[idx] < cum - 0.01) idx++;
+      var it = s.insts[idx];
+      var label = d.recurring && it ? MONTH_NAMES[+it.dueISO.slice(5, 7) - 1].toLowerCase() : s.insts.length > 1 ? (idx + 1) + 'ª parcela' : 'pagamento';
+      return {date: p.date, amount: round2(p.amount), label: label};
+    });
+  }
+  // o que o link mostra de cada dívida além do básico: assunto, parcela X de Y, próxima, fim
+  function shareDebtInfo(d, s){
+    var n = installments(d), open = s.insts.filter(function(it){ return it.open > EPS; });
+    var vals = s.insts.map(function(it){ return round2(it.value); });
+    var same = vals.every(function(v){ return Math.abs(v - vals[0]) < 0.05; });
+    var nx = open[0] || null, last = s.insts[s.insts.length - 1];
+    return {
+      subject: d.subject || '', note: d.pubNote || '', recurring: !!d.recurring, day: d.recurring ? (d.dueDay || 0) : 0,
+      count: d.recurring ? 0 : n, instValue: d.recurring ? 0 : (same ? vals[0] : 0), planLabel: d.plan ? planLabel(d) : '',
+      paidCount: s.insts.filter(function(it){ return it.state === 'paga'; }).length,
+      next: nx ? {date: nx.dueISO, amount: round2(nx.open), n: nx.i + 1} : null,
+      after: open[1] ? {date: open[1].dueISO, amount: round2(open[1].open), n: open[1].i + 1} : null,
+      end: d.recurring || !last ? '' : last.dueISO,
+      monthsPaid: d.recurring ? s.insts.filter(function(it){ return it.state === 'paga'; }).length : 0
+    };
+  }
   function personShareView(key, onlyDebtId, kind){
     var ds = state.debts.filter(function(d){ return onlyDebtId ? d.id === onlyDebtId : (nameKey(d.name) === key && d.kind === (kind || 'receivable')); });
     if(!ds.length) return null;
@@ -6385,14 +6425,39 @@
         var s = debtSchedule(d), g = groupOf(d), n = installments(d);
         return {
           payNow: round2(s.overdue > EPS ? s.overdue : amountDueNow(d)), _id: d.id,
-          title: g ? g.title : d.recurring ? (d.recurring.label || 'Cobrança mensal') : owe ? (n > 1 ? 'Dívida em ' + n + 'x' : 'Dívida') : (n > 1 ? 'Empréstimo em ' + n + 'x' : 'Empréstimo'), date: d.date,
+          title: d.subject ? d.subject : g ? g.title : d.recurring ? (d.recurring.label || 'Cobrança mensal') : owe ? (n > 1 ? 'Dívida em ' + n + 'x' : 'Dívida') : (n > 1 ? 'Empréstimo em ' + n + 'x' : 'Empréstimo'), date: d.date,
           monthly: d.recurring ? round2(d.recurring.amount) : 0,
           total: round2(effectiveTotal(d)), paid: round2(Math.min(paidAmount(d), effectiveTotal(d))), remaining: round2(remaining(d)), late: round2(s.overdue),
           due: n === 1 && s.insts[0] ? s.insts[0].dueISO : '',
           insts: n > 1 ? s.insts.filter(function(it){ return !d.recurring || it.open > EPS || it.i >= n - 4; }).map(function(it){ return {n: it.i + 1, due: it.dueISO, value: round2(it.value + it.pen + it.penPaid), open: round2(it.open), state: it.state}; }) : [],
-          payments: sortedPays(d)
+          payments: sortedPays(d),
+          info: shareDebtInfo(d, s)
         };
-      })
+      }),
+      summary: shareSummary(ds, open, done)
+    };
+  }
+  // números do topo do link: quantas em aberto, recorrentes, quitadas, quanto já foi pago, próximo pagamento e histórico
+  function shareSummary(ds, open, done){
+    var titleOf = function(d){ var g = groupOf(d), n = installments(d); return d.subject || (g ? g.title : d.recurring ? (d.recurring.label || 'Cobrança mensal') : d.kind === 'payable' ? (n > 1 ? 'Dívida em ' + n + 'x' : 'Dívida') : (n > 1 ? 'Empréstimo em ' + n + 'x' : 'Empréstimo')); };
+    var hist = [], dues = [], ends = [];
+    ds.forEach(function(d){
+      var s = debtSchedule(d), t = titleOf(d);
+      payLabels(d, s).forEach(function(p){ hist.push({date: p.date, amount: p.amount, title: t, label: p.label}); });
+      if(isPaid(d)) return;
+      s.insts.filter(function(it){ return it.open > EPS; }).slice(0, 2).forEach(function(it){ dues.push({date: it.dueISO, amount: round2(it.open), title: t, n: it.i + 1, of: d.recurring ? 0 : installments(d), recurring: !!d.recurring}); });
+      if(!d.recurring && s.insts.length) ends.push(s.insts[s.insts.length - 1].dueISO);
+    });
+    hist.sort(function(a, b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+    dues.sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    var paidTotal = round2(ds.reduce(function(s, d){ return s + Math.min(paidAmount(d), effectiveTotal(d)); }, 0));
+    return {
+      openCount: open.filter(function(d){ return !d.recurring; }).length,
+      recurringCount: open.filter(function(d){ return !!d.recurring; }).length,
+      doneCount: done.length, paidTotal: paidTotal, payCount: hist.length,
+      next: dues[0] || null, after: dues[1] || null,
+      endAll: ends.sort().pop() || '',
+      history: hist.slice(0, 8)
     };
   }
   function groupShareView(g){

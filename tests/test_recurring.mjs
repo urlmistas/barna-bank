@@ -36,6 +36,16 @@ assert.equal(all.dir, 'owe');
 assert.equal(all.remaining, 219.7, 'soma as duas dívidas a pagar do Carlos');
 assert.equal(all.debts.length, 2);
 
+// v19: números do topo e o que cada dívida mostra no link novo
+assert.equal(all.summary.openCount, 1, 'uma parcelada em aberto');
+assert.equal(all.summary.recurringCount, 1, 'uma recorrente');
+assert.ok(all.summary.next && all.summary.next.amount > 0, 'tem próximo pagamento');
+assert.equal(all.summary.history[0].title, 'Netflix', 'histórico com o assunto');
+const parc = all.debts.find(d => !d.info.recurring);
+assert.equal(parc.info.count, 2);
+assert.equal(parc.info.instValue, 50);
+assert.equal(parc.info.next.n, 1);
+assert.ok(all.debts.find(d => d.info.recurring).info.day === 10, 'recorrente: dia do mês');
 assert.equal(sh[T.person].dir, '', 'link de quem me deve continua igual');
 assert.equal(sh[T.person].remaining, 50);
 console.log('ok test_recurring');

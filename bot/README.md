@@ -48,6 +48,14 @@ Você também fica sabendo quando a pessoa abre o link (o bot avisa, no máximo 
 ### Dívidas que eu tenho (link do que devo)
 Dívida **a pagar** também tem link: botão **Link** dentro da dívida, ou **Link do que devo** na página da pessoa (junta tudo que você deve a ela). Quem abrir vê quanto já foi pago, quanto falta pra quitar e as parcelas, sem PIX nem botão de pagar. Atualiza sozinho.
 
+A página mostra:
+- no topo, quanto falta, o progresso e quantas dívidas estão em aberto, são recorrentes ou já foram quitadas;
+- o próximo pagamento em destaque;
+- cada dívida com o seu **assunto** como título;
+- os últimos pagamentos, dizendo de qual parcela foi cada um.
+
+O assunto é o campo **Do que se trata** da dívida, e o ícone sai dele (moto, notebook, aluguel…). O campo **Descrição no link** aparece entre aspas para a outra pessoa. As **Anotações** continuam só suas.
+
 Para assinaturas no cartão de um amigo, marque **Dívida recorrente** ao criar a dívida: informe o valor por mês, o dia de vencimento e do que é (ex.: Netflix). Todo mês entra uma parcela nova, então o link sempre mostra o que ainda falta pagar até hoje.
 
 ### Perguntas e áudio
