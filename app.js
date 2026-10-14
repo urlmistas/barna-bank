@@ -1274,13 +1274,13 @@
         (d.notes ? '<div class="notes-block"><b>Anotações</b>' + escapeHtml(d.notes) + '</div>' : '') +
         payFormHtml +
         '<div class="card-actions">' +
-          (paid ? '' : '<button type="button" class="btn btn-primary btn-sm ca-pay" data-act="paytoggle" aria-expanded="false">' + ic('check') + ' Registrar pagamento</button>') +
+          (paid ? '' : '<button type="button" class="btn btn-primary btn-sm ca-pay" data-act="paytoggle" aria-expanded="false">' + ic('check') + ' Pago</button>') +
           (wLink ? '<a class="btn btn-whats btn-sm ca-sec" href="' + wLink + '" target="_blank" rel="noopener" data-act="whats">' + ic('message-circle') + ' WhatsApp</a>' : (isPayable ? '' : '<button class="btn btn-ghost btn-sm ca-sec" data-act="nowhats" title="Cadastre o telefone em Editar">' + ic('message-circle') + ' WhatsApp</button>')) +
           (opts.inPerson ? '' : '<button class="btn btn-ghost btn-sm ca-sec" data-act="profile">' + ic('user') + ' Ver pessoa</button>') +
-          (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="extend">' + ic('calendar-clock') + ' Dar mais prazo</button>') +
-          (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="settle">' + ic('badge-percent') + ' Quitar c/ desconto</button>') +
+          (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="extend">' + ic('calendar-clock') + ' Mais prazo</button>') +
+          (paid ? '' : '<button class="btn btn-ghost btn-sm btn-icon" data-act="settle" title="Quitar com desconto" aria-label="Quitar com desconto">' + ic('badge-percent') + '</button>') +
           (paid || d.recurring ? '' : '<button class="btn btn-ghost btn-sm ca-sec" data-act="reneg">' + ic('handshake') + ' Renegociar</button>') +
-          '<button type="button" class="btn btn-ghost btn-sm btn-icon ca-more" data-act="more" aria-label="Mais ações" aria-expanded="false">' + ic('ellipsis') + '</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm btn-icon ca-more" data-act="more" aria-label="Mais ações" aria-expanded="false">' + ic('ellipsis') + '<span>Mais</span></button>' +
           '<div class="spacer"></div>' +
           ('<button class="btn btn-ghost btn-sm ca-sec" data-act="share" title="' + (isPayable ? 'Link para quem você deve ver quanto falta pagar' : 'Link só desta dívida') + '">' + ic('share-2') + ' Link' + (shareFor('debt', d.id) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>') +
           (paid && !isPayable ? '<button class="btn btn-primary btn-sm ca-sec" data-act="receipt">' + ic('receipt') + ' Recibo de quitação</button>' : '') +
@@ -1981,11 +1981,34 @@
       '</div>';
 
     var listBox = document.getElementById('personDebts');
-    debts.slice().sort(function(a, b){
+    // pagas por último; depois por vencimento; as recorrentes ficam no fim, seja qual for a data
+    var sortedDebts = debts.slice().sort(function(a, b){
       if(isPaid(a) !== isPaid(b)) return isPaid(a) ? 1 : -1;
+      if(!!a.recurring !== !!b.recurring) return a.recurring ? 1 : -1;
       var x = nextDueDate(a), y = nextDueDate(b);
       return (x ? x.getTime() : Infinity) - (y ? y.getTime() : Infinity);
-    }).forEach(function(d){ listBox.appendChild(buildCard(d, {inPerson: true})); });
+    });
+    if(el.id === 'psDetail' && sortedDebts.length > 1){
+      // várias dívidas: uma grade de dívidas e só a escolhida aberta embaixo
+      if(!sortedDebts.some(function(d){ return d.id === state.openId; })) state.openId = sortedDebts[0].id;
+      var tabs = document.createElement('div');
+      tabs.className = 'debt-tabs'; tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Dívidas de ' + name);
+      tabs.innerHTML = sortedDebts.map(function(d){
+        var st = statusOf(d), sel = d.id === state.openId, pd = isPaid(d);
+        return '<button type="button" role="tab" class="dt-tab' + (sel ? ' active' : '') + (st === 'atrasado' && !pd ? ' late' : '') + '" aria-selected="' + sel + '" data-id="' + escapeHtml(d.id) + '">' +
+          '<span class="dt-ico">' + ic(d.recurring ? 'repeat' : d.kind === 'payable' ? 'banknote-arrow-up' : 'hand-coins') + '</span>' +
+          '<span class="dt-t"><b>' + escapeHtml(debtLabel(d)) + '</b><small>' + (d.recurring ? 'recorrente · ' : '') + escapeHtml(statusLabel(d)) + '</small></span>' +
+          '<span class="dt-a">' + money.format(pd ? paidAmount(d) : remaining(d)) + '</span></button>';
+      }).join('');
+      tabs.addEventListener('click', function(e){
+        var b = e.target.closest('.dt-tab');
+        if(!b) return;
+        state.openId = b.getAttribute('data-id');
+        render();
+      });
+      listBox.parentNode.insertBefore(tabs, listBox);
+    }
+    sortedDebts.forEach(function(d){ listBox.appendChild(buildCard(d, {inPerson: true})); });
     document.getElementById('personTagsEdit').addEventListener('click', function(){ personTagsDialog(key, name); });
     var pmore = document.getElementById('personMore'), pmenu = document.getElementById('personMenu');
     if(pmore) pmore.addEventListener('click', function(e){
@@ -6549,19 +6572,22 @@
     var p = String(n || '').trim().split(/\s+/);
     return p.length > 1 ? p[0] + ' ' + p[p.length - 1][0].toUpperCase() + '.' : p[0];
   }
-  function sortedPays(d){ return (d.payments || []).slice().sort(function(a, b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; }).map(function(p){ return {date: p.date, amount: round2(p.amount)}; }); }
+  function sortedPays(d){ return payLabels(d, debtSchedule(d)).reverse().map(function(p){ return {date: p.date, amount: p.amount, label: p.label, done: p.done}; }); }
   // de qual parcela é cada pagamento ("5ª parcela", "outubro" na recorrente): pelo valor acumulado
   function payLabels(d, s){
     var bounds = [], acc = 0;
     s.insts.forEach(function(it){ acc += it.value; bounds.push(acc); });
-    var cum = 0;
+    var cum = 0, total = bounds.length ? bounds[bounds.length - 1] : 0;
     return (d.payments || []).slice().sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; }).map(function(p){
+      var before = cum;
       cum += p.amount || 0;
       var idx = 0;
       while(idx < bounds.length - 1 && bounds[idx] < cum - 0.01) idx++;
       var it = s.insts[idx];
-      var label = d.recurring && it ? MONTH_NAMES[+it.dueISO.slice(5, 7) - 1].toLowerCase() : s.insts.length > 1 ? (idx + 1) + 'ª parcela' : 'pagamento';
-      return {date: p.date, amount: round2(p.amount), label: label};
+      var label = d.recurring && it ? MONTH_NAMES[+it.dueISO.slice(5, 7) - 1].toLowerCase() : s.insts.length > 1 ? 'parcela ' + (idx + 1) + '/' + s.insts.length : 'pagamento';
+      // quitou: este pagamento é o que completa a dívida (não vale para recorrente, que não acaba)
+      var done = !d.recurring && total > 0 && before < total - 0.01 && cum >= total - 0.01;
+      return {date: p.date, amount: round2(p.amount), label: label, done: done};
     });
   }
   // o que o link mostra de cada dívida além do básico: assunto, parcela X de Y, próxima, fim
@@ -6611,7 +6637,7 @@
     var hist = [], dues = [], ends = [];
     ds.forEach(function(d){
       var s = debtSchedule(d), t = titleOf(d);
-      payLabels(d, s).forEach(function(p){ hist.push({date: p.date, amount: p.amount, title: t, label: p.label}); });
+      payLabels(d, s).forEach(function(p){ hist.push({date: p.date, amount: p.amount, title: t, label: p.label, done: p.done}); });
       if(isPaid(d)) return;
       s.insts.filter(function(it){ return it.open > EPS; }).slice(0, 2).forEach(function(it){ dues.push({date: it.dueISO, amount: round2(it.open), title: t, n: it.i + 1, of: d.recurring ? 0 : installments(d), recurring: !!d.recurring}); });
       if(!d.recurring && s.insts.length) ends.push(s.insts[s.insts.length - 1].dueISO);

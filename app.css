@@ -1708,12 +1708,14 @@
   .pa-more-wrap{display:contents;}
   @media (min-width:1024px){
     /* cabeçalho em largura total */
-    .wrap:has(#pagePessoas:not([style*="none"])){max-width:none;padding:0;}
-    .wrap:has(#pagePessoas:not([style*="none"])) > header.topbar{height:72px;box-sizing:border-box;margin:0;padding:0 40px;border-bottom:1px solid #1a1e28;}
+    .wrap{max-width:none;padding:0;}
+    .wrap > header.topbar{height:72px;box-sizing:border-box;margin:0;padding:0 40px;border-bottom:1px solid #1a1e28;}
+    /* as outras abas: mesmo cabeçalho de largura total, conteúdo centralizado embaixo */
+    .wrap > :not(header.topbar):not(#pagePessoas){max-width:1160px;margin-left:auto;margin-right:auto;padding:28px 20px 20px;box-sizing:border-box;}
     #pagePessoas > :not(.pessoas-split){margin-left:40px;margin-right:40px;}
-    #pagePessoas .pessoas-split{grid-template-columns:400px minmax(0,1fr);gap:0;align-items:stretch;min-height:calc(100vh - 73px);}
+    #pagePessoas .pessoas-split{grid-template-columns:400px minmax(0,1fr);gap:0;align-items:stretch;min-height:calc(100vh - 73px);background:linear-gradient(#161a22,#161a22) 399px 0 / 1px 100% no-repeat;}
     /* coluna da lista: busca, abas, filtros, pessoas */
-    #pagePessoas .ps-list{background:none;border:none;border-right:1px solid #161a22;border-radius:0;box-shadow:none;padding:24px 20px;position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto;display:flex;flex-direction:column;gap:12px;box-sizing:border-box;}
+    #pagePessoas .ps-list{background:none;border:none;border:none;border-radius:0;box-shadow:none;padding:24px 20px;position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto;display:flex;flex-direction:column;gap:12px;box-sizing:border-box;}
     #pagePessoas .ps-list .pp-head{display:flex;flex-direction:column-reverse;align-items:stretch;gap:12px;margin:0;}
     #pagePessoas .ps-list .pp-tools{width:100%;}
     #pagePessoas .ps-list .pp-search{flex:1 1 auto;}
@@ -1811,4 +1813,40 @@
     .ps-detail .card[data-debt-id] .card-actions .ca-more{order:50;}
     .ps-detail .card[data-debt-id] .card-actions .ca-sec{order:60;}
     .ps-detail .pa-menu .btn-primary{color:var(--text);box-shadow:none;}
+  }
+
+  /* ===== v22 ===== */
+  .ca-more span{display:none;}
+  .debt-tabs{display:none;}
+  @media (min-width:1024px){
+    /* Me devem / Eu devo: texto no meio da caixa */
+    #pagePessoas .ps-list .pp-kind button{align-items:center;line-height:1;}
+    /* Pago, Mais prazo, Quitar, Mais: lado a lado */
+    .ps-detail .card[data-debt-id] .card-actions .ca-more span{display:inline;}
+    .ps-detail .card[data-debt-id] .card-actions .ca-more{width:auto;padding:0 14px;gap:6px;}
+    .ps-detail .card[data-debt-id] .card-actions [data-act="settle"]{width:44px;padding:0;justify-content:center;}
+    .ps-detail .card[data-debt-id] .card-actions .btn{white-space:nowrap;}
+    /* várias dívidas: grade de dívidas, só a escolhida aberta */
+    .ps-detail .debt-tabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin:0 0 14px;}
+    .ps-detail .dt-tab{display:flex;align-items:center;gap:10px;min-width:0;padding:10px 12px;border-radius:14px;border:1px solid #1f2430;background:#101319;color:var(--text);font-family:'Inter',sans-serif;text-align:left;cursor:pointer;}
+    .ps-detail .dt-tab:hover{background:#14171f;}
+    .ps-detail .dt-tab.active{background:#1a1e28;border-color:rgba(201,162,74,0.55);}
+    .ps-detail .dt-tab:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
+    .ps-detail .dt-ico{width:34px;height:34px;border-radius:50%;background:#22202a;color:var(--gold-soft);display:grid;place-items:center;flex-shrink:0;}
+    .ps-detail .dt-ico .i{width:17px;height:17px;}
+    .ps-detail .dt-t{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;}
+    .ps-detail .dt-t b{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .ps-detail .dt-t small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .ps-detail .dt-tab.late .dt-t small{color:var(--red);}
+    .ps-detail .dt-a{font-size:13.5px;font-weight:700;white-space:nowrap;}
+    .ps-detail .debt-tabs + .list .card[data-debt-id]:not(.open){display:none;}
+  }
+  @media (min-width:1024px){
+    .ps-detail .debt-tabs{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));}
+    .ps-detail .dt-tab{display:grid;grid-template-columns:34px minmax(0,1fr) auto;column-gap:10px;row-gap:1px;align-items:center;}
+    .ps-detail .dt-ico{grid-row:1 / 3;}
+    .ps-detail .dt-t{display:contents;}
+    .ps-detail .dt-t b{grid-column:2 / 4;grid-row:1;font-size:13px;}
+    .ps-detail .dt-t small{grid-column:2;grid-row:2;}
+    .ps-detail .dt-a{grid-column:3;grid-row:2;font-size:13px;}
   }
