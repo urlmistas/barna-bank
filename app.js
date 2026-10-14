@@ -1276,6 +1276,7 @@
         '<div class="card-actions">' +
           (wLink ? '<a class="btn btn-whats btn-sm" href="' + wLink + '" target="_blank" rel="noopener" data-act="whats">' + ic('message-circle') + ' WhatsApp</a>' : (isPayable ? '' : '<button class="btn btn-ghost btn-sm" data-act="nowhats" title="Cadastre o telefone em Editar">' + ic('message-circle') + ' WhatsApp</button>')) +
           (opts.inPerson ? '' : '<button class="btn btn-ghost btn-sm" data-act="profile">' + ic('user') + ' Ver pessoa</button>') +
+          (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="extend">' + ic('calendar-clock') + ' Dar mais prazo</button>') +
           (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="settle">' + ic('badge-percent') + ' Quitar c/ desconto</button>') +
           (paid || d.recurring ? '' : '<button class="btn btn-ghost btn-sm" data-act="reneg">' + ic('handshake') + ' Renegociar</button>') +
           '<div class="spacer"></div>' +
@@ -1392,6 +1393,8 @@
     if(profBtn) profBtn.addEventListener('click', function(e){ e.stopPropagation(); openPerson(d.name); });
     var renegBtn = inner.querySelector('[data-act="reneg"]');
     if(renegBtn) renegBtn.addEventListener('click', function(e){ e.stopPropagation(); openReneg(d); });
+    var extendBtn = inner.querySelector('[data-act="extend"]');
+    if(extendBtn) extendBtn.addEventListener('click', function(e){ e.stopPropagation(); openExtend(d); });
     var settleBtn = inner.querySelector('[data-act="settle"]');
     if(settleBtn) settleBtn.addEventListener('click', function(e){ e.stopPropagation(); openSettleModal(d); });
     inner.querySelector('[data-act="statement"]').addEventListener('click', function(e){ e.stopPropagation(); openStatement(d); });
@@ -6170,6 +6173,33 @@
     ['plan', 'dueOverride', 'reneg'].forEach(function(k){ if(b[k]) d[k] = b[k]; else delete d[k]; });
     d.installments = b.installments; d.days = b.days;
     invalidateSchedules();
+  }
+  // dar mais prazo: empurra o que está atrasado (ou a próxima parcela) para outra data, sem mexer nos valores
+  function openExtend(d){
+    var s = debtSchedule(d), today = todayISO();
+    var late = s.insts.filter(function(it){ return it.open > 0 && it.dueISO < today; });
+    var tgt = late.length ? late : (s.firstOpen ? [s.firstOpen] : []);
+    if(!tgt.length){ showToast('Essa dívida já está quitada.', 'check'); return; }
+    var first = firstName(d.name), cur = tgt[tgt.length - 1].dueISO;
+    var def = addDaysISO(cur > today ? cur : today, 7);
+    openDialog({
+      title: 'Dar mais prazo · ' + first, icon: 'calendar-clock', okText: 'Remarcar',
+      html: '<p class="warn">' + (late.length ? (late.length === 1 ? 'A parcela atrasada' : 'As ' + late.length + ' parcelas atrasadas') + ' passa' + (late.length === 1 ? '' : 'm') + ' a vencer na data abaixo.' : 'A próxima parcela passa a vencer na data abaixo.') + ' Os valores não mudam.</p>' +
+        '<div class="field"><label for="exDate">Novo vencimento</label><input id="exDate" type="date" min="' + addDaysISO(today, 1) + '" value="' + def + '"></div>',
+      onOk: function(body){
+        var nd = body.querySelector('#exDate').value;
+        if(!/^d{4}-d{2}-d{2}$/.test(nd)) return 'Escolha a nova data.';
+        var prev = d.dueOverride ? JSON.parse(JSON.stringify(d.dueOverride)) : null;
+        var moved = reschedule(d, nd);
+        if(!moved.length) return 'Escolha uma data depois do vencimento atual (' + fmtDate(cur) + ').';
+        invalidateSchedules(); renderAll(); saveData();
+        showAction('Prazo de ' + first + ' até ' + fmtDate(nd), 'Desfazer', function(){
+          if(prev) d.dueOverride = prev; else delete d.dueOverride;
+          invalidateSchedules(); renderAll(); saveData(); showToast('Prazo desfeito', 'undo-2');
+        }, 'calendar-clock');
+        return true;
+      }
+    });
   }
   function openReneg(d){
     var df = renegDefaults(d);
