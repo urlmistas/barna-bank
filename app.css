@@ -1931,9 +1931,7 @@
   /* abertura suave de tudo que expande para baixo */
   @keyframes bbDrop{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:none;}}
   @keyframes bbPopIn{from{opacity:0;transform:translateY(-4px) scale(.98);}to{opacity:1;transform:none;}}
-  details{interpolate-size:allow-keywords;}
-  details::details-content{block-size:0;overflow:hidden;transition:block-size .28s ease,content-visibility .28s allow-discrete;}
-  details[open]::details-content{block-size:auto;}
+  details[open]::details-content{animation:bbDrop .26s ease;}
   .ps-detail .card-body-inner.pay-open .pay-form{animation:bbDrop .24s ease;}
   .ps-detail .card-body-inner.hist-open .card-panel[data-panel="historico"]{animation:bbDrop .26s ease;}
   .cs-pop{animation:bbPopIn .16s ease;}
@@ -1941,7 +1939,7 @@
   .od-details summary .i,.fc-more summary .i{transition:transform .25s ease;}
   .gcard .g-body,.gcard-body{animation:bbDrop .24s ease;}
   @media (prefers-reduced-motion:reduce){
-    details::details-content{transition:none;}
+    details[open]::details-content{animation:none;}
     .ps-detail .card-body-inner.pay-open .pay-form,.ps-detail .card-body-inner.hist-open .card-panel[data-panel="historico"],.cs-pop,.ap-box{animation:none;}
   }
 
