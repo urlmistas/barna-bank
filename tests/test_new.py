@@ -56,7 +56,7 @@ with sync_playwright() as p:
     names = page.locator('#list .card .who .name').all_inner_texts()
     check(not any('Ana Souza' in x for x in names), 'lista abre só com pendentes (Ana quitada some)')
     check(names and 'Larissa Mota' in names[0], 'ordem "vence primeiro": %s' % (names[0][:20] if names else None))
-    check(page.inner_text('#archiveCount') == '1', 'Arquivo mostra contador 1')
+    check(page.inner_text('#archiveCount') == '', 'Quitados conta só pessoas e grupos que aparecem na lista (a parte da Ana fica no grupo)')
     check(not page.locator('#pessoasResumo').evaluate('e => e.open'), 'Resumo começa recolhido')
     check('em atraso' in N(page.inner_text('#resumoLine')), 'linha do resumo: %s' % N(page.inner_text('#resumoLine')))
     page.click('#filters button[data-f="pagos"]'); page.wait_for_timeout(200)

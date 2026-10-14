@@ -959,11 +959,6 @@
     var isPayable = state.viewKind === 'payable';
 
     var archived = pool.filter(isPaid).length;
-    var ac = document.getElementById('archiveCount');
-    if(ac) ac.textContent = archived ? archived : '';
-    var lateN = pool.filter(function(d){ return statusOf(d) === 'atrasado'; }).length;
-    var lc = document.getElementById('lateCount');
-    if(lc) lc.textContent = lateN ? lateN : '';
     var openSum = function(k){ return state.debts.reduce(function(s, d){ return d.kind === k && !isPaid(d) ? s + remaining(d) : s; }, 0); };
     var kr = document.getElementById('ktAmtRec'), kp = document.getElementById('ktAmtPay');
     if(kr) kr.textContent = money.format(openSum('receivable'));
@@ -1270,7 +1265,7 @@
         tabBtn('historico', 'Histórico <span class="ct-n">' + sortedPayments.length + '</span>') +
       '</div>' +
       '<div class="card-panel" data-panel="resumo"' + (tab === 'resumo' ? '' : ' hidden') + '>' +
-        '<details class="od-details"><summary>Detalhes: valor original, juros, lucro, vencimentos</summary><div class="detail-grid">' + detailItems + '</div></details>' +
+        '<details class="od-details"><summary>' + ic('chevron-right') + '<span>Detalhes: valor original, juros, lucro, vencimentos</span></summary><div class="detail-grid">' + detailItems + '</div></details>' +
         (d.notes ? '<div class="notes-block"><b>Anotações</b>' + escapeHtml(d.notes) + '</div>' : '') +
         payFormHtml +
         '<div class="card-actions">' +
@@ -1278,9 +1273,9 @@
           (wLink ? '<a class="btn btn-whats btn-sm ca-sec" href="' + wLink + '" target="_blank" rel="noopener" data-act="whats">' + ic('message-circle') + ' WhatsApp</a>' : (isPayable ? '' : '<button class="btn btn-ghost btn-sm ca-sec" data-act="nowhats" title="Cadastre o telefone em Editar">' + ic('message-circle') + ' WhatsApp</button>')) +
           (opts.inPerson ? '' : '<button class="btn btn-ghost btn-sm ca-sec" data-act="profile">' + ic('user') + ' Ver pessoa</button>') +
           (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="extend">' + ic('calendar-clock') + ' Mais prazo</button>') +
-          (paid ? '' : '<button class="btn btn-ghost btn-sm btn-icon" data-act="settle" title="Quitar com desconto" aria-label="Quitar com desconto">' + ic('badge-percent') + '</button>') +
+          (paid ? '' : '<button class="btn btn-ghost btn-sm" data-act="settle" title="Quitar com desconto">' + ic('badge-percent') + ' Quitar c/ desconto</button>') +
           (paid || d.recurring ? '' : '<button class="btn btn-ghost btn-sm ca-sec" data-act="reneg">' + ic('handshake') + ' Renegociar</button>') +
-          '<button type="button" class="btn btn-ghost btn-sm btn-icon ca-more" data-act="more" aria-label="Mais ações" aria-expanded="false">' + ic('ellipsis') + '<span>Mais</span></button>' +
+          '<button type="button" class="btn btn-ghost btn-sm btn-icon ca-more" data-act="more" aria-label="Mais ações" title="Mais ações" aria-haspopup="dialog">' + ic('ellipsis') + '</button>' +
           '<div class="spacer"></div>' +
           ('<button class="btn btn-ghost btn-sm ca-sec" data-act="share" title="' + (isPayable ? 'Link para quem você deve ver quanto falta pagar' : 'Link só desta dívida') + '">' + ic('share-2') + ' Link' + (shareFor('debt', d.id) ? ' <span class="live-dot" title="ativo"></span>' : '') + '</button>') +
           (paid && !isPayable ? '<button class="btn btn-primary btn-sm ca-sec" data-act="receipt">' + ic('receipt') + ' Recibo de quitação</button>' : '') +
@@ -1403,11 +1398,7 @@
       if(on){ var fa = inner.querySelector('.pf-amount'); if(fa) fa.focus(); }
     });
     var moreTgl = inner.querySelector('[data-act="more"]');
-    if(moreTgl) moreTgl.addEventListener('click', function(e){
-      e.stopPropagation();
-      var on = inner.classList.toggle('more-open');
-      moreTgl.setAttribute('aria-expanded', on ? 'true' : 'false');
-    });
+    if(moreTgl) moreTgl.addEventListener('click', function(e){ e.stopPropagation(); openMoreSheet(d, inner); });
     var extendBtn = inner.querySelector('[data-act="extend"]');
     if(extendBtn) extendBtn.addEventListener('click', function(e){ e.stopPropagation(); openExtend(d); });
     var settleBtn = inner.querySelector('[data-act="settle"]');
@@ -1559,7 +1550,7 @@
   var ppMenu = document.getElementById('ppMenu'), ppMore = document.getElementById('ppMore');
   function ppMenuOpen(on){ ppMenu.hidden = !on; ppMore.setAttribute('aria-expanded', on ? 'true' : 'false'); ppMore.classList.toggle('active', on); }
   ppMore.addEventListener('click', function(e){ e.stopPropagation(); ppMenuOpen(ppMenu.hidden); });
-  ppMenu.addEventListener('click', function(e){ if(e.target.closest('button')) ppMenuOpen(false); });
+  ppMenu.addEventListener('click', function(e){ if(e.target.closest('button') && !e.target.closest('.cs-trigger')) ppMenuOpen(false); });
   document.addEventListener('click', function(e){ if(!ppMenu.hidden && !e.target.closest('.pp-more')) ppMenuOpen(false); });
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !ppMenu.hidden) ppMenuOpen(false); });
   document.getElementById('btnResumo').addEventListener('click', function(){
@@ -1988,25 +1979,28 @@
       var x = nextDueDate(a), y = nextDueDate(b);
       return (x ? x.getTime() : Infinity) - (y ? y.getTime() : Infinity);
     });
-    if(el.id === 'psDetail' && sortedDebts.length > 1){
-      // várias dívidas: uma grade de dívidas e só a escolhida aberta embaixo
-      if(!sortedDebts.some(function(d){ return d.id === state.openId; })) state.openId = sortedDebts[0].id;
-      var tabs = document.createElement('div');
-      tabs.className = 'debt-tabs'; tabs.setAttribute('role', 'tablist'); tabs.setAttribute('aria-label', 'Dívidas de ' + name);
-      tabs.innerHTML = sortedDebts.map(function(d){
-        var st = statusOf(d), sel = d.id === state.openId, pd = isPaid(d);
-        return '<button type="button" role="tab" class="dt-tab' + (sel ? ' active' : '') + (st === 'atrasado' && !pd ? ' late' : '') + '" aria-selected="' + sel + '" data-id="' + escapeHtml(d.id) + '">' +
-          '<span class="dt-ico">' + ic(d.recurring ? 'repeat' : d.kind === 'payable' ? 'banknote-arrow-up' : 'hand-coins') + '</span>' +
-          '<span class="dt-t"><b>' + escapeHtml(debtLabel(d)) + '</b><small>' + (d.recurring ? 'recorrente · ' : '') + escapeHtml(statusLabel(d)) + '</small></span>' +
-          '<span class="dt-a">' + money.format(pd ? paidAmount(d) : remaining(d)) + '</span></button>';
-      }).join('');
-      tabs.addEventListener('click', function(e){
-        var b = e.target.closest('.dt-tab');
-        if(!b) return;
-        state.openId = b.getAttribute('data-id');
-        render();
-      });
-      listBox.parentNode.insertBefore(tabs, listBox);
+    if(el.id === 'psDetail'){
+      // a dívida aberta é a escolhida no seletor (começa pela última criada)
+      if(!debts.some(function(d){ return d.id === state.openId; })) state.openId = latestDebtId(debts);
+      el.classList.toggle('has-pick', debts.length > 1);
+      if(debts.length > 1){
+        var actD = sortedDebts.filter(function(d){ return !isPaid(d); });
+        var doneD = sortedDebts.filter(isPaid).sort(function(a, b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+        var optH = function(d){
+          return '<option value="' + escapeHtml(d.id) + '"' + (d.id === state.openId ? ' selected' : '') + ' data-sub="' + escapeHtml(isPaid(d) ? 'quitada' : money.format(remaining(d))) + '">' + escapeHtml(debtLabel(d)) + '</option>';
+        };
+        var pick = document.createElement('div');
+        pick.className = 'debt-pick';
+        pick.innerHTML = '<label class="dp-l" for="debtPick">Dívida</label><select id="debtPick" class="select dp-sel" aria-label="Escolher dívida">' +
+          (actD.length ? '<optgroup label="Dívidas ativas">' + actD.map(optH).join('') + '</optgroup>' : '') +
+          (doneD.length ? '<optgroup label="Quitadas">' + doneD.map(optH).join('') + '</optgroup>' : '') + '</select>';
+        var side = el.querySelector('.pg-side');
+        if(side) side.insertBefore(pick, side.firstChild);
+        pick.querySelector('select').addEventListener('change', function(e){
+          state.openId = e.target.value;
+          render();
+        });
+      }
     }
     sortedDebts.forEach(function(d){ listBox.appendChild(buildCard(d, {inPerson: true})); });
     document.getElementById('personTagsEdit').addEventListener('click', function(){ personTagsDialog(key, name); });
@@ -2032,8 +2026,8 @@
   }
 
   // ---------- Pessoas: uma linha por pessoa (e por grupo) ----------
-  function personRows(){
-    var kind = state.viewKind, q = state.query.trim().toLowerCase(), today = todayISO(), by = {}, rows = [];
+  function personRows(filt){
+    var f = filt || state.filter, kind = state.viewKind, q = state.query.trim().toLowerCase(), today = todayISO(), by = {}, rows = [];
     state.debts.forEach(function(d){
       if(d.kind !== kind || groupOf(d)) return;
       var k = nameKey(d.name);
@@ -2042,9 +2036,10 @@
     Object.keys(by).forEach(function(k){
       var p = by[k], open = p.debts.filter(function(d){ return !isPaid(d); });
       var late = open.filter(function(d){ return statusOf(d) === 'atrasado'; });
-      if(state.filter === 'pendentes' && !open.length) return;
-      if(state.filter === 'atrasados' && !late.length) return;
-      if(state.filter === 'pagos' && open.length) return;
+      if(f === 'pendentes' && !open.length) return;
+      if(f === 'atrasados' && !late.length) return;
+      // quitados: quem tem alguma dívida quitada (as dívidas ativas e quitadas ficam no seletor da pessoa)
+      if(f === 'pagos' && !p.debts.some(isPaid)) return;
       if(q && p.name.toLowerCase().indexOf(q) === -1 && !p.debts.some(function(d){ return (d.subject || '').toLowerCase().indexOf(q) !== -1; })) return;
       var rem = round2(open.reduce(function(s, d){ return s + remaining(d); }, 0));
       var lateAmt = round2(late.reduce(function(s, d){ return s + overdueAmount(d); }, 0));
@@ -2055,11 +2050,19 @@
         sub = money.format(lateAmt) + ' atrasado · ' + Math.max(1, daysBetweenISO(oldest, today)) + ' dias'; cls = 'late';
       } else if(open.length) sub = (open.length > 1 ? open.length + ' dívidas · ' : '') + 'em dia' + (dues[0] ? ' · vence ' + fmtDate(dues[0]) : '');
       else { var t = kind === 'receivable' ? trustInfo(k) : null; sub = (kind === 'payable' ? 'quitado' : 'quitou') + (t ? ' · confiança ' + t.score : ''); }
-      rows.push({type: 'person', key: k, name: p.name, ini: initials(p.name), sub: sub, cls: cls, amount: rem, late: late.length > 0, due: dues[0] || '9999', recent: p.debts.reduce(function(m, d){ return d.date > m ? d.date : m; }, ''), first: p.debts[0]});
+      var amt = rem;
+      if(f === 'pagos'){
+        var pdone = p.debts.filter(isPaid), lastPay = '';
+        pdone.forEach(function(d){ (d.payments || []).forEach(function(x){ if(x.date > lastPay) lastPay = x.date; }); });
+        sub = pdone.length + (pdone.length === 1 ? ' quitada' : ' quitadas') + (lastPay ? ' · última em ' + fmtDate(lastPay) : '') + (open.length ? ' · ' + open.length + ' em aberto' : '');
+        cls = '';
+        amt = round2(pdone.reduce(function(sum, d){ return sum + paidAmount(d); }, 0));
+      }
+      rows.push({type: 'person', key: k, name: p.name, ini: initials(p.name), sub: sub, cls: cls, amount: amt, late: late.length > 0, due: dues[0] || '9999', recent: p.debts.reduce(function(m, d){ return d.date > m ? d.date : m; }, ''), first: p.debts[0]});
     });
     state.groups.filter(function(g){ return g.kind === kind; }).forEach(function(g){
       var st = groupStats(g);
-      if(!groupMatchesFilter(g, st)) return;
+      if(!groupMatchesFilter(g, st, f)) return;
       var pend = st.members.filter(function(d){ return remaining(d) > EPS; });
       var names = pend.map(function(d){ return firstName(d.name); });
       var sub = !st.members.length ? 'grupo sem pessoas' : !pend.length ? 'grupo · todos pagaram' : 'grupo · ' + (names.length === 1 ? 'falta ' + names[0] : 'faltam ' + (names.length > 2 ? names.slice(0, 2).join(', ') + ' e mais ' + (names.length - 2) : names.join(' e ')));
@@ -2076,6 +2079,12 @@
     });
     return rows;
   }
+  // a última dívida criada pela pessoa (empate: a que entrou depois)
+  function latestDebtId(list){
+    var best = null;
+    list.forEach(function(d){ if(!best || d.date >= best.date) best = d; });
+    return best ? best.id : null;
+  }
   function selectPersonRow(r){
     if(r.type === 'group'){
       if(!wideMQ.matches){ state.openGroupId = state.openGroupId === r.key ? null : r.key; render(); return; }
@@ -2084,23 +2093,26 @@
     }
     if(!wideMQ.matches){ openPerson(r.name); return; }
     state.selGroup = null; state.personKey = r.key;
-    // a dívida mais urgente da pessoa já vem aberta
-    var open = state.debts.filter(function(d){ return nameKey(d.name) === r.key && !isPaid(d); })
-      .sort(function(a, b){ var x = nextDueDate(a), y = nextDueDate(b); return (x ? x.getTime() : Infinity) - (y ? y.getTime() : Infinity); });
-    state.openId = open[0] ? open[0].id : null;
+    // a última dívida criada pela pessoa já vem aberta
+    state.openId = latestDebtId(state.debts.filter(function(d){ return nameKey(d.name) === r.key; }));
     render();
   }
   function renderPeopleList(){
     var box = document.getElementById('peopleList');
     if(!box) return;
     var rows = personRows();
+    // os números das pílulas contam pessoas e grupos, igual à lista que abre
+    var lcEl = document.getElementById('lateCount'), acEl = document.getElementById('archiveCount');
+    var nLate = personRows('atrasados').length, nDone = personRows('pagos').length;
+    if(lcEl) lcEl.textContent = nLate ? nLate : '';
+    if(acEl) acEl.textContent = nDone ? nDone : '';
     // PC: sempre tem alguém aberto do lado
     if(wideMQ.matches && state.page === 'pessoas'){
       var has = rows.some(function(r){ return r.type === 'group' ? r.key === state.selGroup : !state.selGroup && r.key === state.personKey; });
       if(!has && rows.length){
         var r0 = rows[0];
         if(r0.type === 'group'){ state.selGroup = r0.key; state.personKey = null; }
-        else { state.selGroup = null; state.personKey = r0.key; var od = state.debts.filter(function(d){ return nameKey(d.name) === r0.key && !isPaid(d); }); state.openId = od[0] ? od[0].id : null; }
+        else { state.selGroup = null; state.personKey = r0.key; state.openId = latestDebtId(state.debts.filter(function(d){ return nameKey(d.name) === r0.key; })); }
       }
       if(!rows.length){ state.selGroup = null; }
     }
@@ -2481,13 +2493,13 @@
 
   // ---------- lista de grupos (página Pessoas) ----------
   var groupListEl = document.getElementById('groupList');
-  function groupMatchesFilter(g, st){
-    var q = state.query.trim().toLowerCase();
+  function groupMatchesFilter(g, st, f){
+    var fl = f || state.filter, q = state.query.trim().toLowerCase();
     if(q && g.title.toLowerCase().indexOf(q) === -1 &&
        !st.members.some(function(d){ return d.name.toLowerCase().indexOf(q) !== -1; })) return false;
-    if(state.filter === 'pendentes' && !(st.remaining > EPS)) return false;
-    if(state.filter === 'pagos' && !(st.members.length && st.remaining <= EPS)) return false;
-    if(state.filter === 'atrasados' && !st.late) return false;
+    if(fl === 'pendentes' && !(st.remaining > EPS)) return false;
+    if(fl === 'pagos' && !(st.members.length && st.remaining <= EPS)) return false;
+    if(fl === 'atrasados' && !st.late) return false;
     return true;
   }
   function renderGroups(){
@@ -6219,6 +6231,40 @@
     d.installments = b.installments; d.days = b.days;
     invalidateSchedules();
   }
+  // "Mais": janela no meio da tela com as ações que não cabem na linha do cartão
+  function openMoreSheet(d, inner){
+    var items = [];
+    inner.querySelectorAll('.card-actions .ca-sec').forEach(function(b){
+      var u = b.querySelector('svg use'), href = u ? (u.getAttribute('href') || '') : '';
+      items.push({el: b, txt: (b.textContent || '').replace(/\s+/g, ' ').trim(), icon: href.replace('#i-', ''), danger: b.classList.contains('btn-danger')});
+    });
+    if(inner.querySelector('[data-panel="historico"]')) items.push({hist: true, txt: 'Histórico de pagamentos', icon: 'history'});
+    var back = document.createElement('div');
+    back.className = 'ap-back';
+    back.innerHTML = '<div class="ap-box" role="dialog" aria-modal="true" aria-label="Mais ações">' +
+      '<div class="ap-head"><b>' + escapeHtml(firstName(d.name)) + ' · ' + escapeHtml(debtLabel(d)) + '</b><button type="button" class="ap-x" aria-label="Fechar">' + ic('x') + '</button></div>' +
+      '<div class="ap-list">' + items.map(function(it, i){
+        return '<button type="button" class="ap-item' + (it.danger ? ' danger' : '') + '" data-i="' + i + '">' + (it.icon ? ic(it.icon) : '') + '<span>' + escapeHtml(it.txt) + '</span></button>';
+      }).join('') + '</div></div>';
+    function close(){ back.remove(); document.removeEventListener('keydown', onKey, true); }
+    function onKey(e){ if(e.key === 'Escape'){ e.stopPropagation(); close(); } }
+    back.addEventListener('click', function(e){
+      if(e.target === back || e.target.closest('.ap-x')){ close(); return; }
+      var b = e.target.closest('.ap-item');
+      if(!b) return;
+      var it = items[+b.getAttribute('data-i')];
+      close();
+      if(it.hist){
+        inner.classList.add('hist-open');
+        var hp = inner.querySelector('[data-panel="historico"]');
+        if(hp && hp.scrollIntoView) hp.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+      } else setTimeout(function(){ it.el.click(); }, 0);
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(back);
+    var f = back.querySelector('.ap-item') || back.querySelector('.ap-x');
+    if(f) f.focus();
+  }
   // dar mais prazo: empurra o que está atrasado (ou a próxima parcela) para outra data, sem mexer nos valores
   function openExtend(d){
     var s = debtSchedule(d), today = todayISO();
@@ -8137,6 +8183,114 @@
     };
     return;
   }
+
+  // ---------- dropdown próprio no lugar do <select> do navegador ----------
+  (function customSelects(){
+    var openPop = null;
+    var valueDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+    var idxDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'selectedIndex');
+    function closePop(refocus){
+      if(!openPop) return;
+      var o = openPop; openPop = null;
+      o.pop.remove(); o.btn.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('keydown', o.onKey, true);
+      if(refocus) o.btn.focus();
+    }
+    function enhance(sel){
+      if(sel.getAttribute('data-cs') || sel.multiple || sel.size > 1) return;
+      sel.setAttribute('data-cs', '1');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cs-trigger ' + sel.className.replace(/(^|\s)select(\s|$)/g, ' ').trim();
+      if(sel.getAttribute('style')) btn.setAttribute('style', sel.getAttribute('style'));
+      if(sel.id) btn.setAttribute('data-for', sel.id);
+      var lbl = sel.getAttribute('aria-label') || sel.title;
+      if(lbl) btn.setAttribute('aria-label', lbl);
+      btn.setAttribute('aria-haspopup', 'listbox'); btn.setAttribute('aria-expanded', 'false');
+      btn.innerHTML = '<span class="cs-val"></span>' + ic('chevron-down');
+      sel.parentNode.insertBefore(btn, sel);
+      sel.classList.add('cs-native'); sel.tabIndex = -1; sel.setAttribute('aria-hidden', 'true');
+      function sync(){
+        var o = sel.options[sel.selectedIndex];
+        btn.querySelector('.cs-val').textContent = o ? o.textContent : '';
+        btn.disabled = sel.disabled;
+        btn.style.display = (sel.style.display === 'none' || sel.hidden) ? 'none' : '';
+      }
+      Object.defineProperty(sel, 'value', {configurable: true, get: function(){ return valueDesc.get.call(sel); }, set: function(v){ valueDesc.set.call(sel, v); sync(); }});
+      Object.defineProperty(sel, 'selectedIndex', {configurable: true, get: function(){ return idxDesc.get.call(sel); }, set: function(v){ idxDesc.set.call(sel, v); sync(); }});
+      new MutationObserver(sync).observe(sel, {childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'style', 'hidden']});
+      sel.addEventListener('change', sync);
+      sync();
+      btn.addEventListener('click', function(){
+        if(openPop && openPop.btn === btn){ closePop(true); return; }
+        closePop(false);
+        var pop = document.createElement('div');
+        pop.className = 'cs-pop'; pop.setAttribute('role', 'listbox');
+        var html = '', idx = 0;
+        function optHtml(o){
+          var i = idx++;
+          return '<button type="button" role="option" class="cs-opt' + (o.selected ? ' on' : '') + '" data-i="' + i + '"' + (o.disabled ? ' disabled' : '') + ' aria-selected="' + o.selected + '">' +
+            '<span class="cs-t">' + escapeHtml(o.textContent) + '</span>' + (o.getAttribute('data-sub') ? '<span class="cs-sub">' + escapeHtml(o.getAttribute('data-sub')) + '</span>' : '') +
+            '<span class="cs-ck">' + (o.selected ? ic('check') : '') + '</span></button>';
+        }
+        Array.prototype.forEach.call(sel.children, function(ch){
+          if(ch.tagName === 'OPTGROUP'){
+            html += '<div class="cs-grp" role="group"><div class="cs-gl">' + escapeHtml(ch.label) + '</div>' + Array.prototype.map.call(ch.children, optHtml).join('') + '</div>';
+          } else if(ch.tagName === 'OPTION') html += optHtml(ch);
+        });
+        pop.innerHTML = html;
+        var r = btn.getBoundingClientRect();
+        pop.style.minWidth = Math.max(r.width, 180) + 'px';
+        document.body.appendChild(pop);
+        var ph = pop.offsetHeight, below = window.innerHeight - r.bottom - 8, above = r.top - 8;
+        var down = ph <= below || below >= above;
+        pop.style.maxHeight = Math.max(140, (down ? below : above) - 6) + 'px';
+        var top = down ? r.bottom + 6 : r.top - 6 - Math.min(ph, above - 6);
+        pop.style.top = Math.max(8, top) + 'px';
+        var left = Math.min(r.left, window.innerWidth - pop.offsetWidth - 8);
+        pop.style.left = Math.max(8, left) + 'px';
+        function onKey(e){
+          var opts = Array.prototype.slice.call(pop.querySelectorAll('.cs-opt:not([disabled])'));
+          var cur = opts.indexOf(document.activeElement);
+          if(e.key === 'Escape'){ e.stopPropagation(); closePop(true); }
+          else if(e.key === 'ArrowDown'){ e.preventDefault(); (opts[cur + 1] || opts[0]).focus(); }
+          else if(e.key === 'ArrowUp'){ e.preventDefault(); (opts[cur - 1] || opts[opts.length - 1]).focus(); }
+          else if(e.key === 'Tab'){ closePop(false); }
+        }
+        document.addEventListener('keydown', onKey, true);
+        pop.addEventListener('click', function(e){
+          e.stopPropagation();
+          var b = e.target.closest('.cs-opt');
+          if(!b || b.disabled) return;
+          var i = +b.getAttribute('data-i'), all = sel.options;
+          closePop(true);
+          if(all[i] && sel.selectedIndex !== i){
+            idxDesc.set.call(sel, i); sync();
+            sel.dispatchEvent(new Event('input', {bubbles: true}));
+            sel.dispatchEvent(new Event('change', {bubbles: true}));
+          }
+        });
+        openPop = {pop: pop, btn: btn, onKey: onKey};
+        btn.setAttribute('aria-expanded', 'true');
+        var on = pop.querySelector('.cs-opt.on') || pop.querySelector('.cs-opt');
+        if(on){ on.focus(); if(on.scrollIntoView) on.scrollIntoView({block: 'nearest'}); }
+      });
+    }
+    document.addEventListener('mousedown', function(e){
+      if(openPop && !openPop.pop.contains(e.target) && !openPop.btn.contains(e.target)) closePop(false);
+    }, true);
+    window.addEventListener('resize', function(){ closePop(false); });
+    window.addEventListener('scroll', function(e){ if(openPop && !openPop.pop.contains(e.target)) closePop(false); }, true);
+    function scan(root){
+      var list = Array.prototype.slice.call(root.querySelectorAll ? root.querySelectorAll('select') : []);
+      if(root.matches && root.matches('select')) list.unshift(root);
+      list.forEach(enhance);
+    }
+    scan(document.body);
+    new MutationObserver(function(muts){
+      muts.forEach(function(m){ Array.prototype.forEach.call(m.addedNodes, function(nd){ if(nd.nodeType === 1) scan(nd); }); });
+    }).observe(document.body, {childList: true, subtree: true});
+  })();
 
   render();
   renderDashboard();
