@@ -1834,7 +1834,7 @@ async function sharePage(env, token, v) {
       const st = STATE[it.state] || ['', ''];
       return '<div class="row slim"><span class="n">' + it.n + 'ª</span><div class="grow"><b>' + brl(it.value) + '</b><span class="muted">vence ' + fmtFull(it.due) + (it.open > 0 && it.open < it.value - 0.005 ? ' · falta ' + brl(it.open) : '') + '</span></div><span class="tag ' + st[1] + '">' + st[0] + '</span></div>';
     }).join('');
-    const pays = (d.payments || []).slice(0, 8).map(p => '<div class="row slim"><span class="muted">' + fmtFull(p.date) + '</span><div class="grow"></div><b class="okc">' + brl(p.amount) + '</b></div>').join('');
+    const pays = (d.payments || []).slice(0, 8).map(p => '<div class="row slim"><span class="muted">' + fmtFull(p.date) + (p.label && p.label !== 'pagamento' ? ' · ' + esc(p.label) : '') + '</span><div class="grow"></div>' + (p.done ? '<span class="tag ok">Quitada</span>' : '') + '<b class="okc">' + brl(p.amount) + '</b></div>').join('');
     const pickBtn = (v.debts || []).length > 1 && v.pixInfo ? '<button class="ghost small" onclick="pickDebt(' + i + ')">Pagar esta</button>' : '';
     return '<div class="card"><div class="dh"><div><h2>' + esc(d.title) + '</h2><span class="muted">' + (d.monthly > 0 ? brl(d.monthly) + ' por mês · ' : '') + 'desde ' + fmtFull(d.date) + (d.due ? ' · vence ' + fmtFull(d.due) : '') + '</span></div>' +
       '<div class="right"><b class="' + (d.late > 0 ? 'latec' : '') + '">' + brl(d.remaining) + '</b><span class="muted">' + (owe ? 'falta pagar' : 'em aberto') + '</span></div></div>' +
@@ -2106,11 +2106,13 @@ function lkFill(v) {
     const f = d.info, insts = (d.insts || []).slice().sort((a, b) => a.n - b.n);
     let cum = 0;
     (d.payments || []).slice().sort((a, b) => a.date < b.date ? -1 : 1).forEach(p => {
+      const before = cum;
       cum += p.amount || 0;
       let label = 'pagamento';
       if (f.recurring) label = LK_MONTHS[+p.date.slice(5, 7) - 1];
-      else if (f.count > 1 && insts.length === f.count) { let acc = 0, k = 0; while (k < insts.length - 1 && (acc += insts[k].value) < cum - 0.01) k++; label = insts[k].n + 'ª parcela'; }
-      hist.push({date: p.date, amount: p.amount, title: d.title, label});
+      else if (f.count > 1 && insts.length === f.count) { let acc = 0, k = 0; while (k < insts.length - 1 && (acc += insts[k].value) < cum - 0.01) k++; label = 'parcela ' + insts[k].n + '/' + f.count; }
+      const tot = insts.reduce((a, it) => a + (it.value || 0), 0);
+      hist.push({date: p.date, amount: p.amount, title: d.title, label, done: !f.recurring && tot > 0 && before < tot - 0.01 && cum >= tot - 0.01});
     });
     if (f.next) dues.push({date: f.next.date, amount: f.next.amount, title: d.title, n: f.next.n, of: f.count, recurring: f.recurring});
     if (f.after) dues.push({date: f.after.date, amount: f.after.amount, title: d.title, n: f.after.n, of: f.count, recurring: f.recurring});
@@ -2127,7 +2129,9 @@ function lkFill(v) {
 function owePage(v, ownerName) {
   v = lkFill(v);
   const s = v.summary || {}, debts = (v.debts || []).slice();
-  debts.sort((a, b) => ((a.info && a.info.next && a.info.next.date) || '9999') < ((b.info && b.info.next && b.info.next.date) || '9999') ? -1 : 1);
+  // por vencimento; as recorrentes ficam por último, seja qual for a data
+  const nxd = d => (d.info && d.info.next && d.info.next.date) || '9999';
+  debts.sort((a, b) => ((a.info && a.info.recurring) ? 1 : 0) - ((b.info && b.info.recurring) ? 1 : 0) || (nxd(a) < nxd(b) ? -1 : nxd(a) > nxd(b) ? 1 : 0));
   const paidTot = s.paidTotal || 0, total = paidTot + (v.remaining || 0), pct = total > 0 ? Math.round(paidTot / total * 100) : 0;
   const me = ownerName || 'Você', them = v.name || '';
   const stats = [['Em aberto', String(s.openCount || 0), (s.openCount === 1 ? 'dívida' : 'dívidas'), '']];
@@ -2151,7 +2155,7 @@ function owePage(v, ownerName) {
       '<div class="lk-nv"><b>' + brl(s.next.amount) + '</b>' + (s.after ? '<span>depois: ' + brl(s.after.amount) + ' em ' + fmtDate(s.after.date) + '</span>' : '') + '</div></section>';
   }
   const hist = (s.history || []).length
-    ? (s.history || []).map(h => '<div class="lk-h"><span class="lk-ck">' + lkSvg('check', 13) + '</span><div><b>' + esc(h.title) + '</b><span>' + esc(h.label) + ' · ' + fmtFull(h.date) + '</span></div><em>' + brl(h.amount) + '</em></div>').join('')
+    ? (s.history || []).map(h => '<div class="lk-h"><span class="lk-ck">' + lkSvg('check', 13) + '</span><div><b>' + esc(h.title) + '</b><span>' + esc(h.label) + ' · ' + fmtFull(h.date) + '</span></div>' + (h.done ? '<span class="lk-q">Quitada</span>' : '') + '<em>' + brl(h.amount) + '</em></div>').join('')
     : '<p class="lk-empty">Nenhum pagamento ainda.</p>';
   const aside = '<aside class="lk-hist" aria-label="Últimos pagamentos"><div class="lk-hh"><h2>Últimos pagamentos</h2>' + (s.payCount ? '<span>' + s.payCount + ' no total</span>' : '') + '</div>' + hist +
     '<div class="lk-tot"><span>Total pago</span><b>' + brl(paidTot) + '</b></div></aside>';
@@ -2183,7 +2187,7 @@ function owePage(v, ownerName) {
   const upd = (v.updatedAt || '').slice(0, 10);
   const body = '<div class="lk-top"><span class="mark">B</span><span class="lk-brand">BarnaBank</span><span class="lk-upd">Página só para consulta · atualizado em ' + fmtFull(upd) + '</span></div>' +
     '<div class="lk-layout">' + banner + next + aside +
-    '<div class="lk-debts">' + (debts.length ? '<div class="lk-dhh"><h2>Dívidas em aberto</h2><span>a que vence primeiro fica em cima</span></div>' + cards : '<div class="lk-debt lk-empty">Nada em aberto agora.</div>') + '</div></div>';
+    '<div class="lk-debts">' + (debts.length ? '<div class="lk-dhh"><h2>Dívidas em aberto</h2><span>Ordenado por vencimento</span></div>' + cards : '<div class="lk-debt lk-empty">Nada em aberto agora.</div>') + '</div></div>';
   return page('Quanto falta pagar', body, v.remaining > 0 ? 'Falta pagar ' + brl(v.remaining) : 'Tudo pago', 200, 'lk');
 }
 const LK_CSS = `
@@ -2208,6 +2212,7 @@ body.lk main{max-width:1180px;padding:28px 24px 48px}body.lk .brand{display:none
 .lk-hist{grid-column:2;grid-row:1 / span 3;align-self:stretch;background:#14171f;border:1px solid #1f2430;border-radius:22px;padding:20px;display:flex;flex-direction:column;margin:0}
 .lk-hh{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}.lk-hh h2{font-size:16px}.lk-hh span{font-size:12px;color:#6b7182}
 .lk-h{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid #181c25}.lk-h div{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}.lk-h b{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lk-h div span{font-size:12px;color:#8c92a3}.lk-h em{font-style:normal;font-size:13.5px;font-weight:700;color:#57b98a;white-space:nowrap}
+.lk-q{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:rgba(87,185,138,.14);color:#57b98a;white-space:nowrap}
 .lk-ck{width:26px;height:26px;border-radius:50%;background:rgba(87,185,138,.14);color:#57b98a;display:grid;place-items:center;flex-shrink:0}
 .lk-tot{margin-top:auto;border-top:1px solid #1f2430;padding-top:14px;display:flex;justify-content:space-between;font-size:13px;color:#8c92a3}.lk-tot b{color:#eee9da;font-weight:700}
 .lk-debts{grid-column:1;grid-row:3;display:flex;flex-direction:column;gap:14px}
