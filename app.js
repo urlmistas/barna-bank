@@ -1899,7 +1899,19 @@
 
   // ---------- página da pessoa ----------
   function openPerson(name){
-    state.personKey = nameKey(name);
+    var key = nameKey(name);
+    if(wideMQ.matches){
+      // PC: a pessoa abre no painel ao lado da lista, não na página solta do celular
+      var mine = state.debts.filter(function(d){ return nameKey(d.name) === key; });
+      var hasRec = mine.some(function(d){ return d.kind === 'receivable'; });
+      if(typeof setViewKind === 'function') setViewKind(hasRec ? 'receivable' : 'payable');
+      resetListFilters();
+      state.selGroup = null; state.personKey = key;
+      state.openId = latestDebtId(mine);
+      showPage('pessoas');
+      return;
+    }
+    state.personKey = key;
     state.openId = null;
     showPage('pessoa');
   }
@@ -2027,7 +2039,7 @@
 
   // ---------- Pessoas: uma linha por pessoa (e por grupo) ----------
   function personRows(filt){
-    var f = filt || state.filter, kind = state.viewKind, q = state.query.trim().toLowerCase(), today = todayISO(), by = {}, rows = [];
+    var f = filt || (state.query.trim() ? 'todos' : state.filter), kind = state.viewKind, q = state.query.trim().toLowerCase(), today = todayISO(), by = {}, rows = [];
     state.debts.forEach(function(d){
       if(d.kind !== kind || groupOf(d)) return;
       var k = nameKey(d.name);
@@ -2124,8 +2136,14 @@
       var pool = state.debts.filter(function(d){ return d.kind === state.viewKind; });
       var e = document.createElement('div');
       e.className = 'empty';
+      var qOther = '';
+      if(state.query.trim()){
+        var otherKind = state.viewKind === 'payable' ? 'receivable' : 'payable', qq = normTxt(state.query.trim());
+        var hit = state.debts.filter(function(d){ return d.kind === otherKind && (normTxt(d.name).indexOf(qq) !== -1 || normTxt(d.subject || '').indexOf(qq) !== -1); });
+        if(hit.length) qOther = otherKind === 'payable' ? 'Tem resultado em "Eu devo".' : 'Tem resultado em "Me devem".';
+      }
       e.textContent = !pool.length ? (state.viewKind === 'payable' ? 'Nenhuma dívida sua cadastrada ainda.' : 'Ninguém te deve nada ainda.') + ' Toque em "Nova dívida" para começar.'
-        : state.query.trim() ? 'Nada encontrado para "' + state.query.trim() + '".'
+        : state.query.trim() ? 'Nada encontrado para "' + state.query.trim() + '".' + (qOther ? ' ' + qOther : '')
         : state.filter === 'atrasados' ? 'Ninguém atrasado.' : state.filter === 'pagos' ? 'Nada quitado ainda.' : 'Tudo quitado!';
       box.appendChild(e);
       placeOpenDetail();
@@ -2209,6 +2227,7 @@
     if(typeof setViewKind === 'function') setViewKind(d.kind);
     resetListFilters();
     state.openId = id;
+    if(wideMQ.matches){ state.personKey = nameKey(d.name); state.selGroup = null; }
     showPage('pessoas');
     if(state.grouped) { state.openGroups[d.name.trim().toLowerCase()] = true; render(); }
     var c = listEl.querySelector('.card.open');
@@ -2485,6 +2504,7 @@
     setViewKind(g.kind);
     resetListFilters();
     state.openGroupId = gid;
+    if(wideMQ.matches){ state.selGroup = gid; state.personKey = null; }
     render();
     var el = null;
     groupListEl.querySelectorAll('.gcard').forEach(function(c){ if(c.getAttribute('data-gid') === gid) el = c; });
