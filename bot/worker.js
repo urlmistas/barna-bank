@@ -1834,7 +1834,7 @@ async function sharePage(env, token, v) {
       const st = STATE[it.state] || ['', ''];
       return '<div class="row slim"><span class="n">' + it.n + 'ª</span><div class="grow"><b>' + brl(it.value) + '</b><span class="muted">vence ' + fmtFull(it.due) + (it.open > 0 && it.open < it.value - 0.005 ? ' · falta ' + brl(it.open) : '') + '</span></div><span class="tag ' + st[1] + '">' + st[0] + '</span></div>';
     }).join('');
-    const pays = (d.payments || []).slice(0, 8).map(p => '<div class="row slim"><span class="muted">' + fmtFull(p.date) + (p.label && p.label !== 'pagamento' ? ' · ' + esc(p.label) : '') + '</span><div class="grow"></div>' + (p.done ? '<span class="tag ok">Quitada</span>' : '') + '<b class="okc">' + brl(p.amount) + '</b></div>').join('');
+    const pays = (d.payments || []).slice(0, 8).map(p => '<div class="row slim"><span class="muted">' + fmtFull(p.date) + (p.label && p.label !== 'pagamento' ? ' · ' + esc(p.label) : '') + '</span><div class="grow"></div>' + (p.done ? '<span class="q-badge">Quitada</span>' : '') + '<b class="okc">' + brl(p.amount) + '</b></div>').join('');
     const pickBtn = (v.debts || []).length > 1 && v.pixInfo ? '<button class="ghost small" onclick="pickDebt(' + i + ')">Pagar esta</button>' : '';
     return '<div class="card"><div class="dh"><div><h2>' + esc(d.title) + '</h2><span class="muted">' + (d.monthly > 0 ? brl(d.monthly) + ' por mês · ' : '') + 'desde ' + fmtFull(d.date) + (d.due ? ' · vence ' + fmtFull(d.due) : '') + '</span></div>' +
       '<div class="right"><b class="' + (d.late > 0 ? 'latec' : '') + '">' + brl(d.remaining) + '</b><span class="muted">' + (owe ? 'falta pagar' : 'em aberto') + '</span></div></div>' +
@@ -2155,7 +2155,7 @@ function owePage(v, ownerName) {
       '<div class="lk-nv"><b>' + brl(s.next.amount) + '</b>' + (s.after ? '<span>depois: ' + brl(s.after.amount) + ' em ' + fmtDate(s.after.date) + '</span>' : '') + '</div></section>';
   }
   const hist = (s.history || []).length
-    ? (s.history || []).map(h => '<div class="lk-h"><span class="lk-ck">' + lkSvg('check', 13) + '</span><div><b>' + esc(h.title) + '</b><span>' + esc(h.label) + ' · ' + fmtFull(h.date) + '</span></div>' + (h.done ? '<span class="lk-q">Quitada</span>' : '') + '<em>' + brl(h.amount) + '</em></div>').join('')
+    ? (s.history || []).map(h => '<div class="lk-h"><span class="lk-ck">' + lkSvg('check', 13) + '</span><div><div class="lk-nm"><b>' + esc(h.title) + '</b>' + (h.done ? '<span class="q-badge">' + lkSvg('check', 11) + 'Quitada</span>' : '') + '</div><span>' + esc(h.label) + ' · ' + fmtFull(h.date) + '</span></div><em>' + brl(h.amount) + '</em></div>').join('')
     : '<p class="lk-empty">Nenhum pagamento ainda.</p>';
   const aside = '<aside class="lk-hist" aria-label="Últimos pagamentos"><div class="lk-hh"><h2>Últimos pagamentos</h2>' + (s.payCount ? '<span>' + s.payCount + ' no total</span>' : '') + '</div>' + hist +
     '<div class="lk-tot"><span>Total pago</span><b>' + brl(paidTot) + '</b></div></aside>';
@@ -2212,7 +2212,7 @@ body.lk main{max-width:1180px;padding:28px 24px 48px}body.lk .brand{display:none
 .lk-hist{grid-column:2;grid-row:1 / span 3;align-self:stretch;background:#14171f;border:1px solid #1f2430;border-radius:22px;padding:20px;display:flex;flex-direction:column;margin:0}
 .lk-hh{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}.lk-hh h2{font-size:16px}.lk-hh span{font-size:12px;color:#6b7182}
 .lk-h{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid #181c25}.lk-h div{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}.lk-h b{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lk-h div span{font-size:12px;color:#8c92a3}.lk-h em{font-style:normal;font-size:13.5px;font-weight:700;color:#57b98a;white-space:nowrap}
-.lk-q{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:rgba(87,185,138,.14);color:#57b98a;white-space:nowrap}
+.lk-nm{display:flex;align-items:center;gap:8px;min-width:0}.lk-nm b{min-width:0}
 .lk-ck{width:26px;height:26px;border-radius:50%;background:rgba(87,185,138,.14);color:#57b98a;display:grid;place-items:center;flex-shrink:0}
 .lk-tot{margin-top:auto;border-top:1px solid #1f2430;padding-top:14px;display:flex;justify-content:space-between;font-size:13px;color:#8c92a3}.lk-tot b{color:#eee9da;font-weight:700}
 .lk-debts{grid-column:1;grid-row:3;display:flex;flex-direction:column;gap:14px}
@@ -2262,6 +2262,7 @@ main{max-width:560px;margin:0 auto;padding:20px 16px 40px}.brand{display:flex;al
 .muted{color:#8c92a3;display:block;font-size:13px}.small{font-size:12.5px;margin:8px 0 0}p{margin:4px 0}
 .big{display:flex;align-items:baseline;gap:6px;margin:14px 0 8px;flex-wrap:wrap}.big b{font-size:24px;color:#e8cd8a}.big .muted{display:inline}.pct{margin-left:auto;font-weight:700;font-size:18px}
 .bar{display:flex;gap:3px;height:9px}.seg{background:#101319;border-radius:5px;overflow:hidden;min-width:6px}.seg i{display:block;height:100%;background:#c9a24a}.seg.pago i{background:#57b98a}.seg.atrasado{background:rgba(226,102,92,.25)}
+.q-badge{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;border-radius:5px;border:1px solid rgba(87,185,138,.35);background:rgba(87,185,138,.10);color:#57b98a;font-size:11.5px;font-weight:600;line-height:16px;padding:1px 7px;white-space:nowrap}
 .row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #252a36}.row:first-child{border-top:none}.row.slim{padding:8px 0}.grow{flex:1;min-width:0}.grow b{display:block}
 .av{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;background:#c9a24a;color:#0a0c11;flex-shrink:0}.av.pago{background:#57b98a}.av.atrasado{background:#e2665c}
 .tag{font-size:12.5px;font-weight:700;padding:4px 10px;border-radius:999px;background:#101319;color:#e8cd8a;white-space:nowrap}.tag.ok{color:#57b98a;background:rgba(87,185,138,.12)}.tag.late{color:#e2665c;background:rgba(226,102,92,.12)}.tag.part{color:#e8cd8a}

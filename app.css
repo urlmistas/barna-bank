@@ -1850,3 +1850,63 @@
     .ps-detail .dt-t small{grid-column:2;grid-row:2;}
     .ps-detail .dt-a{grid-column:3;grid-row:2;font-size:13px;}
   }
+
+  /* ===== v23 ===== */
+  /* ações da dívida em uma linha: Pago, Mais prazo, Quitar, Mais (só ícone) */
+  @media (min-width:1024px){
+    .ps-detail .card[data-debt-id] .card-actions .ca-sec{display:none !important;}
+    .ps-detail .card[data-debt-id] .card-actions .ca-more{display:inline-flex;width:44px;padding:0;justify-content:center;order:50;}
+    .ps-detail .card[data-debt-id] .card-actions [data-act="settle"]{width:auto;padding:0 13px;justify-content:center;}
+    .ps-detail .card[data-debt-id] .card-actions{flex-wrap:nowrap;gap:6px;}
+    .ps-detail .card[data-debt-id] .card-actions .btn{flex-shrink:0;}
+    .ps-detail .card-body-inner.hist-open .card-panel[data-panel="historico"]{display:flex !important;}
+    .ps-detail .person-grid{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);}
+    .ps-detail.has-pick .card[data-debt-id]:not(.open){display:none;}
+    .ps-detail .debt-tabs{display:none;}
+  }
+  /* janela "Mais" no meio da tela */
+  .ap-back{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:20px;background:rgba(5,7,10,0.62);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);}
+  .ap-box{width:min(380px,100%);max-height:calc(100vh - 40px);overflow:auto;background:#14171f;border:1px solid #252a36;border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,0.6);padding:8px;}
+  .ap-head{display:flex;align-items:center;gap:10px;padding:8px 8px 10px 12px;border-bottom:1px solid #1f2430;margin-bottom:6px;}
+  .ap-head b{flex:1;min-width:0;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ap-x{width:32px;height:32px;border-radius:9px;border:none;background:transparent;color:var(--muted);display:grid;place-items:center;cursor:pointer;}
+  .ap-x:hover,.ap-x:focus-visible{background:rgba(255,255,255,0.06);color:var(--text);outline:none;}
+  .ap-x .i{width:16px;height:16px;}
+  .ap-list{display:flex;flex-direction:column;gap:2px;}
+  .ap-item{display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px;border:none;border-radius:10px;background:transparent;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;font-weight:500;text-align:left;cursor:pointer;}
+  .ap-item .i{width:17px;height:17px;color:var(--muted);flex-shrink:0;}
+  .ap-item:hover,.ap-item:focus-visible{background:rgba(255,255,255,0.06);outline:none;}
+  .ap-item.danger,.ap-item.danger .i{color:var(--red);}
+  /* seta do "Detalhes" com ícone Lucide em vez do marcador do navegador */
+  .od-details summary,.fc-more summary{list-style:none;display:flex;align-items:center;gap:6px;}
+  .od-details summary::-webkit-details-marker,.fc-more summary::-webkit-details-marker{display:none;}
+  .od-details summary .i,.fc-more summary .i{width:15px;height:15px;flex-shrink:0;transition:transform .15s;}
+  .od-details[open] summary .i,.fc-more[open] summary .i{transform:rotate(90deg);}
+  /* seletor de dívida (acima da confiança) */
+  .debt-pick{display:flex;flex-direction:column;gap:6px;}
+  .debt-pick .dp-l{font-size:12px;font-weight:600;color:var(--muted);}
+  .debt-pick .cs-trigger{width:100%;}
+  /* dropdown personalizado (no lugar do select do navegador) */
+  .cs-native{position:absolute !important;width:1px !important;height:1px !important;opacity:0 !important;pointer-events:none !important;overflow:hidden;margin:0 !important;padding:0 !important;border:0 !important;}
+  .cs-trigger{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;min-height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--stroke);background:var(--card);color:var(--text);font-family:'Inter',sans-serif;font-size:13px;font-weight:500;text-align:left;cursor:pointer;max-width:100%;box-sizing:border-box;}
+  .cs-trigger:hover{border-color:#343a4a;}
+  .cs-trigger:focus-visible,.cs-trigger[aria-expanded="true"]{outline:none;border-color:var(--gold);}
+  .cs-trigger:disabled{opacity:.5;cursor:not-allowed;}
+  .cs-trigger .cs-val{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cs-trigger > .i{width:16px;height:16px;color:var(--muted);flex-shrink:0;}
+  .ppm-sort .cs-trigger{margin-left:auto;min-height:32px;padding:0 10px;font-size:12.5px;}
+  .cs-pop{position:fixed;z-index:200;overflow:auto;padding:4px;background:#14171f;border:1px solid #252a36;border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,0.55);}
+  .cs-gl{padding:8px 10px 4px;font-size:11.5px;font-weight:600;color:var(--muted-2);letter-spacing:.02em;}
+  .cs-grp + .cs-grp{margin-top:4px;padding-top:4px;border-top:1px solid #1f2430;}
+  .cs-opt{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:none;border-radius:8px;background:transparent;color:var(--text);font-family:'Inter',sans-serif;font-size:13.5px;text-align:left;cursor:pointer;}
+  .cs-opt:hover,.cs-opt:focus-visible{background:rgba(255,255,255,0.06);outline:none;}
+  .cs-opt.on{font-weight:600;}
+  .cs-opt:disabled{opacity:.45;cursor:not-allowed;}
+  .cs-t{flex:1;min-width:0;}
+  .cs-sub{font-size:12px;color:var(--muted);white-space:nowrap;}
+  .cs-ck{width:16px;height:16px;display:grid;place-items:center;color:var(--gold-soft);flex-shrink:0;}
+  .cs-ck .i{width:15px;height:15px;}
+
+  @media (min-width:1024px){
+    .ps-detail .pg-side .person-extra{background:none;border:none;padding:0;box-shadow:none;border-radius:0;}
+  }
