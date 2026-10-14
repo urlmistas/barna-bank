@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=ce399e86" data-app-css>
+<link rel="stylesheet" href="app.css?v=76efe8e8" data-app-css>
 </head>
 <body data-page="dashboard">
 <!-- Ícones: Lucide (https://lucide.dev), licença ISC. Copyright (c) Lucide Icons and Contributors -->
@@ -382,6 +382,10 @@
       <input type="text" id="fName" list="friendsList" placeholder="Ex: Vinicius" autocomplete="off">
       <datalist id="friendsList"></datalist>
     </div>
+    <div class="field">
+      <label for="fSubject">Do que se trata (opcional)</label>
+      <input type="text" id="fSubject" maxlength="50" placeholder="Ex: Notebook, conserto da moto, aluguel" autocomplete="off">
+    </div>
     <div class="field-row">
       <div class="field">
         <label id="lblPrincipal">Valor emprestado (R$)</label>
@@ -449,7 +453,11 @@
       </div>
     </div>
     <div class="field">
-      <label for="fNotes">Anotações (opcional)</label>
+      <label for="fPubNote">Descrição no link de cobrança (opcional)</label>
+      <input type="text" id="fPubNote" maxlength="140" placeholder="Aparece para a outra pessoa. Ex: troca da embreagem na oficina do Zé" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="fNotes">Anotações (opcional, só você vê)</label>
       <textarea id="fNotes" maxlength="600" placeholder="Ex: do que é essa dívida, combinou de pagar em dinheiro, atrasou uma vez…"></textarea>
     </div>
     <div class="err" id="formErr"></div>
@@ -854,7 +862,7 @@
 {"contacts": {}, "debts": [], "wallets": [], "transactions": []}
 </script>
 
-<script src="app.js?v=51ceed91" data-app-js></script>
+<script src="app.js?v=a225b30b" data-app-js></script>
 
 </body>
 </html>

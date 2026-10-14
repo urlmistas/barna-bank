@@ -1853,7 +1853,7 @@ async function sharePage(env, token, v) {
       ? '<h1>' + brl(v.remaining) + '</h1><p class="muted">em aberto com ' + owner + (v.late > 0 ? ' · <span class="latec">' + brl(v.late) + ' atrasado</span>' : '') + '</p>'
       : '<h1>Tudo quitado 🎉</h1><p class="muted">Você não deve nada para ' + owner + '. Valeu!</p>') +
     (v.doneCount ? '<p class="muted small">' + v.doneCount + ' dívida(s) já quitada(s), ' + brl(v.donePaid) + ' pagos.</p>' : '') + '</div>';
-  if (owe) return page('Quanto falta pagar', hero + debts + upd, v.remaining > 0 ? 'Falta pagar ' + brl(v.remaining) : 'Tudo pago');
+  if (owe) return owePage(v, v.owner || '');
   return page('Resumo para ' + v.name, hero + pay + debts + upd + script, v.remaining > 0 ? brl(v.remaining) + ' em aberto' : 'Tudo quitado');
 }
 const PAGE_JS = `
@@ -2035,17 +2035,180 @@ async function claimDecide(env, id, ok) {
   return {ok: true, status: c.status};
 }
 function initials(n) { const p = String(n || '?').replace(/\./g, '').trim().split(/\s+/); return ((p[0] || '?')[0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase(); }
-function page(title, body, desc, status) {
+// ---------------------------------------------------------------- link "do que devo": banner, próximo pagamento, dívidas e histórico
+const LK_ICONS = {
+  wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"/>',
+  car: '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>',
+  laptop: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/>',
+  phone: '<rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/>',
+  plane: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+  cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  house: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  book: '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
+  heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+  gift: '<path d="M12 7v14"/><path d="M20 11v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8"/><path d="M7.5 7a1 1 0 0 1 0-5A4.8 8 0 0 1 12 7a4.8 8 0 0 1 4.5-5 1 1 0 0 1 0 5"/><rect x="3" y="7" width="18" height="4" rx="1"/>',
+  food: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>',
+  repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/>',
+  money: '<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>', arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>', chev: '<path d="m6 9 6 6 6-6"/>'
+};
+// ícone pelo assunto (o texto que a pessoa escreveu); cada um com a sua cor
+const LK_KEYS = [
+  [/conserto|oficina|mecanic|reparo|pneu|embreagem|reforma|pedreiro/, 'wrench', 'gold'],
+  [/moto|carro|uber|gasolina|combust|ipva|seguro do carro|estacionamento/, 'car', 'gold'],
+  [/notebook|computador|\bpc\b|monitor|teclado|playstation|\bps5\b|xbox|videogame|console|tv\b|televis/, 'laptop', 'blue'],
+  [/celular|iphone|telefone|plano|chip|internet/, 'phone', 'blue'],
+  [/viagem|passagem|aviao|hotel|pousada|hospedagem|airbnb/, 'plane', 'purple'],
+  [/mercado|compra|loja|roupa|tenis|shopee|amazon|mercado livre/, 'cart', 'orange'],
+  [/aluguel|casa|apartamento|condominio|\bluz\b|agua|gas\b|movel|moveis|geladeira/, 'house', 'orange'],
+  [/curso|faculdade|escola|livro|material|mensalidade|matricula/, 'book', 'purple'],
+  [/saude|medico|remedio|dentista|hospital|exame|farmacia|consulta/, 'heart', 'red'],
+  [/presente|aniversario|natal/, 'gift', 'red'],
+  [/restaurante|ifood|comida|lanche|pizza|churrasco|\bbar\b|cerveja|jantar|almoco/, 'food', 'orange']
+];
+function lkIcon(d) {
+  const t = norm((d.info && d.info.subject) || d.title || '');
+  if (d.info && d.info.recurring) { const hit = LK_KEYS.find(k => k[0].test(t)); return hit ? [hit[1], 'green'] : ['repeat', 'green']; }
+  const hit = LK_KEYS.find(k => k[0].test(t));
+  return hit ? [hit[1], hit[2]] : (/grupo|racha|churras/.test(t) ? ['users', 'blue'] : ['money', 'gold']);
+}
+const lkSvg = (name, size) => '<svg width="' + (size || 20) + '" height="' + (size || 20) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + LK_ICONS[name] + '</svg>';
+const LK_MON = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const lkMonYr = iso => iso ? LK_MON[+iso.slice(5, 7) - 1] + '/' + iso.slice(2, 4) : '';
+function lkWhen(iso) {
+  const d = Math.round((Date.parse(iso + 'T12:00:00Z') - Date.parse(todayBR() + 'T12:00:00Z')) / 86400000);
+  if (d === 0) return {txt: 'hoje', cls: 'soon'};
+  if (d === 1) return {txt: 'amanhã', cls: 'soon'};
+  if (d < 0) return {txt: d === -1 ? 'atrasada desde ontem' : 'atrasada há ' + (-d) + ' dias', cls: 'late'};
+  return {txt: 'em ' + d + ' dias', cls: d <= 7 ? 'soon' : ''};
+}
+const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+function owePage(v, ownerName) {
+  const s = v.summary || {}, debts = (v.debts || []).slice();
+  debts.sort((a, b) => ((a.info && a.info.next && a.info.next.date) || '9999') < ((b.info && b.info.next && b.info.next.date) || '9999') ? -1 : 1);
+  const paidTot = s.paidTotal || 0, total = paidTot + (v.remaining || 0), pct = total > 0 ? Math.round(paidTot / total * 100) : 0;
+  const me = ownerName || 'Você', them = v.name || '';
+  const stats = [['Em aberto', String(s.openCount || 0), (s.openCount === 1 ? 'dívida' : 'dívidas'), '']];
+  if (s.recurringCount) stats.push(['Recorrente', String(s.recurringCount), 'todo mês', '']);
+  stats.push(['Quitadas', String(s.doneCount || 0), s.doneCount === 1 ? 'já acertada' : 'já acertadas', 'ok']);
+  stats.push(s.endAll ? ['Termina tudo', lkMonYr(s.endAll), s.recurringCount ? 'sem as recorrentes' : 'última parcela', ''] : ['Já pago', brl(paidTot), plural(s.payCount || 0, 'pagamento', 'pagamentos'), 'ok']);
+  const banner = '<section class="lk-banner" aria-label="Resumo"><div class="lk-bl">' +
+    '<div class="lk-who"><span class="lk-av me">' + esc(initials(me).slice(0, 1)) + '</span><span class="lk-arrow">' + lkSvg('arrow', 16) + '</span><span class="lk-av them">' + esc(initials(them).slice(0, 1)) + '</span>' +
+    '<span>' + esc(me) + (v.remaining > 0 ? ' ainda deve a ' : ' não deve nada a ') + '<b>' + esc(them) + '</b></span></div>' +
+    (v.remaining > 0
+      ? '<div class="lk-big"><span class="lk-lbl">FALTA PAGAR</span><b>' + brl(v.remaining) + '</b>' + (v.late > 0 ? '<span class="lk-late">' + brl(v.late) + ' atrasado</span>' : '') + '</div>'
+      : '<div class="lk-big"><span class="lk-lbl">SITUAÇÃO</span><b class="okc">Tudo pago</b></div>') +
+    '<div class="lk-prog"><div class="lk-bar"><i style="width:' + pct + '%"></i></div><div class="lk-pt"><span><b class="okc">' + brl(paidTot) + '</b> pagos de ' + brl(total) + '</span><span>' + pct + '%</span></div></div></div>' +
+    '<div class="lk-stats' + (stats.length % 2 ? ' odd' : '') + '">' + stats.map(x => '<div class="lk-stat"><span>' + x[0] + '</span><b class="' + (x[3] === 'ok' ? 'okc' : '') + '">' + esc(x[1]) + '</b><small>' + x[2] + '</small></div>').join('') + '</div></section>';
+  let next = '';
+  if (s.next) {
+    const w = lkWhen(s.next.date), dd = s.next.date;
+    next = '<section class="lk-next ' + w.cls + '" aria-label="Próximo pagamento"><div class="lk-cal"><span>' + LK_MON[+dd.slice(5, 7) - 1].toUpperCase() + '</span><b>' + dd.slice(8, 10) + '</b></div>' +
+      '<div class="lk-nx"><span class="lk-lbl">' + (w.cls === 'late' ? 'PAGAMENTO ATRASADO' : 'PRÓXIMO PAGAMENTO') + ' · ' + w.txt.toUpperCase() + '</span>' +
+      '<b>' + esc(s.next.title) + ' <span>· ' + (s.next.recurring ? 'mensalidade' : 'parcela ' + s.next.n + ' de ' + s.next.of) + '</span></b></div>' +
+      '<div class="lk-nv"><b>' + brl(s.next.amount) + '</b>' + (s.after ? '<span>depois: ' + brl(s.after.amount) + ' em ' + fmtDate(s.after.date) + '</span>' : '') + '</div></section>';
+  }
+  const hist = (s.history || []).length
+    ? (s.history || []).map(h => '<div class="lk-h"><span class="lk-ck">' + lkSvg('check', 13) + '</span><div><b>' + esc(h.title) + '</b><span>' + esc(h.label) + ' · ' + fmtFull(h.date) + '</span></div><em>' + brl(h.amount) + '</em></div>').join('')
+    : '<p class="lk-empty">Nenhum pagamento ainda.</p>';
+  const aside = '<aside class="lk-hist" aria-label="Últimos pagamentos"><div class="lk-hh"><h2>Últimos pagamentos</h2>' + (s.payCount ? '<span>' + s.payCount + ' no total</span>' : '') + '</div>' + hist +
+    '<div class="lk-tot"><span>Total pago</span><b>' + brl(paidTot) + '</b></div></aside>';
+  const cards = debts.map(d => {
+    const f = d.info || {}, [ico, col] = lkIcon(d), nx = f.next;
+    const sub = f.recurring ? brl(d.monthly) + ' todo dia ' + (f.day || '') : f.planLabel || (f.count > 1 ? f.count + 'x de ' + brl(f.instValue || 0) : 'parcela única');
+    const right = f.recurring
+      ? (d.late > 0 ? '<b class="latec">' + brl(d.late) + '</b><span>atrasado</span>' : '<b class="okc">Em dia</b><span>' + (nx ? 'próxima em ' + fmtDate(nx.date) : 'tudo pago') + '</span>')
+      : '<b' + (d.late > 0 ? ' class="latec"' : '') + '>' + brl(d.remaining) + '</b><span>falta de ' + brl(d.total) + '</span>';
+    const insts = d.insts || [];
+    const segs = !f.recurring && insts.length > 1 && insts.length <= 48
+      ? '<div class="lk-segs" aria-label="' + f.paidCount + ' de ' + insts.length + ' parcelas pagas">' + insts.map(it => '<i class="' + (it.state === 'paga' ? 'ok' : it.state === 'atrasada' ? 'late' : nx && it.n === nx.n ? 'nx' : '') + '"></i>').join('') + '</div>' : '';
+    const chips = [];
+    if (nx) {
+      const w = lkWhen(nx.date);
+      if (!f.recurring && f.count > 1) chips.push(['Parcela ' + nx.n + ' de ' + f.count, '']);
+      chips.push(['Próxima ' + fmtDate(nx.date) + (w.cls ? ' · ' + w.txt : '') + (f.recurring ? ' · ' + brl(nx.amount) : ''), w.cls]);
+    }
+    if (f.end && f.count > 1) chips.push(['Termina ' + lkMonYr(f.end), '']);
+    if (f.recurring && f.monthsPaid) chips.push([plural(f.monthsPaid, 'mês pago', 'meses pagos'), '']);
+    const list = !f.recurring && insts.length > 1
+      ? '<details class="lk-insts"><summary><span class="sh">Ver parcelas</span><span class="hd">Esconder parcelas</span>' + lkSvg('chev', 15) + '</summary><div class="lk-grid-i">' +
+        insts.map(it => '<div class="lk-i ' + (it.state === 'paga' ? 'ok' : it.state === 'atrasada' ? 'late' : '') + '"><span>' + it.n + 'ª</span><b>' + fmtDate(it.due) + '</b><em>' + (it.state === 'paga' ? 'Paga' : it.state === 'atrasada' ? 'Atrasada' : brl(it.open > 0 ? it.open : it.value)) + '</em></div>').join('') + '</div></details>'
+      : '';
+    return '<article class="lk-debt"><div class="lk-dh"><span class="lk-ico ' + col + '">' + lkSvg(ico, 22) + '</span><div class="lk-dt"><h3>' + esc(d.title) + (f.recurring ? ' <span class="lk-tag">Recorrente</span>' : '') + '</h3>' +
+      '<span>' + sub + ' · desde ' + fmtFull(d.date) + '</span>' + (f.note ? '<p class="lk-note">“' + esc(f.note) + '”</p>' : '') + '</div><div class="lk-dr">' + right + '</div></div>' +
+      segs + (chips.length || list ? '<div class="lk-chips">' + chips.map(c => '<span class="' + c[1] + '">' + esc(c[0]) + '</span>').join('') + '</div>' : '') + list + '</article>';
+  }).join('');
+  const upd = (v.updatedAt || '').slice(0, 10);
+  const body = '<div class="lk-top"><span class="mark">B</span><span class="lk-brand">BarnaBank</span><span class="lk-upd">Página só para consulta · atualizado em ' + fmtFull(upd) + '</span></div>' +
+    '<div class="lk-layout">' + banner + next + aside +
+    '<div class="lk-debts">' + (debts.length ? '<div class="lk-dhh"><h2>Dívidas em aberto</h2><span>a que vence primeiro fica em cima</span></div>' + cards : '<div class="lk-debt lk-empty">Nada em aberto agora.</div>') + '</div></div>';
+  return page('Quanto falta pagar', body, v.remaining > 0 ? 'Falta pagar ' + brl(v.remaining) : 'Tudo pago', 200, 'lk');
+}
+const LK_CSS = `
+body.lk main{max-width:1180px;padding:28px 24px 48px}body.lk .brand{display:none}
+.lk-top{display:flex;align-items:center;gap:10px;margin:0 0 20px}.lk-brand{font-weight:600;color:#8c92a3}.lk-upd{margin-left:auto;font-size:12.5px;color:#6b7182;text-align:right}
+.lk-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;grid-template-rows:auto auto 1fr;gap:20px;align-items:start}
+.lk-banner{grid-column:1;grid-row:1;border-radius:22px;padding:26px 28px;border:1px solid #2a2618;background:linear-gradient(135deg,#1a1710 0%,#14171f 60%);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,300px);gap:28px;align-items:center}
+.lk-bl{display:flex;flex-direction:column;gap:16px;min-width:0}
+.lk-who{display:flex;align-items:center;gap:8px;font-size:14px;color:#a9aebb}.lk-who b{color:#eee9da;font-weight:600}
+.lk-av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:12.5px;flex-shrink:0}.lk-av.me{background:#2a2f3c;color:#e8cd8a}.lk-av.them{background:#1d2a44;color:#8fb5f5}.lk-arrow{color:#6b7182;display:flex}
+.lk-lbl{font-size:12px;font-weight:700;color:#8c92a3;letter-spacing:.05em}
+.lk-big{display:flex;flex-direction:column;gap:4px}.lk-big b{font-size:48px;font-weight:800;letter-spacing:-.02em;line-height:1}.lk-late{color:#e2665c;font-weight:600;font-size:13.5px}
+.lk-prog{display:flex;flex-direction:column;gap:7px;max-width:460px}.lk-bar{height:9px;border-radius:99px;background:#1f2430;overflow:hidden}.lk-bar i{display:block;height:100%;background:#57b98a}
+.lk-pt{display:flex;justify-content:space-between;font-size:13px;color:#8c92a3}.lk-pt b{font-weight:600}.lk-pt span:last-child{font-weight:600;color:#a9aebb}
+.lk-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}.lk-stats.odd .lk-stat:last-child{grid-column:1 / -1}
+.lk-stat{background:rgba(10,12,17,.55);border:1px solid #1f2430;border-radius:14px;padding:14px;display:flex;flex-direction:column;min-width:0}.lk-stat span{font-size:12px;color:#8c92a3}.lk-stat b{font-size:24px;font-weight:800;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lk-stat small{font-size:11.5px;color:#6b7182}
+.lk-next{grid-column:1;grid-row:2;background:rgba(201,162,74,.09);border:1px solid rgba(201,162,74,.5);border-radius:20px;padding:18px 22px;display:flex;align-items:center;gap:20px}
+.lk-next.late{background:rgba(226,102,92,.08);border-color:rgba(226,102,92,.45)}.lk-next .lk-lbl{color:#e8cd8a}.lk-next.late .lk-lbl{color:#f0a39c}
+.lk-cal{width:68px;flex-shrink:0;border-radius:14px;background:#1b1810;border:1px solid rgba(201,162,74,.35);text-align:center;padding:8px 0;display:flex;flex-direction:column}.lk-cal span{font-size:11.5px;font-weight:700;color:#e8cd8a;letter-spacing:.08em}.lk-cal b{font-size:28px;font-weight:800;line-height:1.1}
+.lk-nx{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}.lk-nx b{font-size:16px;font-weight:600}.lk-nx b span{color:#a9aebb;font-weight:500}
+.lk-nv{text-align:right;flex-shrink:0;display:flex;flex-direction:column}.lk-nv b{font-size:28px;font-weight:800}.lk-nv span{font-size:12.5px;color:#a9aebb}
+.lk-hist{grid-column:2;grid-row:1 / span 3;align-self:stretch;background:#14171f;border:1px solid #1f2430;border-radius:22px;padding:20px;display:flex;flex-direction:column;margin:0}
+.lk-hh{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}.lk-hh h2{font-size:16px}.lk-hh span{font-size:12px;color:#6b7182}
+.lk-h{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid #181c25}.lk-h div{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}.lk-h b{font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lk-h div span{font-size:12px;color:#8c92a3}.lk-h em{font-style:normal;font-size:13.5px;font-weight:700;color:#57b98a;white-space:nowrap}
+.lk-ck{width:26px;height:26px;border-radius:50%;background:rgba(87,185,138,.14);color:#57b98a;display:grid;place-items:center;flex-shrink:0}
+.lk-tot{margin-top:auto;border-top:1px solid #1f2430;padding-top:14px;display:flex;justify-content:space-between;font-size:13px;color:#8c92a3}.lk-tot b{color:#eee9da;font-weight:700}
+.lk-debts{grid-column:1;grid-row:3;display:flex;flex-direction:column;gap:14px}
+.lk-dhh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:2px 2px 0}.lk-dhh h2{font-size:16px}.lk-dhh span{font-size:12.5px;color:#6b7182}
+.lk-debt{background:#14171f;border:1px solid #1f2430;border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:14px}.lk-debt.lk-empty{color:#8c92a3;text-align:center}
+.lk-dh{display:flex;gap:14px;align-items:flex-start}
+.lk-ico{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;flex-shrink:0}.lk-ico.gold{background:#22202a;color:#e8cd8a}.lk-ico.blue{background:#1a2230;color:#8fb5f5}.lk-ico.green{background:#1c2620;color:#57b98a}.lk-ico.purple{background:#211d30;color:#b4a6f7}.lk-ico.orange{background:#2a1f16;color:#f0a865}.lk-ico.red{background:#2a1a1a;color:#f0a39c}
+.lk-dt{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}.lk-dt h3{margin:0;font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap;text-transform:none;letter-spacing:normal;color:#eee9da}.lk-hh h2,.lk-dhh h2{margin:0}.lk-dt > span{font-size:13px;color:#8c92a3}
+.lk-tag{font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:rgba(87,185,138,.12);color:#57b98a}
+.lk-note{margin:2px 0 0;font-size:13px;color:#a9aebb}
+.lk-dr{text-align:right;flex-shrink:0;display:flex;flex-direction:column}.lk-dr b{font-size:18px;font-weight:700}.lk-dr span{font-size:12px;color:#8c92a3}
+.lk-segs{display:flex;gap:5px}.lk-segs i{flex:1;height:8px;border-radius:4px;background:#1f2430}.lk-segs i.ok{background:#57b98a}.lk-segs i.nx{background:#c9a24a}.lk-segs i.late{background:#e2665c}
+.lk-chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lk-chips > span{font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:999px;background:#101319;color:#a9aebb}.lk-chips > span.soon{background:rgba(201,162,74,.12);color:#e8cd8a}.lk-chips > span.late{background:rgba(226,102,92,.12);color:#f0a39c}
+.lk-insts{margin-top:-6px}.lk-insts summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:10px;border:1px solid #252a36;font-size:13px;font-weight:600}.lk-insts summary::-webkit-details-marker{display:none}
+.lk-insts .hd{display:none}.lk-insts[open] .hd{display:inline}.lk-insts[open] .sh{display:none}.lk-insts[open] summary svg{transform:rotate(180deg)}
+.lk-grid-i{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:6px;margin-top:12px}
+.lk-i{border-radius:12px;background:#101319;border:1px solid #1f2430;padding:10px 6px;display:flex;flex-direction:column;gap:3px;text-align:center}.lk-i span{font-size:11.5px;font-weight:700;color:#6b7182}.lk-i b{font-size:12.5px;font-weight:600}.lk-i em{font-style:normal;font-size:11.5px;font-weight:600;color:#a9aebb}
+.lk-i.ok{background:rgba(87,185,138,.07);border-color:rgba(87,185,138,.25)}.lk-i.ok b{color:#8c92a3}.lk-i.ok em{color:#57b98a}.lk-i.late{background:rgba(226,102,92,.07);border-color:rgba(226,102,92,.3)}.lk-i.late em{color:#f0a39c}
+.lk-empty{color:#8c92a3;font-size:13px;margin:6px 0}
+@media (max-width:900px){
+  body.lk main{padding:18px 16px 36px}
+  .lk-layout{display:flex;flex-direction:column;align-items:stretch;gap:14px}
+  .lk-banner{grid-template-columns:minmax(0,1fr);gap:18px;padding:20px 18px}.lk-big b{font-size:40px}
+  .lk-next{padding:14px 16px;gap:14px;flex-wrap:wrap}.lk-nv{text-align:left;width:100%;padding-left:82px;margin-top:-4px}.lk-nv b{font-size:24px}
+  .lk-debts{order:3}.lk-hist{order:4}
+  .lk-dt h3{font-size:16.5px}.lk-dr b{font-size:16.5px}
+}
+@media (max-width:480px){.lk-upd{display:none}.lk-dhh span{display:none}.lk-ico{width:42px;height:42px}.lk-nv{padding-left:0}}
+`;
+
+function page(title, body, desc, status, bodyClass) {
   const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">' +
     '<title>' + esc(title) + ' · BarnaBank</title><meta property="og:title" content="' + esc(title) + '"><meta property="og:description" content="' + esc(desc || 'BarnaBank') + '">' +
-    '<meta name="theme-color" content="#0a0c11"><style>' + CSS + '</style></head><body><main>' +
+    '<meta name="theme-color" content="#0a0c11"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">' +
+    '<style>' + CSS + (bodyClass === 'lk' ? LK_CSS : '') + '</style></head><body' + (bodyClass ? ' class="' + bodyClass + '"' : '') + '><main>' +
     '<div class="brand"><span class="mark">B</span>BarnaBank</div>' + body + '</main>' +
     '</body></html>';
   return new Response(html, {status: status || 200, headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }
 const CSS = `
-*{box-sizing:border-box}:root{color-scheme:dark}body{margin:0;background:radial-gradient(900px 500px at 0% -10%,rgba(201,162,74,.07),transparent 60%),#0a0c11;color:#eee9da;font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;min-height:100vh}
+*{box-sizing:border-box}:root{color-scheme:dark}body{margin:0;background:radial-gradient(900px 500px at 0% -10%,rgba(201,162,74,.07),transparent 60%),#0a0c11;color:#eee9da;font:15px/1.45 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums;min-height:100vh}
 main{max-width:560px;margin:0 auto;padding:20px 16px 40px}.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:#8c92a3;margin:4px 0 16px}
 .mark{width:32px;height:32px;border-radius:9px;background:linear-gradient(155deg,#e8cd8a,#c9a24a);color:#1b1404;display:grid;place-items:center;font-weight:800}
 .card{background:#14171f;border:1px solid #252a36;border-radius:18px;padding:16px;margin-bottom:12px}.center{text-align:center;padding:32px 16px}
