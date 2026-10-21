@@ -1946,3 +1946,17 @@
   @media (min-width:1024px){
     .ps-detail .card[data-debt-id] .card-body-inner.hist-open .card-panel[data-panel="historico"]{display:flex !important;margin-top:10px;}
   }
+
+  /* conta e login */
+  .auth-overlay{background:var(--ink);backdrop-filter:none;z-index:200;}
+  .auth-modal{max-width:400px !important;}
+  .auth-modal, .auth-modal .wl-hero h2{text-align:center;}
+  .auth-modal form{text-align:left;}
+  .auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--card);border:1px solid var(--stroke);border-radius:12px;padding:4px;margin-bottom:16px;}
+  .auth-tabs button{background:none;border:0;border-radius:9px;padding:9px;color:var(--muted);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;}
+  .auth-tabs button.active{background:linear-gradient(155deg,var(--gold-soft),var(--gold));color:#1b1404;}
+  .auth-msg{min-height:18px;font-size:13px;line-height:1.45;margin:0 0 12px;color:var(--muted);}
+  .auth-msg.err{color:var(--red);} .auth-msg.ok{color:var(--green);}
+  .auth-submit{width:100%;justify-content:center;}
+  .auth-link{width:100%;justify-content:center;margin-top:10px;}
+  .auth-submit[disabled]{opacity:.6;cursor:wait;}

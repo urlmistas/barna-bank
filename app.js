@@ -359,6 +359,7 @@
       }));
       saveFailedWarned = false;
       if(typeof cloudSchedule === 'function') cloudSchedule();
+      if(typeof sbSchedule === 'function') sbSchedule();
       if(typeof histSchedule === 'function') histSchedule();
     }catch(e){ warnSaveFailed(e); }
   }
@@ -8317,6 +8318,228 @@
       muts.forEach(function(m){ Array.prototype.forEach.call(m.addedNodes, function(nd){ if(nd.nodeType === 1) scan(nd); }); });
     }).observe(document.body, {childList: true, subtree: true});
   })();
+
+  // ---------- conta (Supabase): login e dados de cada usuário na nuvem ----------
+  var SB_URL = 'https://epsddfqunjqopylrbbyv.supabase.co', SB_KEY = 'sb_publishable_W04BorQgNFQ2TMGxnaRYow_EwuzV5Ni';
+  var SB_LS = 'barnabank_sb';
+  // navegador automatizado (testes) usa o app direto, sem login
+  var sbOff = !!(window.__BB_HEADLESS || navigator.webdriver || isSnapshotMode());
+  var sbSess = (function(){ try{ return JSON.parse(lsGet(SB_LS) || 'null'); }catch(e){ return null; } })();
+  var sbReady = false, sbBusy = false, sbTimer = 0, sbMode = 'login', sbRecovery = false;
+  var authOverlay = document.getElementById('authOverlay');
+  function sbSave(){ if(sbSess) lsSet(SB_LS, JSON.stringify(sbSess)); }
+  function sbDrop(){ sbSess = null; lsSet(SB_LS, ''); sbReady = false; sbRefreshLogoutBtn(); authShow(); }
+  function sbFetch(path, opts, token){
+    opts = opts || {};
+    opts.headers = Object.assign({apikey: SB_KEY, 'Content-Type': 'application/json'}, opts.headers || {});
+    if(token) opts.headers.Authorization = 'Bearer ' + token;
+    return fetch(SB_URL + path, opts).then(function(r){
+      return r.text().then(function(t){
+        var j = null; try{ j = t ? JSON.parse(t) : null; }catch(e){}
+        if(!r.ok){
+          var err = new Error((j && (j.msg || j.error_description || j.message)) || ('Erro ' + r.status));
+          err.status = r.status; err.code = j && (j.error_code || j.code);
+          throw err;
+        }
+        return j;
+      });
+    });
+  }
+  function sbSetSession(j, keep){
+    sbSess = Object.assign({}, keep || {}, {
+      access: j.access_token, refresh: j.refresh_token,
+      exp: Math.floor(Date.now() / 1000) + (j.expires_in || 3600),
+      uid: (j.user && j.user.id) || (keep && keep.uid), email: (j.user && j.user.email) || (keep && keep.email)
+    });
+    sbSave();
+  }
+  function sbToken(){
+    if(!sbSess) return Promise.reject(new Error('Sem login'));
+    if(sbSess.exp - 60 > Date.now() / 1000) return Promise.resolve(sbSess.access);
+    return sbFetch('/auth/v1/token?grant_type=refresh_token', {method: 'POST', body: JSON.stringify({refresh_token: sbSess.refresh})})
+      .then(function(j){ sbSetSession(j, sbSess); return sbSess.access; });
+  }
+  var SB_ERRS = [
+    [/invalid login credentials/i, 'E-mail ou senha incorretos.'],
+    [/email not confirmed/i, 'Confirme seu e-mail: abra o link que enviamos para você.'],
+    [/already registered|user_already_exists/i, 'Esse e-mail já tem conta. Use "Entrar".'],
+    [/password.*(at least|short|weak)|weak_password/i, 'A senha precisa ter pelo menos 6 caracteres.'],
+    [/rate limit|too many|over_email_send_rate_limit/i, 'Muitas tentativas. Espere alguns minutos e tente de novo.'],
+    [/invalid.*email|email_address_invalid|unable to validate email/i, 'E-mail inválido.'],
+    [/failed to fetch|networkerror|load failed/i, 'Sem conexão com a internet.']
+  ];
+  function sbErrText(e){
+    var m = (e && e.code ? e.code + ' ' : '') + (e && e.message || '');
+    for(var i = 0; i < SB_ERRS.length; i++) if(SB_ERRS[i][0].test(m)) return SB_ERRS[i][1];
+    return 'Não deu certo: ' + (e && e.message || 'erro desconhecido');
+  }
+  function authMsg(text, kind){
+    var el = document.getElementById('authMsg');
+    el.textContent = text || ''; el.className = 'auth-msg' + (kind ? ' ' + kind : '');
+  }
+  function authSetMode(mode){
+    sbMode = mode;
+    var signup = mode === 'signup', reset = mode === 'reset', recover = mode === 'recovery';
+    Array.prototype.forEach.call(document.querySelectorAll('#authTabs button'), function(b){ b.classList.toggle('active', b.getAttribute('data-auth') === mode); });
+    document.getElementById('authTabs').hidden = reset || recover;
+    document.getElementById('authEmail').closest('.field').hidden = recover;
+    document.getElementById('authPassField').hidden = reset;
+    document.getElementById('authPass').autocomplete = (signup || recover) ? 'new-password' : 'current-password';
+    document.querySelector('#authPassField label').textContent = recover ? 'Nova senha' : 'Senha';
+    document.getElementById('authSubmit').textContent = recover ? 'Salvar nova senha' : reset ? 'Enviar link' : signup ? 'Criar conta' : 'Entrar';
+    document.getElementById('authForgot').textContent = reset ? 'Voltar' : 'Esqueci a senha';
+    document.getElementById('authForgot').hidden = recover;
+    document.getElementById('authTitle').textContent = recover ? 'Nova senha' : reset ? 'Recuperar senha' : signup ? 'Criar sua conta' : 'Entrar no BarnaBank';
+    authMsg('');
+  }
+  function authShow(){ authSetMode(sbMode === 'recovery' ? 'recovery' : 'login'); authOverlay.classList.add('show'); }
+  function authHide(){ authOverlay.classList.remove('show'); document.getElementById('authPass').value = ''; }
+  function sbRedirect(){ return location.origin + location.pathname; }
+  function sbAfterLogin(){
+    authHide();
+    sbRefreshLogoutBtn();
+    sbSync({initial: true});
+  }
+  function sbRefreshLogoutBtn(){
+    var b = document.getElementById('btnLogout');
+    if(!b) return;
+    b.hidden = !sbSess;
+    document.getElementById('btnLogoutTxt').textContent = sbSess ? 'Sair (' + sbSess.email + ')' : 'Sair da conta';
+  }
+  document.getElementById('authTabs').addEventListener('click', function(e){
+    var b = e.target.closest('[data-auth]'); if(b) authSetMode(b.getAttribute('data-auth'));
+  });
+  document.getElementById('authForgot').addEventListener('click', function(){ authSetMode(sbMode === 'reset' ? 'login' : 'reset'); });
+  document.getElementById('authForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    var email = document.getElementById('authEmail').value.trim(), pass = document.getElementById('authPass').value;
+    var btn = document.getElementById('authSubmit');
+    if(sbMode !== 'recovery' && !/^\S+@\S+\.\S+$/.test(email)){ authMsg('Digite um e-mail válido.', 'err'); return; }
+    if(sbMode !== 'reset' && pass.length < 6){ authMsg('A senha precisa ter pelo menos 6 caracteres.', 'err'); return; }
+    btn.disabled = true; authMsg('Um instante…');
+    var done = function(){ btn.disabled = false; };
+    if(sbMode === 'login'){
+      sbFetch('/auth/v1/token?grant_type=password', {method: 'POST', body: JSON.stringify({email: email, password: pass})})
+        .then(function(j){ sbSetSession(j); sbAfterLogin(); })
+        .catch(function(err){ authMsg(sbErrText(err), 'err'); }).then(done);
+    }else if(sbMode === 'signup'){
+      sbFetch('/auth/v1/signup?redirect_to=' + encodeURIComponent(sbRedirect()), {method: 'POST', body: JSON.stringify({email: email, password: pass})})
+        .then(function(j){
+          if(j && j.access_token){ sbSetSession(j); sbAfterLogin(); return; }
+          authSetMode('login'); document.getElementById('authEmail').value = email;
+          authMsg('Enviamos um link de confirmação para ' + email + '. Abra o e-mail, confirme e volte aqui para entrar.', 'ok');
+        })
+        .catch(function(err){ authMsg(sbErrText(err), 'err'); }).then(done);
+    }else if(sbMode === 'reset'){
+      sbFetch('/auth/v1/recover?redirect_to=' + encodeURIComponent(sbRedirect()), {method: 'POST', body: JSON.stringify({email: email})})
+        .then(function(){ authMsg('Se esse e-mail tem conta, enviamos um link para criar uma nova senha.', 'ok'); })
+        .catch(function(err){ authMsg(sbErrText(err), 'err'); }).then(done);
+    }else{
+      sbToken().then(function(t){ return sbFetch('/auth/v1/user', {method: 'PUT', body: JSON.stringify({password: pass})}, t); })
+        .then(function(){ sbRecovery = false; sbMode = 'login'; sbAfterLogin(); showToast('Senha atualizada', 'check'); })
+        .catch(function(err){ authMsg(sbErrText(err), 'err'); }).then(done);
+    }
+  });
+  // links do e-mail (confirmação e recuperação) voltam com o token na URL
+  function sbReadHash(){
+    var h = location.hash || '';
+    if(h.indexOf('access_token=') < 0 && h.indexOf('error_description=') < 0) return Promise.resolve();
+    var q = new URLSearchParams(h.replace(/^#/, ''));
+    try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){}
+    if(q.get('error_description')) return Promise.resolve(q.get('error_description'));
+    var tok = {access_token: q.get('access_token'), refresh_token: q.get('refresh_token'), expires_in: +q.get('expires_in') || 3600};
+    return sbFetch('/auth/v1/user', {method: 'GET'}, tok.access_token).then(function(u){
+      tok.user = u; sbSetSession(tok);
+      if(q.get('type') === 'recovery'){ sbRecovery = true; sbMode = 'recovery'; }
+    }).catch(function(){});
+  }
+  function sbPull(){
+    return sbToken().then(function(t){
+      return sbFetch('/rest/v1/bb_user_state?select=data,updated_at&user_id=eq.' + encodeURIComponent(sbSess.uid), {method: 'GET'}, t);
+    }).then(function(rows){ return (rows && rows[0]) || null; });
+  }
+  function sbHasData(d){ return !!(d && typeof d === 'object' && (d.debts || d.wallets || d.transactions || d.settings)); }
+  function sbMarkSynced(rev){ sbSess.synced = hashStr(lsGet(STORAGE_KEY) || ''); if(rev) sbSess.rev = rev; sbSave(); }
+  function sbAdopt(row, msg){
+    restoreFromCloud(row.data, msg || 'Dados da sua conta carregados');
+    sbMarkSynced(row.updated_at);
+  }
+  // sobe o estado atual; só grava se a conta não mudou em outro aparelho desde a última leitura
+  function sbPush(){
+    if(!sbSess || sbOff || !sbReady) return Promise.resolve();
+    var body = {data: cloudSnapshot(), updated_at: new Date().toISOString()};
+    return sbToken().then(function(t){
+      if(sbSess.rev){
+        return sbFetch('/rest/v1/bb_user_state?user_id=eq.' + encodeURIComponent(sbSess.uid) + '&updated_at=eq.' + encodeURIComponent(sbSess.rev),
+          {method: 'PATCH', headers: {Prefer: 'return=representation'}, body: JSON.stringify(body)}, t)
+          .then(function(rows){ if(!rows || !rows.length){ var c = new Error('conflict'); c.conflict = true; throw c; } return rows[0]; });
+      }
+      return sbFetch('/rest/v1/bb_user_state', {method: 'POST', headers: {Prefer: 'return=representation'},
+        body: JSON.stringify({user_id: sbSess.uid, data: body.data, updated_at: body.updated_at})}, t).then(function(rows){ return rows[0]; });
+    }).then(function(row){
+      sbMarkSynced(row && row.updated_at);
+    }).catch(function(e){
+      if(e.conflict || e.status === 409){ sbSess.rev = ''; return sbSync({}); }
+      if(e.status === 401 || e.status === 403){ sbDrop(); return; }
+      try{ console.error('BarnaBank: falha ao sincronizar a conta', e); }catch(x){}
+    });
+  }
+  function sbSchedule(){
+    if(!sbSess || sbOff || !sbReady) return;
+    clearTimeout(sbTimer);
+    sbTimer = setTimeout(sbPush, 1500);
+  }
+  function sbSync(opts){
+    opts = opts || {};
+    if(!sbSess || sbOff || sbBusy) return Promise.resolve();
+    sbBusy = true;
+    return sbPull().then(function(row){
+      var localHash = hashStr(lsGet(STORAGE_KEY) || ''), localChanged = !sbSess.synced || localHash !== sbSess.synced;
+      if(!row || !sbHasData(row.data)){
+        sbReady = true; sbBusy = false;
+        if(!appIsEmpty() || opts.initial) return sbPush();
+        return;
+      }
+      if(row.updated_at === sbSess.rev && !localChanged){ sbReady = true; return; }
+      if(!localChanged || appIsEmpty()){ sbAdopt(row, opts.initial ? 'Dados da sua conta carregados' : 'Atualizado com a sua conta'); sbReady = true; return; }
+      // este aparelho e a conta têm dados diferentes: o usuário escolhe
+      return appConfirm('Qual versão manter?', '<p class="warn">Este aparelho tem dados que a sua conta ainda não tem (ou a conta foi alterada em outro aparelho). Quer usar os dados da <b>conta</b> ou manter os <b>deste aparelho</b>? Exporte um backup antes se tiver dúvida.</p>',
+        {okText: 'Usar os da conta', cancelText: 'Manter deste aparelho', icon: 'cloud-download'}).then(function(useCloud){
+          sbReady = true;
+          if(useCloud){ sbAdopt(row); return; }
+          sbSess.rev = row.updated_at; sbSave();
+          sbBusy = false;
+          return sbPush();
+        });
+    }).catch(function(e){
+      if(e && (e.status === 401 || e.status === 400)) sbDrop();
+      else showToast('Não consegui falar com a sua conta. ' + sbErrText(e), 'triangle-alert');
+    }).then(function(){ sbBusy = false; });
+  }
+  function sbLogout(){
+    return appConfirm('Sair da conta?', '<p class="warn">Os dados ficam guardados na sua conta e voltam quando você entrar de novo. Este aparelho será limpo. Fotos de comprovantes ficam só neste aparelho.</p>', {okText: 'Sair', danger: true, icon: 'log-out'}).then(function(ok){
+      if(!ok) return;
+      clearTimeout(sbTimer);
+      return sbPush().then(function(){
+        [STORAGE_KEY, SETTINGS_KEY, SB_LS, CLOUD_KEY_LS, WELCOME_KEY].forEach(function(k){ try{ localStorage.removeItem(k); }catch(e){} });
+        sbSess = null;
+        location.reload();
+      });
+    });
+  }
+  document.getElementById('btnLogout').addEventListener('click', function(){ closeSettings(); sbLogout(); });
+  window.addEventListener('focus', function(){ if(sbSess && sbReady && !sbOff) sbSync({}); });
+  function sbInit(){
+    if(sbOff) return;
+    authOverlay.classList.add('show');
+    sbReadHash().then(function(hashErr){
+      if(sbRecovery){ authSetMode('recovery'); return; }
+      if(sbSess){ authHide(); sbRefreshLogoutBtn(); sbSync({initial: true}); return; }
+      authShow();
+      if(hashErr) authMsg(hashErr, 'err');
+    });
+  }
+  sbInit();
 
   render();
   renderDashboard();
