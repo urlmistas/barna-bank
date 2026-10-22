@@ -212,9 +212,10 @@ with sync_playwright() as p:
 
     # ---------- backup inclui contas e cartões
     page.evaluate("document.querySelector('#pageTabs [data-page=\"dashboard\"]').click()"); page.wait_for_timeout(400)  # "Seus dados" fica no Início
-    page.click('#btnExportMenuToggle')
+    page.click('#btnSettings'); page.wait_for_timeout(250)
     with page.expect_download() as dl:
         page.click('#btnExportJson')
+    page.click('#btnSettingsClose'); page.wait_for_timeout(200)
     bk = json.load(open(dl.value.path()))
     check(all(k in bk for k in ('bills', 'cards', 'cardPurchases', 'cardPayments')) and len(bk['cardPurchases']) == 2, 'backup JSON inclui contas fixas e cartões')
 

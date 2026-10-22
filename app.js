@@ -3491,64 +3491,13 @@
   });
 
   // ---------- export / import ----------
-  var exportMenu = document.getElementById('exportMenu');
-  document.getElementById('btnExportMenuToggle').addEventListener('click', function(e){
-    e.stopPropagation();
-    exportMenu.classList.toggle('show');
-  });
-  document.addEventListener('click', function(e){
-    if(!exportMenu.contains(e.target) && e.target.id !== 'btnExportMenuToggle'){
-      exportMenu.classList.remove('show');
-    }
-  });
-
   document.getElementById('btnExportJson').addEventListener('click', function(){
     var blob = new Blob([JSON.stringify(buildBackup(), null, 2)], {type:'application/json'});
     downloadBlob(blob, 'barnabank-backup-' + todayISO() + '.json');
-    exportMenu.classList.remove('show');
     markBackupDone();
     showToast('Backup exportado em JSON');
   });
 
-  function csvEscape(v){
-    var s = String(v);
-    if(/[",\n;]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"';
-    return s;
-  }
-  document.getElementById('btnExportCsv').addEventListener('click', function(){
-    var headers = ['Tipo','Nome','Grupo','Valor Original','Data','Parcelas','Dia de Vencimento','Taxa de Juros (%)','Tipo de Juros',
-      'Valor Final','Valor da Parcela','Status','Proximo Vencimento',
-      'Ja Pago','Falta Pagar','Lucro Estimado','Desconto Concedido','Anotacoes'];
-    var rows = state.debts.map(function(d){
-      var due = nextDueDate(d);
-      return [
-        (d.kind === 'payable' ? 'A Pagar' : 'A Receber'),
-        d.name,
-        (groupOf(d) ? groupOf(d).title : ''),
-        d.principal.toFixed(2).replace('.',','),
-        fmtDate(d.date),
-        installments(d),
-        d.dueDay,
-        d.rate.toString().replace('.',','),
-        interestTypeLabel(d.interestType),
-        finalValue(d).toFixed(2).replace('.',','),
-        installmentValue(d).toFixed(2).replace('.',','),
-        statusLabel(d),
-        due ? fmtDate(toISO(due)) : '-',
-        paidAmount(d).toFixed(2).replace('.',','),
-        remaining(d).toFixed(2).replace('.',','),
-        profit(d).toFixed(2).replace('.',','),
-        (d.discount||0).toFixed(2).replace('.',','),
-        d.notes || ''
-      ].map(csvEscape).join(';');
-    });
-    var csv = '\uFEFF' + headers.join(';') + '\n' + rows.join('\n');
-    var blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    downloadBlob(blob, 'barnabank-' + todayISO() + '.csv');
-    exportMenu.classList.remove('show');
-    markBackupDone();
-    showToast('Backup exportado em CSV');
-  });
   document.getElementById('btnImportJson').addEventListener('click', function(){
     document.getElementById('fileImport').click();
   });
@@ -3649,21 +3598,6 @@
     };
     reader.readAsText(file);
     e.target.value = '';
-  });
-  document.getElementById('btnExportHtml').addEventListener('click', function(){
-    var seedEl = document.getElementById('seed-data');
-    // "<" vira \u003c para que uma tag de fechamento de script dentro de uma anotação não quebre o arquivo
-    seedEl.textContent = JSON.stringify(buildBackup(), null, 2).replace(/</g, '\\u003c');
-    var link = document.querySelector('link[data-app-css]'), scr = document.querySelector('script[data-app-js]');
-    var getText = function(el, attr){ return el ? fetch(el.getAttribute(attr)).then(function(r){ if(!r.ok) throw new Error(); return r.text(); }) : Promise.resolve(null); };
-    Promise.all([getText(link, 'href'), getText(scr, 'src')]).then(function(parts){
-      var root = document.documentElement.cloneNode(true);
-      if(parts[0] !== null){ var l = root.querySelector('link[data-app-css]'), st = document.createElement('style'); st.textContent = parts[0]; l.parentNode.replaceChild(st, l); }
-      if(parts[1] !== null){ var sc = root.querySelector('script[data-app-js]'), ns = document.createElement('script'); ns.textContent = parts[1]; sc.parentNode.replaceChild(ns, sc); }
-      var htmlStr = '<!DOCTYPE html>\n' + root.outerHTML;
-      downloadBlob(new Blob([htmlStr], {type:'text/html'}), 'barnabank.html');
-      showToast('Cópia atualizada baixada');
-    }).catch(function(){ showToast('Não consegui montar a cópia agora. Tente de novo com internet.', 'triangle-alert'); });
   });
   function downloadBlob(blob, filename){
     var url = URL.createObjectURL(blob);
@@ -3944,7 +3878,7 @@
     win.document.write(html);
     win.document.close();
   }
-  document.getElementById('btnRanking').addEventListener('click', openRanking);
+  document.getElementById('btnRanking').addEventListener('click', function(){ closeSettings(); openRanking(); });
 
   // ---------- PWA manifest (best effort, works over http/https and many mobile browsers) ----------
   try{
@@ -7011,7 +6945,6 @@
     });
   }
   document.getElementById('btnHistory').addEventListener('click', function(){ closeSettings(); openHistory(); });
-  document.getElementById('btnHistory2').addEventListener('click', openHistory);
 
   // ---------- importar extrato do banco (OFX / CSV) ----------
   var CAT_RULES = [

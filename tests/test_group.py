@@ -149,9 +149,10 @@ with sync_playwright() as p:
 
     # 9) backup inclui grupos e importa de volta
     page.evaluate("document.querySelector('#pageTabs [data-page=\"dashboard\"]').click()"); page.wait_for_timeout(400)  # "Seus dados" fica no Início
-    page.click('#btnExportMenuToggle')
+    page.click('#btnSettings'); page.wait_for_timeout(250)
     with page.expect_download() as dl:
         page.click('#btnExportJson')
+    page.click('#btnSettingsClose'); page.wait_for_timeout(200)
     bk = json.load(open(dl.value.path()))
     check(len(bk.get('groups', [])) == 3, 'backup JSON inclui os 3 grupos')
 

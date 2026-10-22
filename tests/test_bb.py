@@ -139,25 +139,13 @@ with sync_playwright() as p:
 
     # F: backup JSON completo
     page.evaluate("document.querySelector('#pageTabs [data-page=\"dashboard\"]').click()"); page.wait_for_timeout(400)  # "Seus dados" fica no Início
-    page.click('#btnExportMenuToggle')
+    page.click('#btnSettings'); page.wait_for_timeout(250)
     with page.expect_download() as dl:
         page.click('#btnExportJson')
+    page.click('#btnSettingsClose'); page.wait_for_timeout(200)
     bk = json.load(open(dl.value.path()))
     check(all(k in bk for k in ('debts','wallets','transactions','settings','contacts')), 'backup JSON tem dívidas, carteiras, lançamentos e configurações')
     check(len(bk['wallets']) == 1 and len(bk['transactions']) == 1, 'backup JSON com 1 carteira e 1 lançamento')
-
-    # G: cópia .html não quebra com </script>
-    with page.expect_download() as dl2:
-        page.locator('#btnExportHtml').dispatch_event('click')
-    dl2.value.save_as(SP + '/copia.html')
-    page2 = ctx.new_page()
-    errs2 = []
-    page2.on('pageerror', lambda e: errs2.append(str(e)))
-    page2.goto('file://' + SP + '/copia.html?snapshot=1')
-    page2.click('#pageTabs button[data-page="pessoas"]')
-    page2.wait_for_timeout(300)
-    check(page2.locator('.card').count() == 5 and not errs2, 'cópia .html abre com as 5 dívidas mesmo com </script> na anotação (%d, %s)' % (page2.locator('.card').count(), errs2))
-    page2.close()
 
     # H: importar restaura carteiras/lançamentos e pede confirmação
     page.evaluate("localStorage.clear()")

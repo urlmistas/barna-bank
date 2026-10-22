@@ -336,8 +336,6 @@
   .kbd-hint{font-size:11px;color:var(--muted-2);margin-top:14px;text-align:right;}
   .kbd-hint kbd{background:var(--card);border:1px solid var(--stroke);border-radius:4px;padding:1px 5px;font-family:'Nunito',sans-serif;}
 
-  footer{max-width:920px;margin:36px auto 0;padding:0 20px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
-  footer .foot-note{width:100%;text-align:center;font-size:11.5px;color:var(--muted-2);margin-top:14px;}
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card-2);border:1px solid var(--stroke);color:var(--text);padding:11px 18px;border-radius:10px;font-size:13px;opacity:0;transition:all .25s ease;pointer-events:none;z-index:60;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
@@ -360,19 +358,6 @@
   }
   .undo-toast button:hover{background:rgba(201,162,74,0.12);}
 
-  .export-wrap{position:relative;display:inline-block;}
-  .export-menu{
-    position:absolute;bottom:calc(100% + 8px);left:0;background:var(--ink-2);border:1px solid var(--stroke);
-    border-radius:10px;padding:6px;min-width:190px;display:none;flex-direction:column;gap:2px;
-    box-shadow:0 10px 30px rgba(0,0,0,0.35);z-index:40;
-  }
-  .export-menu.show{display:flex;}
-  .export-menu button{
-    background:transparent;border:none;color:var(--text);text-align:left;padding:9px 10px;border-radius:7px;
-    font-family:'Inter';font-size:13px;cursor:pointer;
-  }
-  .export-menu button:hover{background:var(--card-2);}
-  .export-menu .em-desc{display:block;font-size:11px;color:var(--muted);font-weight:400;margin-top:1px;}
 
   /* ---------- dívida em grupo ---------- */
   .mode-toggle{display:inline-flex;}
@@ -600,14 +585,6 @@
   .toast .i{width:17px;height:17px;color:var(--gold-soft);}
 
   /* painel "Seus dados" (antes: botões soltos no rodapé) */
-  footer{display:block;}
-  .data-panel{background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px 18px;flex-wrap:wrap;}
-  .dp-head{display:flex;align-items:center;gap:12px;min-width:0;}
-  .dp-icon{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(201,162,74,0.12);color:var(--gold-soft);flex-shrink:0;}
-  .dp-icon .i{width:19px;height:19px;}
-  .dp-h{font-family:'Baloo 2',sans-serif;font-weight:600;font-size:16px;line-height:1.2;}
-  .dp-s{font-size:12px;color:var(--muted);margin-top:2px;}
-  .dp-actions{display:flex;gap:8px;flex-wrap:wrap;}
 
   @media (max-width:640px){
     .wrap{padding:18px 16px 0;}
@@ -646,10 +623,6 @@
     .search-wrap{flex:1 1 100%;}
     .search-wrap .search{width:100%;min-width:0;}
     .icon-picker{grid-template-columns:repeat(6,1fr);}
-    .data-panel{padding:16px;}
-    .dp-actions{width:100%;}
-    .dp-actions > .btn, .dp-actions > .export-wrap{flex:1 1 calc(50% - 4px);}
-    .dp-actions .btn{width:100%;justify-content:center;white-space:nowrap;}
     .hide-sm{display:none;}
     .pay-form .pf-field{flex:1 1 calc(50% - 4px);min-width:0;}
     .pay-form .pf-field input, .pay-form .pf-field select, .pay-form input.pf-amount, .pay-form input.pf-date, .pay-form input.pf-note{width:100%;}
@@ -1397,9 +1370,6 @@
   .home .dash-plan > .chart-card{padding:16px 18px;}
 
   /* "Seus dados" mais discreto */
-  .data-panel{background:transparent;padding:12px 16px;}
-  .data-panel .dp-icon,.data-panel .dp-s{display:none;}
-  .data-panel .dp-h{font-size:14px;color:var(--muted);font-family:'Inter',sans-serif;font-weight:600;}
 
   @media (max-width:900px){
     .home{grid-template-columns:minmax(0,1fr);}
@@ -1556,8 +1526,6 @@
   #pageRelatorios .toolbar{margin-bottom:14px;}
   /* seções: abas no celular/tablet; no PC aparece tudo */
   .pg-seg{display:none;}
-  /* "Seus dados" fica só no Início */
-  body:not([data-page="dashboard"]) footer{display:none;}
   .fab-ctx{display:none;}
   @media (max-width:900px){
     .pg-seg{display:flex;margin:0 0 14px;}
@@ -1970,3 +1938,4 @@
   .auth-rules li::before{content:'○';display:inline-block;width:18px;}
   .auth-rules li.ok{color:var(--green);}
   .auth-rules li.ok::before{content:'✓';}
+  .set-hint{font-size:12px;color:var(--muted);line-height:1.5;margin:8px 0 0;}

@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=2262a44a" data-app-css>
+<link rel="stylesheet" href="app.css?v=d2a2ba37" data-app-css>
 </head>
 <body data-page="dashboard">
 <!-- Ícones: Lucide (https://lucide.dev), licença ISC. Copyright (c) Lucide Icons and Contributors -->
@@ -338,28 +338,9 @@
   </div>
 </div>
 
-<footer>
-  <section class="data-panel">
-  <div class="dp-head"><span class="dp-icon"><svg class="i" aria-hidden="true"><use href="#i-database"></use></svg></span><div><div class="dp-h">Seus dados</div><div class="dp-s">Ficam salvos só neste navegador. Faça um backup de vez em quando.</div></div></div>
-  <div class="dp-actions">
-  <div class="export-wrap">
-    <button class="btn btn-ghost btn-sm" id="btnExportMenuToggle"><svg class="i" aria-hidden="true"><use href="#i-download"></use></svg><span>Exportar<span class="hide-sm"> backup</span></span><svg class="i i-sm" aria-hidden="true"><use href="#i-chevron-down"></use></svg></button>
-    <div class="export-menu" id="exportMenu">
-      <button id="btnExportJson">Exportar como JSON<span class="em-desc">backup completo, pode ser reimportado</span></button>
-      <button id="btnExportCsv">Exportar como CSV<span class="em-desc">para abrir no Excel ou Google Sheets</span></button>
-    </div>
-  </div>
-  <button class="btn btn-ghost btn-sm" id="btnImportJson"><svg class="i" aria-hidden="true"><use href="#i-upload"></use></svg><span>Importar<span class="hide-sm"> backup</span></span></button>
-  <button class="btn btn-ghost btn-sm" id="btnHistory2"><svg class="i" aria-hidden="true"><use href="#i-clock"></use></svg><span>Histórico</span></button>
-  <button class="btn btn-ghost btn-sm" id="btnRanking"><svg class="i" aria-hidden="true"><use href="#i-trophy"></use></svg><span>Ranking<span class="hide-sm"> em PDF</span></span></button>
-  <button class="btn btn-ghost btn-sm" id="btnExportHtml" title="Dica: se abrir esse arquivo no mesmo navegador e ele mostrar dados antigos, adicione ?snapshot=1 no fim da URL para forçar os dados deste arquivo."><svg class="i" aria-hidden="true"><use href="#i-file-down"></use></svg><span><span class="hide-sm">Baixar </span>cópia (.html)</span></button>
-  </div>
-  </section>
-  <input type="file" id="fileImport" accept="application/json" style="display:none;">
-  <input type="file" id="rcptFile" accept="image/*" style="display:none;">
-  <input type="file" id="stmtFile" accept=".ofx,.csv,.txt,text/csv,application/x-ofx" style="display:none;">
-  <div class="foot-note">Dica: no celular, use "Adicionar à tela inicial" para abrir o BarnaBank como um app.</div>
-</footer>
+<input type="file" id="fileImport" accept="application/json" style="display:none;">
+<input type="file" id="rcptFile" accept="image/*" style="display:none;">
+<input type="file" id="stmtFile" accept=".ofx,.csv,.txt,text/csv,application/x-ofx" style="display:none;">
 
 <div id="undoStack"></div>
 
@@ -795,7 +776,9 @@
       <input type="checkbox" id="setBackupReminder" style="width:16px;height:16px;">
       <label style="margin-bottom:0;" for="setBackupReminder">Lembrar de fazer backup se eu passar tempo sem exportar</label>
     </div>
-    <div class="field set-links"><button type="button" class="btn btn-ghost btn-sm" id="btnCloud"><svg class="i" aria-hidden="true"><use href="#i-cloud"></use></svg> Nuvem e bot do Telegram</button><button type="button" class="btn btn-ghost btn-sm" id="btnHistory"><svg class="i" aria-hidden="true"><use href="#i-clock"></use></svg> Histórico de alterações</button><button type="button" class="btn btn-ghost btn-sm" id="btnLogout" hidden><svg class="i" aria-hidden="true"><use href="#i-log-out"></use></svg> <span id="btnLogoutTxt">Sair da conta</span></button></div>
+    <div class="field set-links"><button type="button" class="btn btn-ghost btn-sm" id="btnCloud"><svg class="i" aria-hidden="true"><use href="#i-cloud"></use></svg> Nuvem e bot do Telegram</button><button type="button" class="btn btn-ghost btn-sm" id="btnHistory"><svg class="i" aria-hidden="true"><use href="#i-clock"></use></svg> Histórico de alterações</button><button type="button" class="btn btn-ghost btn-sm" id="btnRanking"><svg class="i" aria-hidden="true"><use href="#i-trophy"></use></svg> Ranking em PDF</button><button type="button" class="btn btn-ghost btn-sm" id="btnLogout" hidden><svg class="i" aria-hidden="true"><use href="#i-log-out"></use></svg> <span id="btnLogoutTxt">Sair da conta</span></button></div>
+    <div class="field"><label>Backup</label><div class="set-links"><button type="button" class="btn btn-ghost btn-sm" id="btnExportJson"><svg class="i" aria-hidden="true"><use href="#i-download"></use></svg> Exportar backup</button><button type="button" class="btn btn-ghost btn-sm" id="btnImportJson"><svg class="i" aria-hidden="true"><use href="#i-upload"></use></svg> Importar backup</button></div><p class="set-hint">Seus dados já ficam salvos na conta. O backup em arquivo é uma cópia extra e serve para trazer dados antigos.</p></div>
+    <p class="set-hint">No celular, use "Adicionar à tela inicial" para abrir o BarnaBank como um app.</p>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="btnSettingsClose">Fechar</button>
       <button class="btn btn-primary" id="btnSettingsSave">Salvar</button>
@@ -881,7 +864,7 @@
 {"contacts": {}, "debts": [], "wallets": [], "transactions": []}
 </script>
 
-<script src="app.js?v=eebcb31e" data-app-js></script>
+<script src="app.js?v=edcc8b27" data-app-js></script>
 
 </body>
 </html>

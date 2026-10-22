@@ -33,12 +33,11 @@ with sync_playwright() as p:
     page = ctx.new_page(); errs = []
     page.on('pageerror', lambda e: errs.append(str(e)))
     page.goto(URL); page.wait_for_timeout(1200)
-    check(vis(page, '.data-panel'), 'Início: "Seus dados" aparece')
+    check(page.locator('footer').count() == 0, 'sem rodapé "Seus dados"')
     check(vis(page, '#btnNew') and not vis(page, '#fabCtx'), 'Início: botão Nova dívida')
 
     go(page, 'carteiras')
     check(page.inner_text('.pg-title').strip() == 'Carteiras' and re.search(r'Total R\$ [\d.]+,\d\d', N(page.inner_text('#pageCarteiras .pg-sub'))) and '3 carteiras' in page.inner_text('#pageCarteiras .pg-sub'), 'Carteiras: topo com o total: %s' % N(page.inner_text('#pageCarteiras .pg-head')))
-    check(not vis(page, '.data-panel'), 'Carteiras: sem "Seus dados"')
     check(vis(page, '#walletList') and not vis(page, '#recList') and not vis(page, '#goalList'), 'Carteiras: aba Carteiras mostra só as carteiras')
     check(vis(page, '#fabCtx') and not vis(page, '#btnNew') and page.inner_text('#fabCtxLabel') == 'Lançamento', 'Carteiras: botão flutuante vira Lançamento')
     page.click('#fabCtx'); page.wait_for_timeout(300)
