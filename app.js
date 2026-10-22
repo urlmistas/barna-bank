@@ -8393,7 +8393,7 @@
     authMsg('');
   }
   function authShow(){ authSetMode(sbMode === 'recovery' ? 'recovery' : 'login'); authOverlay.classList.add('show'); }
-  function authHide(){ authOverlay.classList.remove('show'); document.getElementById('authPass').value = ''; }
+  function authHide(){ authOverlay.classList.remove('show'); document.getElementById('authPass').value = ''; document.getElementById('authPass').type = 'password'; }
   function sbRedirect(){ return location.origin + location.pathname; }
   function sbAfterLogin(){
     authHide();
@@ -8408,6 +8408,14 @@
   }
   document.getElementById('authTabs').addEventListener('click', function(e){
     var b = e.target.closest('[data-auth]'); if(b) authSetMode(b.getAttribute('data-auth'));
+  });
+  document.getElementById('authPassToggle').addEventListener('click', function(){
+    var inp = document.getElementById('authPass'), show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    this.setAttribute('aria-pressed', show ? 'true' : 'false');
+    this.setAttribute('aria-label', show ? 'Ocultar senha' : 'Mostrar senha'); this.title = this.getAttribute('aria-label');
+    this.firstElementChild.firstElementChild.setAttribute('href', show ? '#i-eye-off' : '#i-eye');
+    inp.focus();
   });
   document.getElementById('authForgot').addEventListener('click', function(){ authSetMode(sbMode === 'reset' ? 'login' : 'reset'); });
   document.getElementById('authForm').addEventListener('submit', function(e){

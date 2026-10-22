@@ -1951,6 +1951,7 @@
   .auth-overlay{background:var(--ink);backdrop-filter:none;z-index:200;}
   .auth-modal{max-width:400px !important;}
   .auth-modal, .auth-modal .wl-hero h2{text-align:center;}
+  .auth-modal .wl-hero h2{justify-content:center;}
   .auth-modal form{text-align:left;}
   .auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--card);border:1px solid var(--stroke);border-radius:12px;padding:4px;margin-bottom:16px;}
   .auth-tabs button{background:none;border:0;border-radius:9px;padding:9px;color:var(--muted);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;}
@@ -1960,3 +1961,7 @@
   .auth-submit{width:100%;justify-content:center;}
   .auth-link{width:100%;justify-content:center;margin-top:10px;}
   .auth-submit[disabled]{opacity:.6;cursor:wait;}
+  .pw-wrap{position:relative;}
+  .pw-wrap input{padding-right:44px;}
+  .pw-toggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:none;border:0;border-radius:8px;color:var(--muted);cursor:pointer;}
+  .pw-toggle:hover, .pw-toggle[aria-pressed="true"]{color:var(--gold-soft);}
