@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Nunito:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="app.css?v=f7697ee8" data-app-css>
+<link rel="stylesheet" href="app.css?v=2262a44a" data-app-css>
 </head>
 <body data-page="dashboard">
 <!-- Ícones: Lucide (https://lucide.dev), licença ISC. Copyright (c) Lucide Icons and Contributors -->
@@ -859,7 +859,6 @@
     <div class="wl-hero">
       <div class="mark">B</div>
       <h2 id="authTitle">Entrar no BarnaBank</h2>
-      <p id="authSub">Seus dados ficam salvos na sua conta e acompanham você em qualquer aparelho.</p>
     </div>
     <div class="auth-tabs" id="authTabs">
       <button type="button" class="active" data-auth="login">Entrar</button>
@@ -867,7 +866,8 @@
     </div>
     <form id="authForm" novalidate>
       <div class="field"><label for="authEmail">E-mail</label><input id="authEmail" type="email" autocomplete="email" inputmode="email" placeholder="voce@email.com" required></div>
-      <div class="field" id="authPassField"><label for="authPass">Senha</label><div class="pw-wrap"><input id="authPass" type="password" autocomplete="current-password" minlength="6" placeholder="mínimo 6 caracteres" required><button type="button" class="pw-toggle" id="authPassToggle" aria-label="Mostrar senha" aria-pressed="false" title="Mostrar senha"><svg class="i" aria-hidden="true"><use href="#i-eye"></use></svg></button></div></div>
+      <div class="field" id="authPassField"><label for="authPass">Senha</label><div class="pw-wrap"><input id="authPass" type="password" autocomplete="current-password" placeholder="crie uma senha forte" required><button type="button" class="pw-toggle" id="authPassToggle" aria-label="Mostrar senha" aria-pressed="false" title="Mostrar senha"><svg class="i" aria-hidden="true"><use href="#i-eye"></use></svg></button></div></div>
+      <ul class="auth-rules" id="authRules" hidden><li data-r="len">Mínimo de 8 caracteres</li><li data-r="up">Uma letra maiúscula</li><li data-r="low">Uma letra minúscula</li><li data-r="num">Um número</li><li data-r="sym">Um caractere especial (!@#$…)</li></ul>
       <div class="auth-msg" id="authMsg" role="alert"></div>
       <button type="submit" class="btn btn-primary auth-submit" id="authSubmit">Entrar</button>
       <button type="button" class="btn btn-ghost btn-sm auth-link" id="authForgot">Esqueci a senha</button>
@@ -881,7 +881,7 @@
 {"contacts": {}, "debts": [], "wallets": [], "transactions": []}
 </script>
 
-<script src="app.js?v=ef8974ed" data-app-js></script>
+<script src="app.js?v=eebcb31e" data-app-js></script>
 
 </body>
 </html>
