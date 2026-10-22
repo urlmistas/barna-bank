@@ -8363,7 +8363,7 @@
     [/invalid login credentials/i, 'E-mail ou senha incorretos.'],
     [/email not confirmed/i, 'Confirme seu e-mail: abra o link que enviamos para você.'],
     [/already registered|user_already_exists/i, 'Esse e-mail já tem conta. Use "Entrar".'],
-    [/password.*(at least|short|weak)|weak_password/i, 'A senha precisa ter pelo menos 6 caracteres.'],
+    [/password.*(at least|short|weak)|weak_password/i, 'Senha fraca demais. Use as regras indicadas.'],
     [/rate limit|too many|over_email_send_rate_limit/i, 'Muitas tentativas. Espere alguns minutos e tente de novo.'],
     [/invalid.*email|email_address_invalid|unable to validate email/i, 'E-mail inválido.'],
     [/failed to fetch|networkerror|load failed/i, 'Sem conexão com a internet.']
@@ -8373,6 +8373,16 @@
     for(var i = 0; i < SB_ERRS.length; i++) if(SB_ERRS[i][0].test(m)) return SB_ERRS[i][1];
     return 'Não deu certo: ' + (e && e.message || 'erro desconhecido');
   }
+  // regras da senha (valem ao criar conta e ao trocar a senha; quem já tem conta entra com a que tem)
+  var PW_TESTS = {len: function(p){ return p.length >= 8; }, up: function(p){ return /[A-ZÀ-Ý]/.test(p); }, low: function(p){ return /[a-zß-ÿ]/.test(p); },
+    num: function(p){ return /\d/.test(p); }, sym: function(p){ return /[^A-Za-zÀ-ÿ0-9\s]/.test(p); }};
+  function pwMissing(p){ return Object.keys(PW_TESTS).filter(function(k){ return !PW_TESTS[k](p); }); }
+  function authRenderRules(){
+    var p = document.getElementById('authPass').value, box = document.getElementById('authRules');
+    box.hidden = !(sbMode === 'signup' || sbMode === 'recovery');
+    Array.prototype.forEach.call(box.children, function(li){ li.classList.toggle('ok', PW_TESTS[li.getAttribute('data-r')](p)); });
+  }
+  document.getElementById('authPass').addEventListener('input', authRenderRules);
   function authMsg(text, kind){
     var el = document.getElementById('authMsg');
     el.textContent = text || ''; el.className = 'auth-msg' + (kind ? ' ' + kind : '');
@@ -8391,6 +8401,7 @@
     document.getElementById('authForgot').hidden = recover;
     document.getElementById('authTitle').textContent = recover ? 'Nova senha' : reset ? 'Recuperar senha' : signup ? 'Criar sua conta' : 'Entrar no BarnaBank';
     authMsg('');
+    authRenderRules();
   }
   function authShow(){ authSetMode(sbMode === 'recovery' ? 'recovery' : 'login'); authOverlay.classList.add('show'); }
   function authHide(){ authOverlay.classList.remove('show'); document.getElementById('authPass').value = ''; document.getElementById('authPass').type = 'password'; }
@@ -8423,7 +8434,8 @@
     var email = document.getElementById('authEmail').value.trim(), pass = document.getElementById('authPass').value;
     var btn = document.getElementById('authSubmit');
     if(sbMode !== 'recovery' && !/^\S+@\S+\.\S+$/.test(email)){ authMsg('Digite um e-mail válido.', 'err'); return; }
-    if(sbMode !== 'reset' && pass.length < 6){ authMsg('A senha precisa ter pelo menos 6 caracteres.', 'err'); return; }
+    if((sbMode === 'signup' || sbMode === 'recovery') && pwMissing(pass).length){ authMsg('A senha ainda não atende todas as regras acima.', 'err'); return; }
+    if(sbMode === 'login' && !pass){ authMsg('Digite sua senha.', 'err'); return; }
     btn.disabled = true; authMsg('Um instante…');
     var done = function(){ btn.disabled = false; };
     if(sbMode === 'login'){
